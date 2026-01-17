@@ -12,3 +12,6 @@
 # vendor/
 # Cleat binary
 cleat*
+
+# Tooling artifacts
+.output.txt

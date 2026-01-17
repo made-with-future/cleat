@@ -6,22 +6,22 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/madewithfuture/cleat/internal/build"
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
 
 var runner = runCommand
 
 func buildProject(cfg *config.Config) error {
-	strategies := []build.Strategy{
-		&build.NpmStrategy{},
-		&build.DjangoStrategy{},
-		&build.DockerStrategy{},
+	strategies := []strategy.Strategy{
+		&strategy.NpmStrategy{},
+		&strategy.DjangoStrategy{},
+		&strategy.DockerStrategy{},
 	}
 
 	for _, s := range strategies {
-		if err := s.Run(cfg, build.Runner(runner)); err != nil {
+		if err := s.Run(cfg, strategy.Runner(runner)); err != nil {
 			return err
 		}
 	}
