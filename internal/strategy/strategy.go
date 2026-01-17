@@ -1,4 +1,4 @@
-package build
+package strategy
 
 import "github.com/madewithfuture/cleat/internal/config"
 
