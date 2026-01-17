@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jturmel/cleat/internal/ui"
+	"github.com/madewithfuture/cleat/internal/ui"
 	"github.com/spf13/cobra"
 )
 
