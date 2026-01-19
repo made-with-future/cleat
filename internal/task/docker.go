@@ -27,7 +27,12 @@ func (t *DockerBuild) ShouldRun(cfg *config.Config) bool {
 
 func (t *DockerBuild) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Println("==> Building Docker containers")
-	return exec.Run("docker", "compose", "build")
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DockerBuild) Commands(cfg *config.Config) [][]string {
+	return [][]string{{"docker", "compose", "build"}}
 }
 
 // DockerUp starts Docker containers
@@ -49,17 +54,27 @@ func (t *DockerUp) ShouldRun(cfg *config.Config) bool {
 
 func (t *DockerUp) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Println("==> Running project via Docker")
+
+	// 1Password integration
+	if _, err := os.Stat(".env/dev.env"); err == nil {
+		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
+	}
+
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DockerUp) Commands(cfg *config.Config) [][]string {
 	cmdName := "docker"
 	args := []string{"compose", "up", "--remove-orphans"}
 
 	// 1Password integration
 	if _, err := os.Stat(".env/dev.env"); err == nil {
-		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
 		args = append([]string{"run", "--env-file", "./.env/dev.env", "--", "docker"}, args...)
 		cmdName = "op"
 	}
 
-	return exec.Run(cmdName, args...)
+	return [][]string{append([]string{cmdName}, args...)}
 }
 
 // DockerDown stops Docker containers
@@ -81,17 +96,27 @@ func (t *DockerDown) ShouldRun(cfg *config.Config) bool {
 
 func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Println("==> Stopping Docker containers (all profiles)")
+
+	// 1Password integration
+	if _, err := os.Stat(".env/dev.env"); err == nil {
+		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
+	}
+
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DockerDown) Commands(cfg *config.Config) [][]string {
 	cmdName := "docker"
 	args := []string{"compose", "--profile", "*", "down", "--remove-orphans"}
 
 	// 1Password integration
 	if _, err := os.Stat(".env/dev.env"); err == nil {
-		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
 		args = append([]string{"run", "--env-file", "./.env/dev.env", "--", "docker"}, args...)
 		cmdName = "op"
 	}
 
-	return exec.Run(cmdName, args...)
+	return [][]string{append([]string{cmdName}, args...)}
 }
 
 // DockerRebuild stops all containers, removes images/volumes, and rebuilds without cache
@@ -116,21 +141,31 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 
 	// 1. Down with --rmi all --volumes
 	fmt.Println("--> Cleaning up: stopping containers and removing images/volumes")
-	downCmd := "docker"
-	downArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes"}
-
 	if _, err := os.Stat(".env/dev.env"); err == nil {
 		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
-		downArgs = append([]string{"run", "--env-file", "./.env/dev.env", "--", "docker"}, downArgs...)
-		downCmd = "op"
 	}
 
-	if err := exec.Run(downCmd, downArgs...); err != nil {
+	cmds := t.Commands(cfg)
+	if err := exec.Run(cmds[0][0], cmds[0][1:]...); err != nil {
 		return err
 	}
 
 	// 2. Build with --no-cache
 	fmt.Println("--> Rebuilding: build without cache")
+	return exec.Run(cmds[1][0], cmds[1][1:]...)
+}
+
+func (t *DockerRebuild) Commands(cfg *config.Config) [][]string {
+	// 1. Down
+	downCmd := "docker"
+	downArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes"}
+
+	if _, err := os.Stat(".env/dev.env"); err == nil {
+		downArgs = append([]string{"run", "--env-file", "./.env/dev.env", "--", "docker"}, downArgs...)
+		downCmd = "op"
+	}
+
+	// 2. Build
 	buildCmd := "docker"
 	buildArgs := []string{"compose", "--profile", "*", "build", "--no-cache"}
 
@@ -139,5 +174,8 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 		buildCmd = "op"
 	}
 
-	return exec.Run(buildCmd, buildArgs...)
+	return [][]string{
+		append([]string{downCmd}, downArgs...),
+		append([]string{buildCmd}, buildArgs...),
+	}
 }

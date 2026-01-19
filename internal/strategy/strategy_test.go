@@ -37,6 +37,10 @@ func (t *mockTask) Run(cfg *config.Config, exec executor.Executor) error {
 	return t.runErr
 }
 
+func (t *mockTask) Commands(cfg *config.Config) [][]string {
+	return [][]string{{"mock", "command"}}
+}
+
 func TestBaseStrategy(t *testing.T) {
 	tasks := []task.Task{
 		&mockTask{BaseTask: task.BaseTask{TaskName: "task1"}, shouldRun: true},
@@ -205,6 +209,15 @@ func TestCircularDependencyDetection(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
+	// Save registry for restoration
+	oldRegistry := make(map[string]func() Strategy)
+	for k, v := range Registry {
+		oldRegistry[k] = v
+	}
+	defer func() {
+		Registry = oldRegistry
+	}()
+
 	// Clear registry for test
 	for k := range Registry {
 		delete(Registry, k)
@@ -283,3 +296,47 @@ func TestNpmScriptStrategy(t *testing.T) {
 // Verify interface compliance
 var _ executor.Executor = &mockExecutor{}
 var _ task.Task = &mockTask{}
+
+func TestResolveCommandTasks(t *testing.T) {
+	cfg := &config.Config{
+		Docker: true,
+		Npm: config.NpmConfig{
+			Scripts: []string{"build"},
+		},
+	}
+
+	tests := []struct {
+		command string
+		want    []string
+	}{
+		{"build", []string{"docker:build", "npm:build"}},
+		{"run", []string{"docker:up"}},
+		{"docker down", []string{"docker:down"}},
+		{"docker rebuild", []string{"docker:rebuild"}},
+		{"npm run build", []string{"npm:run:build"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.command, func(t *testing.T) {
+			tasks, err := ResolveCommandTasks(tt.command, cfg)
+			if err != nil {
+				t.Fatalf("ResolveCommandTasks(%q) error: %v", tt.command, err)
+			}
+
+			var got []string
+			for _, task := range tasks {
+				got = append(got, task.Name())
+			}
+
+			if len(got) != len(tt.want) {
+				t.Errorf("got %v tasks, want %v", got, tt.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("at index %d: got %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}

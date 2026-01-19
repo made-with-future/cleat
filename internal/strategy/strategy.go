@@ -2,6 +2,7 @@ package strategy
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
@@ -18,6 +19,9 @@ type Strategy interface {
 
 	// Execute runs the strategy with dependency resolution
 	Execute(cfg *config.Config, exec executor.Executor) error
+
+	// ResolveTasks returns the list of tasks to be executed in order
+	ResolveTasks(cfg *config.Config) ([]task.Task, error)
 }
 
 // ExecutionMode determines how tasks are run
@@ -47,6 +51,10 @@ func NewBaseStrategy(name string, tasks []task.Task) *BaseStrategy {
 
 func (s *BaseStrategy) Name() string       { return s.name }
 func (s *BaseStrategy) Tasks() []task.Task { return s.tasks }
+
+func (s *BaseStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
+	return s.buildExecutionPlan(cfg)
+}
 
 // Execute runs tasks in dependency order
 func (s *BaseStrategy) Execute(cfg *config.Config, exec executor.Executor) error {
@@ -190,4 +198,19 @@ func Get(name string) (Strategy, bool) {
 		return nil, false
 	}
 	return constructor(), true
+}
+
+// ResolveCommandTasks returns the execution plan for a command string
+func ResolveCommandTasks(command string, cfg *config.Config) ([]task.Task, error) {
+	if strings.HasPrefix(command, "npm run ") {
+		script := strings.TrimPrefix(command, "npm run ")
+		s := NewNpmScriptStrategy(script)
+		return s.ResolveTasks(cfg)
+	}
+
+	s, ok := Get(command)
+	if !ok {
+		return nil, fmt.Errorf("unknown command: %s", command)
+	}
+	return s.ResolveTasks(cfg)
 }

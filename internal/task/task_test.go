@@ -96,6 +96,17 @@ func TestDockerBuild(t *testing.T) {
 			t.Error("expected error, got nil")
 		}
 	})
+
+	t.Run("Commands returns correct command", func(t *testing.T) {
+		cfg := &config.Config{Docker: true}
+		cmds := task.Commands(cfg)
+		if len(cmds) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(cmds))
+		}
+		if cmds[0][0] != "docker" || cmds[0][1] != "compose" || cmds[0][2] != "build" {
+			t.Errorf("unexpected command: %v", cmds[0])
+		}
+	})
 }
 
 func TestDockerUp(t *testing.T) {
@@ -219,6 +230,20 @@ func TestDockerRebuild(t *testing.T) {
 			if mock.commands[1].args[i] != arg {
 				t.Errorf("expected build arg %d to be %q, got %q", i, arg, mock.commands[1].args[i])
 			}
+		}
+	})
+
+	t.Run("Commands returns two commands", func(t *testing.T) {
+		cfg := &config.Config{Docker: true}
+		cmds := task.Commands(cfg)
+		if len(cmds) != 2 {
+			t.Fatalf("expected 2 commands, got %d", len(cmds))
+		}
+		if cmds[0][0] != "docker" || cmds[0][4] != "down" {
+			t.Errorf("unexpected first command: %v", cmds[0])
+		}
+		if cmds[1][0] != "docker" || cmds[1][4] != "build" {
+			t.Errorf("unexpected second command: %v", cmds[1])
 		}
 	})
 }

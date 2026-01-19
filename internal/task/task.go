@@ -21,6 +21,9 @@ type Task interface {
 
 	// Run executes the task
 	Run(cfg *config.Config, exec executor.Executor) error
+
+	// Commands returns the actual CLI commands that will be executed
+	Commands(cfg *config.Config) [][]string
 }
 
 // BaseTask provides common defaults for tasks
