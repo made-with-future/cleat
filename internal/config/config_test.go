@@ -8,8 +8,9 @@ import (
 func TestLoadConfig(t *testing.T) {
 	content := `
 docker: true
-django: true
-django_service: custom-backend
+python:
+  django: true
+  django_service: custom-backend
 `
 	tmpfile, err := os.CreateTemp("", "cleat.yaml")
 	if err != nil {
@@ -32,17 +33,18 @@ django_service: custom-backend
 	if !cfg.Docker {
 		t.Error("Expected Docker to be true")
 	}
-	if !cfg.Django {
+	if !cfg.Python.Django {
 		t.Error("Expected Django to be true")
 	}
-	if cfg.DjangoService != "custom-backend" {
-		t.Errorf("Expected DjangoService to be 'custom-backend', got '%s'", cfg.DjangoService)
+	if cfg.Python.DjangoService != "custom-backend" {
+		t.Errorf("Expected DjangoService to be 'custom-backend', got '%s'", cfg.Python.DjangoService)
 	}
 }
 
 func TestLoadConfigDefaultService(t *testing.T) {
 	content := `
-django: true
+python:
+  django: true
 `
 	tmpfile, err := os.CreateTemp("", "cleat.yaml")
 	if err != nil {
@@ -62,8 +64,8 @@ django: true
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	if cfg.DjangoService != "backend" {
-		t.Errorf("Expected default DjangoService to be 'backend', got '%s'", cfg.DjangoService)
+	if cfg.Python.DjangoService != "backend" {
+		t.Errorf("Expected default DjangoService to be 'backend', got '%s'", cfg.Python.DjangoService)
 	}
 }
 
@@ -86,7 +88,7 @@ func TestLoadConfigAutoDocker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile("cleat.yaml", []byte("django: true"), 0644)
+	err = os.WriteFile("cleat.yaml", []byte("python:\n  django: true"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +120,7 @@ func TestLoadConfigAutoNpm(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile("cleat.yaml", []byte("django: true"), 0644)
+	err = os.WriteFile("cleat.yaml", []byte("python:\n  django: true"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}

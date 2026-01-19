@@ -371,7 +371,7 @@ func TestNpmStart(t *testing.T) {
 	t.Run("ShouldRun with npm scripts and no docker/django", func(t *testing.T) {
 		cfg := &config.Config{
 			Docker: false,
-			Django: false,
+			Python: config.PythonConfig{Django: false},
 			Npm:    config.NpmConfig{Scripts: []string{"build"}},
 		}
 		if !task.ShouldRun(cfg) {
@@ -398,14 +398,14 @@ func TestDjangoCollectStatic(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
-		cfg := &config.Config{Django: true}
+		cfg := &config.Config{Python: config.PythonConfig{Django: true}}
 		if !task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return true when Django is enabled")
 		}
 	})
 
 	t.Run("ShouldRun with Django disabled", func(t *testing.T) {
-		cfg := &config.Config{Django: false}
+		cfg := &config.Config{Python: config.PythonConfig{Django: false}}
 		if task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return false when Django is disabled")
 		}
@@ -431,9 +431,11 @@ func TestDjangoCollectStatic(t *testing.T) {
 	t.Run("Run via Docker", func(t *testing.T) {
 		mock := &mockExecutor{}
 		cfg := &config.Config{
-			Docker:        true,
-			Django:        true,
-			DjangoService: "backend",
+			Docker: true,
+			Python: config.PythonConfig{
+				Django:        true,
+				DjangoService: "backend",
+			},
 		}
 
 		err := task.Run(cfg, mock)
@@ -463,7 +465,7 @@ func TestDjangoCollectStatic(t *testing.T) {
 		mock := &mockExecutor{}
 		cfg := &config.Config{
 			Docker: false,
-			Django: true,
+			Python: config.PythonConfig{Django: true},
 		}
 
 		err := task.Run(cfg, mock)
@@ -497,14 +499,14 @@ func TestDjangoRunServer(t *testing.T) {
 	task := NewDjangoRunServer()
 
 	t.Run("ShouldRun with Django and no Docker", func(t *testing.T) {
-		cfg := &config.Config{Django: true, Docker: false}
+		cfg := &config.Config{Python: config.PythonConfig{Django: true}, Docker: false}
 		if !task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return true")
 		}
 	})
 
 	t.Run("ShouldRun false when Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Django: true, Docker: true}
+		cfg := &config.Config{Python: config.PythonConfig{Django: true}, Docker: true}
 		if task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return false when Docker is enabled")
 		}
@@ -512,7 +514,7 @@ func TestDjangoRunServer(t *testing.T) {
 
 	t.Run("Run locally executes uv run python manage.py runserver", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{Django: true, Docker: false}
+		cfg := &config.Config{Python: config.PythonConfig{Django: true}, Docker: false}
 
 		err := task.Run(cfg, mock)
 		if err != nil {
@@ -543,14 +545,14 @@ func TestDjangoCreateUserDev(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with Django and Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Django: true, Docker: true}
+		cfg := &config.Config{Python: config.PythonConfig{Django: true}, Docker: true}
 		if !task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return true")
 		}
 	})
 
 	t.Run("ShouldRun false when Docker disabled", func(t *testing.T) {
-		cfg := &config.Config{Django: true, Docker: false}
+		cfg := &config.Config{Python: config.PythonConfig{Django: true}, Docker: false}
 		if task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return false")
 		}
@@ -558,9 +560,11 @@ func TestDjangoCreateUserDev(t *testing.T) {
 
 	t.Run("Commands returns correct docker run command", func(t *testing.T) {
 		cfg := &config.Config{
-			Django:        true,
-			Docker:        true,
-			DjangoService: "backend",
+			Docker: true,
+			Python: config.PythonConfig{
+				Django:        true,
+				DjangoService: "backend",
+			},
 		}
 		cmds := task.Commands(cfg)
 		if len(cmds) != 1 {
@@ -598,7 +602,7 @@ func TestDjangoMigrate(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
-		cfg := &config.Config{Django: true}
+		cfg := &config.Config{Python: config.PythonConfig{Django: true}}
 		if !task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return true when Django is enabled")
 		}
@@ -607,9 +611,11 @@ func TestDjangoMigrate(t *testing.T) {
 	t.Run("Run via Docker", func(t *testing.T) {
 		mock := &mockExecutor{}
 		cfg := &config.Config{
-			Docker:        true,
-			Django:        true,
-			DjangoService: "backend",
+			Docker: true,
+			Python: config.PythonConfig{
+				Django:        true,
+				DjangoService: "backend",
+			},
 		}
 
 		err := task.Run(cfg, mock)
@@ -639,7 +645,7 @@ func TestDjangoMigrate(t *testing.T) {
 		mock := &mockExecutor{}
 		cfg := &config.Config{
 			Docker: false,
-			Django: true,
+			Python: config.PythonConfig{Django: true},
 		}
 
 		err := task.Run(cfg, mock)

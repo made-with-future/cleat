@@ -22,14 +22,14 @@ func NewDjangoCollectStatic() *DjangoCollectStatic {
 }
 
 func (t *DjangoCollectStatic) ShouldRun(cfg *config.Config) bool {
-	return cfg.Django
+	return cfg.Python.Django
 }
 
 func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Println("==> Collecting Django static files")
 
 	if cfg.Docker {
-		fmt.Printf("--> Running collectstatic via Docker (%s service)\n", cfg.DjangoService)
+		fmt.Printf("--> Running collectstatic via Docker (%s service)\n", cfg.Python.DjangoService)
 	} else {
 		fmt.Println("--> Running collectstatic locally")
 	}
@@ -40,7 +40,7 @@ func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) er
 
 func (t *DjangoCollectStatic) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		return [][]string{{"docker", "compose", "run", "--rm", cfg.DjangoService,
+		return [][]string{{"docker", "compose", "run", "--rm", cfg.Python.DjangoService,
 			"uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}}
 	}
 
@@ -62,7 +62,7 @@ func NewDjangoRunServer() *DjangoRunServer {
 }
 
 func (t *DjangoRunServer) ShouldRun(cfg *config.Config) bool {
-	return cfg.Django && !cfg.Docker
+	return cfg.Python.Django && !cfg.Docker
 }
 
 func (t *DjangoRunServer) Run(cfg *config.Config, exec executor.Executor) error {
@@ -97,7 +97,7 @@ func NewDjangoCreateUserDev() *DjangoCreateUserDev {
 }
 
 func (t *DjangoCreateUserDev) ShouldRun(cfg *config.Config) bool {
-	return cfg.Django && cfg.Docker
+	return cfg.Python.Django && cfg.Docker
 }
 
 func (t *DjangoCreateUserDev) Run(cfg *config.Config, exec executor.Executor) error {
@@ -112,7 +112,7 @@ func (t *DjangoCreateUserDev) Commands(cfg *config.Config) [][]string {
 		"-e", "DJANGO_SUPERUSER_USERNAME=dev",
 		"-e", "DJANGO_SUPERUSER_PASSWORD=dev",
 		"--rm",
-		cfg.DjangoService,
+		cfg.Python.DjangoService,
 		"uv", "run", "python", "manage.py", "createsuperuser",
 		"--email", "dev@madewithfuture.com",
 		"--noinput",
@@ -133,14 +133,14 @@ func NewDjangoMigrate() *DjangoMigrate {
 }
 
 func (t *DjangoMigrate) ShouldRun(cfg *config.Config) bool {
-	return cfg.Django
+	return cfg.Python.Django
 }
 
 func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Println("==> Running Django migrations")
 
 	if cfg.Docker {
-		fmt.Printf("--> Running migrate via Docker (%s service)\n", cfg.DjangoService)
+		fmt.Printf("--> Running migrate via Docker (%s service)\n", cfg.Python.DjangoService)
 	} else {
 		fmt.Println("--> Running migrate locally")
 	}
@@ -151,7 +151,7 @@ func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		return [][]string{{"docker", "compose", "run", "--rm", cfg.DjangoService,
+		return [][]string{{"docker", "compose", "run", "--rm", cfg.Python.DjangoService,
 			"uv", "run", "python", "manage.py", "migrate", "--noinput"}}
 	}
 

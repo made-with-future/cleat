@@ -98,7 +98,7 @@ func NewNpmStart() *NpmStart {
 }
 
 func (t *NpmStart) ShouldRun(cfg *config.Config) bool {
-	return len(cfg.Npm.Scripts) > 0 && !cfg.Docker && !cfg.Django
+	return len(cfg.Npm.Scripts) > 0 && !cfg.Docker && !cfg.Python.Django
 }
 
 func (t *NpmStart) Run(cfg *config.Config, exec executor.Executor) error {

@@ -12,11 +12,15 @@ type NpmConfig struct {
 	Scripts []string `yaml:"scripts"`
 }
 
+type PythonConfig struct {
+	Django        bool   `yaml:"django"`
+	DjangoService string `yaml:"django_service"`
+}
+
 type Config struct {
-	Docker        bool      `yaml:"docker"`
-	Django        bool      `yaml:"django"`
-	DjangoService string    `yaml:"django_service"`
-	Npm           NpmConfig `yaml:"npm"`
+	Docker bool         `yaml:"docker"`
+	Python PythonConfig `yaml:"python"`
+	Npm    NpmConfig    `yaml:"npm"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -33,8 +37,8 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
-	if cfg.DjangoService == "" {
-		cfg.DjangoService = "backend"
+	if cfg.Python.DjangoService == "" {
+		cfg.Python.DjangoService = "backend"
 	}
 
 	if !cfg.Docker {

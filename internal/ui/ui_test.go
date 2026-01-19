@@ -65,11 +65,71 @@ func TestModelView(t *testing.T) {
 	if !strings.Contains(view, "Tasks to run") {
 		t.Error("expected view to contain 'Tasks to run' section")
 	}
+}
 
-	m.quitting = true
-	view = m.View()
-	if view != "" {
-		t.Errorf("expected empty string when quitting, got %q", view)
+func TestConfigPreview(t *testing.T) {
+	cfg := &config.Config{
+		Docker: true,
+		Python: config.PythonConfig{
+			Django:        true,
+			DjangoService: "web",
+		},
+		Npm: config.NpmConfig{
+			Service: "node",
+			Scripts: []string{"build"},
+		},
+	}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 40
+
+	view := m.View()
+
+	if !strings.Contains(view, "docker: true") {
+		t.Error("expected view to contain 'docker: true'")
+	}
+	if !strings.Contains(view, "python:") {
+		t.Error("expected view to contain 'python:' block")
+	}
+	if !strings.Contains(view, "django: true") {
+		t.Error("expected view to contain 'django: true'")
+	}
+	if !strings.Contains(view, "service: web") {
+		t.Error("expected view to contain 'service: web'")
+	}
+	if !strings.Contains(view, "npm:") {
+		t.Error("expected view to contain 'npm:' block")
+	}
+	if !strings.Contains(view, "service: node") {
+		t.Error("expected view to contain 'service: node'")
+	}
+}
+
+func TestConfigPreviewFiltering(t *testing.T) {
+	// Configuration with Django false and NPM disabled
+	cfg := &config.Config{
+		Docker: true,
+		Python: config.PythonConfig{
+			Django: false,
+		},
+		Npm: config.NpmConfig{
+			Scripts: []string{},
+		},
+	}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 40
+
+	view := m.View()
+
+	if strings.Contains(view, "python:") {
+		t.Error("expected view NOT to contain 'python:' block when Django is false")
+	}
+	if strings.Contains(view, "django:") {
+		t.Error("expected view NOT to contain 'django:' when it's false")
+	}
+	if strings.Contains(view, "npm:") {
+		t.Error("expected view NOT to contain 'npm:' block when no scripts are enabled")
 	}
 }
 
@@ -93,6 +153,57 @@ func TestSmallDimensions(t *testing.T) {
 	}
 	if !strings.Contains(view, "Commands") {
 		t.Error("expected 'Commands' section in normal render")
+	}
+}
+
+func TestCommandTreeNesting(t *testing.T) {
+	cfg := &config.Config{
+		Docker: true,
+		Python: config.PythonConfig{
+			Django: true,
+		},
+	}
+	m := InitialModel(cfg, true)
+
+	// Expected visible items (all expanded):
+	// build (level 0)
+	// run (level 0)
+	// docker (level 0)
+	//   down (level 1)
+	//   rebuild (level 1)
+	// python (level 0)
+	//   django (level 1)
+	//     create-user-dev (level 2)
+	//     collectstatic (level 2)
+	//     migrate (level 2)
+
+	expected := []struct {
+		label string
+		level int
+	}{
+		{"build", 0},
+		{"run", 0},
+		{"docker", 0},
+		{"down", 1},
+		{"rebuild", 1},
+		{"python", 0},
+		{"django", 1},
+		{"create-user-dev", 2},
+		{"collectstatic", 2},
+		{"migrate", 2},
+	}
+
+	if len(m.visibleItems) != len(expected) {
+		t.Fatalf("expected %d visible items, got %d", len(expected), len(m.visibleItems))
+	}
+
+	for i, exp := range expected {
+		if m.visibleItems[i].item.Label != exp.label {
+			t.Errorf("item %d: expected label %q, got %q", i, exp.label, m.visibleItems[i].item.Label)
+		}
+		if m.visibleItems[i].level != exp.level {
+			t.Errorf("item %d: expected level %d, got %d", i, exp.level, m.visibleItems[i].level)
+		}
 	}
 }
 

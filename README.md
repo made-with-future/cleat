@@ -41,8 +41,9 @@ Cleat is configured via a `cleat.yaml` file in your project root. This file tell
 | Field | Type | Description | Default / Auto-detection |
 | :--- | :--- | :--- | :--- |
 | `docker` | boolean | Whether to use Docker Compose for build steps. | `true` if `docker-compose.yaml` exists. |
-| `django` | boolean | Whether this is a Django project. Enables `collectstatic` during build. | `false` |
-| `django_service` | string | The name of the Docker Compose service for Django tasks. | `backend` |
+| `python` | object | Python build configuration. | |
+| `python.django` | boolean | Whether this is a Django project. Enables `collectstatic` during build. | `false` |
+| `python.django_service` | string | The name of the Docker Compose service for Django tasks. | `backend` |
 | `npm` | object | NPM build configuration. | |
 | `npm.service` | string | The name of the Docker Compose service for running NPM scripts. | `backend-node` (if `docker` is true) |
 | `npm.scripts` | list | List of NPM scripts to run during the build process. | `["build"]` if `frontend/package.json` exists. |
@@ -51,8 +52,9 @@ Cleat is configured via a `cleat.yaml` file in your project root. This file tell
 
 ```yaml
 docker: true
-django: true
-django_service: backend
+python:
+  django: true
+  django_service: backend
 npm:
   service: backend-node
   scripts:
