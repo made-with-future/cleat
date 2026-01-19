@@ -1,316 +1,385 @@
 package task
 
 import (
-	"os"
-	"reflect"
+	"errors"
 	"testing"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/executor"
 )
 
-func TestBuild(t *testing.T) {
-	oldRunner := CommandRunner
-	defer func() { CommandRunner = oldRunner }()
+// mockExecutor records commands for verification
+type mockExecutor struct {
+	commands []struct {
+		name string
+		args []string
+	}
+	err error
+}
 
-	var captured [][]string
-	CommandRunner = func(name string, args ...string) error {
-		captured = append(captured, append([]string{name}, args...))
-		return nil
+func (m *mockExecutor) Run(name string, args ...string) error {
+	m.commands = append(m.commands, struct {
+		name string
+		args []string
+	}{name: name, args: args})
+	return m.err
+}
+
+func TestBaseTask(t *testing.T) {
+	bt := &BaseTask{
+		TaskName:        "test:task",
+		TaskDescription: "A test task",
+		TaskDeps:        []string{"dep1", "dep2"},
 	}
 
-	tests := []struct {
-		name     string
-		cfg      *config.Config
-		expected [][]string
-	}{
-		{
-			name: "NPM only",
-			cfg: &config.Config{
-				Npm: config.NpmConfig{
-					Scripts: []string{"build"},
-				},
-			},
-			expected: [][]string{
-				{"npm", "run", "build"},
-			},
-		},
-		{
-			name: "Django only (local)",
-			cfg: &config.Config{
-				Django: true,
-			},
-			expected: [][]string{
-				{"python", "manage.py", "collectstatic", "--noinput"},
-			},
-		},
-		{
-			name: "Docker only",
-			cfg: &config.Config{
-				Docker: true,
-			},
-			expected: [][]string{
-				{"docker", "compose", "build"},
-			},
-		},
-		{
-			name: "Full project (Docker)",
-			cfg: &config.Config{
-				Docker:        true,
-				Django:        true,
-				DjangoService: "web",
-				Npm: config.NpmConfig{
-					Scripts: []string{"build"},
-					Service: "web",
-				},
-			},
-			expected: [][]string{
-				{"docker", "compose", "run", "--rm", "web", "npm", "run", "build"},
-				{"docker", "compose", "run", "--rm", "web", "python", "manage.py", "collectstatic", "--noinput"},
-				{"docker", "compose", "build"},
-			},
-		},
-		{
-			name:     "Empty config",
-			cfg:      &config.Config{},
-			expected: nil,
-		},
+	if bt.Name() != "test:task" {
+		t.Errorf("expected name 'test:task', got %q", bt.Name())
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			captured = nil
-			err := Build(tt.cfg)
-			if err != nil {
-				t.Fatalf("Build failed: %v", err)
-			}
-			if !reflect.DeepEqual(captured, tt.expected) {
-				t.Errorf("expected %v, got %v", tt.expected, captured)
-			}
-		})
+	if bt.Description() != "A test task" {
+		t.Errorf("expected description 'A test task', got %q", bt.Description())
+	}
+	if len(bt.Dependencies()) != 2 {
+		t.Errorf("expected 2 dependencies, got %d", len(bt.Dependencies()))
 	}
 }
 
-func TestRun(t *testing.T) {
-	oldRunner := CommandRunner
-	defer func() { CommandRunner = oldRunner }()
+func TestDockerBuild(t *testing.T) {
+	task := NewDockerBuild()
 
-	var captured [][]string
-	CommandRunner = func(name string, args ...string) error {
-		captured = append(captured, append([]string{name}, args...))
-		return nil
+	if task.Name() != "docker:build" {
+		t.Errorf("expected name 'docker:build', got %q", task.Name())
 	}
 
-	// Create a temp directory for filesystem checks
-	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chdir(origDir)
+	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
+		cfg := &config.Config{Docker: true}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when Docker is enabled")
+		}
+	})
 
-	tests := []struct {
-		name     string
-		cfg      *config.Config
-		setup    func()
-		expected [][]string
-		wantErr  bool
-	}{
-		{
-			name: "Docker",
-			cfg: &config.Config{
-				Docker: true,
-			},
-			expected: [][]string{
-				{"docker", "compose", "up", "--remove-orphans"},
-			},
-		},
-		{
-			name: "Docker with op",
-			cfg: &config.Config{
-				Docker: true,
-			},
-			setup: func() {
-				os.MkdirAll(".env", 0755)
-				os.WriteFile(".env/dev.env", []byte("FOO=BAR"), 0644)
-			},
-			expected: [][]string{
-				{"op", "run", "--env-file", "./.env/dev.env", "--", "docker", "compose", "up", "--remove-orphans"},
-			},
-		},
-		{
-			name: "Django local",
-			cfg: &config.Config{
-				Django: true,
-			},
-			expected: [][]string{
-				{"python", "manage.py", "runserver"},
-			},
-		},
-		{
-			name: "Django local in backend/",
-			cfg: &config.Config{
-				Django: true,
-			},
-			setup: func() {
-				os.MkdirAll("backend", 0755)
-				os.WriteFile("backend/manage.py", []byte(""), 0644)
-			},
-			expected: [][]string{
-				{"python", "backend/manage.py", "runserver"},
-			},
-		},
-		{
-			name: "NPM local",
-			cfg: &config.Config{
-				Npm: config.NpmConfig{
-					Scripts: []string{"dev"},
-				},
-			},
-			expected: [][]string{
-				{"npm", "start"},
-			},
-		},
-		{
-			name: "NPM local in frontend/",
-			cfg: &config.Config{
-				Npm: config.NpmConfig{
-					Scripts: []string{"dev"},
-				},
-			},
-			setup: func() {
-				os.MkdirAll("frontend", 0755)
-				os.WriteFile("frontend/package.json", []byte("{}"), 0644)
-			},
-			expected: [][]string{
-				{"npm", "--prefix", "frontend", "start"},
-			},
-		},
-		{
-			name:    "No run command",
-			cfg:     &config.Config{},
-			wantErr: true,
-		},
-	}
+	t.Run("ShouldRun with Docker disabled", func(t *testing.T) {
+		cfg := &config.Config{Docker: false}
+		if task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return false when Docker is disabled")
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Clean up temp dir for each test
-			entries, _ := os.ReadDir(".")
-			for _, e := range entries {
-				os.RemoveAll(e.Name())
-			}
+	t.Run("Run executes docker compose build", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{Docker: true}
 
-			if tt.setup != nil {
-				tt.setup()
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+		expectedArgs := []string{"compose", "build"}
+		for i, arg := range expectedArgs {
+			if mock.commands[0].args[i] != arg {
+				t.Errorf("expected arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
 			}
-			captured = nil
-			err := Run(tt.cfg)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && !reflect.DeepEqual(captured, tt.expected) {
-				t.Errorf("expected %v, got %v", tt.expected, captured)
-			}
-		})
-	}
+		}
+	})
+
+	t.Run("Run returns executor error", func(t *testing.T) {
+		mock := &mockExecutor{err: errors.New("docker failed")}
+		cfg := &config.Config{Docker: true}
+
+		err := task.Run(cfg, mock)
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+	})
 }
 
-func TestRunNpmScript(t *testing.T) {
-	oldRunner := CommandRunner
-	defer func() { CommandRunner = oldRunner }()
+func TestDockerUp(t *testing.T) {
+	task := NewDockerUp()
 
-	var captured [][]string
-	CommandRunner = func(name string, args ...string) error {
-		captured = append(captured, append([]string{name}, args...))
-		return nil
+	if task.Name() != "docker:up" {
+		t.Errorf("expected name 'docker:up', got %q", task.Name())
 	}
 
-	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chdir(origDir)
+	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
+		cfg := &config.Config{Docker: true}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when Docker is enabled")
+		}
+	})
 
-	tests := []struct {
-		name     string
-		cfg      *config.Config
-		script   string
-		setup    func()
-		expected [][]string
-	}{
-		{
-			name: "Docker",
-			cfg: &config.Config{
-				Docker: true,
-				Npm: config.NpmConfig{
-					Service: "node",
-				},
-			},
-			script: "build",
-			expected: [][]string{
-				{"docker", "compose", "run", "--rm", "node", "npm", "run", "build"},
-			},
-		},
-		{
-			name:   "Local",
-			cfg:    &config.Config{},
-			script: "test",
-			expected: [][]string{
-				{"npm", "run", "test"},
-			},
-		},
-		{
-			name:   "Local in frontend/",
-			cfg:    &config.Config{},
-			script: "test",
-			setup: func() {
-				os.MkdirAll("frontend", 0755)
-				os.WriteFile("frontend/package.json", []byte("{}"), 0644)
-			},
-			expected: [][]string{
-				{"npm", "--prefix", "frontend", "run", "test"},
-			},
-		},
-	}
+	t.Run("Run executes docker compose up", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{Docker: true}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Clean up temp dir
-			entries, _ := os.ReadDir(".")
-			for _, e := range entries {
-				os.RemoveAll(e.Name())
-			}
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
 
-			if tt.setup != nil {
-				tt.setup()
-			}
-			captured = nil
-			err := RunNpmScript(tt.cfg, tt.script)
-			if err != nil {
-				t.Fatalf("RunNpmScript failed: %v", err)
-			}
-			if !reflect.DeepEqual(captured, tt.expected) {
-				t.Errorf("expected %v, got %v", tt.expected, captured)
-			}
-		})
-	}
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+	})
 }
 
-func TestBuildError(t *testing.T) {
-	oldRunner := CommandRunner
-	defer func() { CommandRunner = oldRunner }()
+func TestNpmBuild(t *testing.T) {
+	task := NewNpmBuild()
 
-	CommandRunner = func(name string, args ...string) error {
-		return os.ErrPermission
+	if task.Name() != "npm:build" {
+		t.Errorf("expected name 'npm:build', got %q", task.Name())
 	}
 
-	cfg := &config.Config{Docker: true}
-	err := Build(cfg)
-	if err == nil {
-		t.Error("expected error, got nil")
-	}
+	t.Run("ShouldRun with scripts", func(t *testing.T) {
+		cfg := &config.Config{Npm: config.NpmConfig{Scripts: []string{"build"}}}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when scripts exist")
+		}
+	})
+
+	t.Run("ShouldRun without scripts", func(t *testing.T) {
+		cfg := &config.Config{}
+		if task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return false when no scripts")
+		}
+	})
+
+	t.Run("Dependencies includes docker:build", func(t *testing.T) {
+		deps := task.Dependencies()
+		found := false
+		for _, d := range deps {
+			if d == "docker:build" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("expected npm:build to depend on docker:build")
+		}
+	})
+
+	t.Run("Run via Docker", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: true,
+			Npm: config.NpmConfig{
+				Service: "node",
+				Scripts: []string{"build", "test"},
+			},
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 2 {
+			t.Fatalf("expected 2 commands, got %d", len(mock.commands))
+		}
+		// Both should use docker compose run
+		for _, cmd := range mock.commands {
+			if cmd.name != "docker" {
+				t.Errorf("expected command 'docker', got %q", cmd.name)
+			}
+		}
+	})
+
+	t.Run("Run locally", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: false,
+			Npm:    config.NpmConfig{Scripts: []string{"build"}},
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "npm" {
+			t.Errorf("expected command 'npm', got %q", mock.commands[0].name)
+		}
+	})
 }
+
+func TestNpmRun(t *testing.T) {
+	task := NewNpmRun("lint")
+
+	if task.Name() != "npm:run:lint" {
+		t.Errorf("expected name 'npm:run:lint', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun always true", func(t *testing.T) {
+		cfg := &config.Config{}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true")
+		}
+	})
+
+	t.Run("Run executes script via Docker", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: true,
+			Npm:    config.NpmConfig{Service: "node"},
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+	})
+}
+
+func TestNpmStart(t *testing.T) {
+	task := NewNpmStart()
+
+	t.Run("ShouldRun with npm scripts and no docker/django", func(t *testing.T) {
+		cfg := &config.Config{
+			Docker: false,
+			Django: false,
+			Npm:    config.NpmConfig{Scripts: []string{"build"}},
+		}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true")
+		}
+	})
+
+	t.Run("ShouldRun false when Docker enabled", func(t *testing.T) {
+		cfg := &config.Config{
+			Docker: true,
+			Npm:    config.NpmConfig{Scripts: []string{"build"}},
+		}
+		if task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return false when Docker is enabled")
+		}
+	})
+}
+
+func TestDjangoCollectStatic(t *testing.T) {
+	task := NewDjangoCollectStatic()
+
+	if task.Name() != "django:collectstatic" {
+		t.Errorf("expected name 'django:collectstatic', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
+		cfg := &config.Config{Django: true}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when Django is enabled")
+		}
+	})
+
+	t.Run("ShouldRun with Django disabled", func(t *testing.T) {
+		cfg := &config.Config{Django: false}
+		if task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return false when Django is disabled")
+		}
+	})
+
+	t.Run("Dependencies includes docker:build and npm:build", func(t *testing.T) {
+		deps := task.Dependencies()
+		hasDocker := false
+		hasNpm := false
+		for _, d := range deps {
+			if d == "docker:build" {
+				hasDocker = true
+			}
+			if d == "npm:build" {
+				hasNpm = true
+			}
+		}
+		if !hasDocker || !hasNpm {
+			t.Error("expected django:collectstatic to depend on docker:build and npm:build")
+		}
+	})
+
+	t.Run("Run via Docker", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker:        true,
+			Django:        true,
+			DjangoService: "backend",
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+	})
+
+	t.Run("Run locally", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: false,
+			Django: true,
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "python" {
+			t.Errorf("expected command 'python', got %q", mock.commands[0].name)
+		}
+	})
+}
+
+func TestDjangoRunServer(t *testing.T) {
+	task := NewDjangoRunServer()
+
+	t.Run("ShouldRun with Django and no Docker", func(t *testing.T) {
+		cfg := &config.Config{Django: true, Docker: false}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true")
+		}
+	})
+
+	t.Run("ShouldRun false when Docker enabled", func(t *testing.T) {
+		cfg := &config.Config{Django: true, Docker: true}
+		if task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return false when Docker is enabled")
+		}
+	})
+}
+
+// Verify all tasks implement the Task interface
+func TestTaskInterface(t *testing.T) {
+	var _ Task = NewDockerBuild()
+	var _ Task = NewDockerUp()
+	var _ Task = NewNpmBuild()
+	var _ Task = NewNpmRun("test")
+	var _ Task = NewNpmStart()
+	var _ Task = NewDjangoCollectStatic()
+	var _ Task = NewDjangoRunServer()
+}
+
+// Helper to verify interface at compile time
+var _ executor.Executor = &mockExecutor{}
