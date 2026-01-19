@@ -5,8 +5,14 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/muesli/termenv"
 )
+
+func init() {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+}
 
 func TestModelUpdate(t *testing.T) {
 	m := InitialModel(&config.Config{}, true)
@@ -199,14 +205,15 @@ func TestScrolling(t *testing.T) {
 	}
 	m := InitialModel(cfg, true)
 	m.width = 80
-	m.height = 20
+	m.height = 15 // Reduced to ensure scrolling
 
 	if m.scrollOffset != 0 {
 		t.Errorf("expected initial scrollOffset 0, got %d", m.scrollOffset)
 	}
 
-	// Navigate down past visible area
-	for i := 0; i < 10; i++ {
+	// Navigate to the end
+	numPresses := len(m.commands) - 1
+	for i := 0; i < numPresses; i++ {
 		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 		m = updatedModel.(model)
 	}
@@ -221,7 +228,7 @@ func TestScrolling(t *testing.T) {
 	}
 
 	// Navigate back up
-	for i := 0; i < 10; i++ {
+	for i := 0; i < numPresses; i++ {
 		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
 		m = updatedModel.(model)
 	}
@@ -241,7 +248,8 @@ func TestCursorDimmedWhenUnfocused(t *testing.T) {
 
 	// When commands pane is focused, cursor should be purple (#bd93f9)
 	view1 := m.View()
-	if !strings.Contains(view1, "bd93f9") {
+	// TrueColor ANSI for #bd93f9 is 189;147;249
+	if !strings.Contains(view1, "189;147;249") {
 		t.Error("expected purple cursor color when commands pane is focused")
 	}
 
@@ -255,7 +263,8 @@ func TestCursorDimmedWhenUnfocused(t *testing.T) {
 	foundDimmedCursor := false
 	for _, line := range lines {
 		if strings.Contains(line, ">") && strings.Contains(line, "build") {
-			if strings.Contains(line, "6272a4") {
+			// TrueColor ANSI for #6272a4 might be 97;113;163 or 98;114;164 depending on profile
+			if strings.Contains(line, "97;113;163") || strings.Contains(line, "98;114;164") {
 				foundDimmedCursor = true
 			}
 		}
