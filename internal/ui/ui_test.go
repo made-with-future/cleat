@@ -81,7 +81,7 @@ func TestSmallDimensions(t *testing.T) {
 	}
 
 	// Test that adequate dimensions render normally
-	m.width = 80
+	m.width = 60
 	m.height = 20
 	view = m.View()
 	if strings.Contains(view, "Terminal too small") {
