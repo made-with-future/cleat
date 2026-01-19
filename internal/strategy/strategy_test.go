@@ -187,6 +187,47 @@ func (t *orderTrackingTask) Run(cfg *config.Config, exec executor.Executor) erro
 	return nil
 }
 
+func TestReturnToUI(t *testing.T) {
+	s := NewBaseStrategy("test", nil)
+	if s.ReturnToUI() {
+		t.Error("expected ReturnToUI to be false by default")
+	}
+
+	s.SetReturnToUI(true)
+	if !s.ReturnToUI() {
+		t.Error("expected ReturnToUI to be true after SetReturnToUI(true)")
+	}
+}
+
+func TestGetStrategyForCommand(t *testing.T) {
+	// run strategy should have ReturnToUI = true
+	s := GetStrategyForCommand("run")
+	if s == nil {
+		t.Fatal("expected to get run strategy")
+	}
+	if !s.ReturnToUI() {
+		t.Error("expected run strategy to have ReturnToUI = true")
+	}
+
+	// build strategy should have ReturnToUI = false
+	s = GetStrategyForCommand("build")
+	if s == nil {
+		t.Fatal("expected to get build strategy")
+	}
+	if s.ReturnToUI() {
+		t.Error("expected build strategy to have ReturnToUI = false")
+	}
+
+	// npm run should work
+	s = GetStrategyForCommand("npm run build")
+	if s == nil {
+		t.Fatal("expected to get npm strategy")
+	}
+	if s.Name() != "npm:build" {
+		t.Errorf("expected name 'npm:build', got %q", s.Name())
+	}
+}
+
 func TestCircularDependencyDetection(t *testing.T) {
 	// task1 depends on task2, task2 depends on task1
 	task1 := &mockTask{
@@ -316,6 +357,7 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"docker rebuild", []string{"docker:rebuild"}},
 		{"django create-user-dev", []string{"django:create-user-dev"}},
 		{"django collectstatic", []string{"django:collectstatic"}},
+		{"django migrate", []string{"django:migrate"}},
 		{"npm run build", []string{"npm:run:build"}},
 	}
 

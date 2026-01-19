@@ -12,7 +12,7 @@ func NewRunStrategy() Strategy {
 		task.NewDockerUp(),
 		task.NewDjangoRunServer(),
 		task.NewNpmStart(),
-	})
+	}).SetReturnToUI(true)
 }
 
 // NewNpmScriptStrategy creates a strategy for running a single npm script

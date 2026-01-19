@@ -590,6 +590,76 @@ func TestDjangoCreateUserDev(t *testing.T) {
 	})
 }
 
+func TestDjangoMigrate(t *testing.T) {
+	task := NewDjangoMigrate()
+
+	if task.Name() != "django:migrate" {
+		t.Errorf("expected name 'django:migrate', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
+		cfg := &config.Config{Django: true}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when Django is enabled")
+		}
+	})
+
+	t.Run("Run via Docker", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker:        true,
+			Django:        true,
+			DjangoService: "backend",
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+
+		expectedArgs := []string{"compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "migrate", "--noinput"}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		for i, v := range expectedArgs {
+			if mock.commands[0].args[i] != v {
+				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
+			}
+		}
+	})
+
+	t.Run("Run locally", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: false,
+			Django: true,
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "uv" {
+			t.Errorf("expected command 'uv', got %q", mock.commands[0].name)
+		}
+		expectedArgs := []string{"run", "python", "manage.py", "migrate", "--noinput"}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+	})
+}
+
 // Verify all tasks implement the Task interface
 func TestTaskInterface(t *testing.T) {
 	var _ Task = NewDockerBuild()
@@ -602,6 +672,7 @@ func TestTaskInterface(t *testing.T) {
 	var _ Task = NewDjangoCollectStatic()
 	var _ Task = NewDjangoRunServer()
 	var _ Task = NewDjangoCreateUserDev()
+	var _ Task = NewDjangoMigrate()
 }
 
 // Helper to verify interface at compile time

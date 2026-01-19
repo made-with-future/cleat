@@ -49,8 +49,26 @@ var djangoCollectStaticCmd = &cobra.Command{
 	},
 }
 
+var djangoMigrateCmd = &cobra.Command{
+	Use:   "migrate",
+	Short: "Run Django migrations",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadConfig("cleat.yaml")
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("no cleat.yaml found in current directory")
+			}
+			return fmt.Errorf("error loading config: %w", err)
+		}
+
+		s := strategy.NewDjangoMigrateStrategy()
+		return s.Execute(cfg, executor.Default)
+	},
+}
+
 func init() {
 	djangoCmd.AddCommand(djangoCreateUserDevCmd)
 	djangoCmd.AddCommand(djangoCollectStaticCmd)
+	djangoCmd.AddCommand(djangoMigrateCmd)
 	rootCmd.AddCommand(djangoCmd)
 }
