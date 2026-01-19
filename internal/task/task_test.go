@@ -447,6 +447,16 @@ func TestDjangoCollectStatic(t *testing.T) {
 		if mock.commands[0].name != "docker" {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
+
+		expectedArgs := []string{"compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		for i, arg := range expectedArgs {
+			if mock.commands[0].args[i] != arg {
+				t.Errorf("expected arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
+			}
+		}
 	})
 
 	t.Run("Run locally", func(t *testing.T) {
@@ -464,8 +474,21 @@ func TestDjangoCollectStatic(t *testing.T) {
 		if len(mock.commands) != 1 {
 			t.Fatalf("expected 1 command, got %d", len(mock.commands))
 		}
-		if mock.commands[0].name != "python" {
-			t.Errorf("expected command 'python', got %q", mock.commands[0].name)
+		if mock.commands[0].name != "uv" {
+			t.Errorf("expected command 'uv', got %q", mock.commands[0].name)
+		}
+		expectedArgs := []string{"run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}
+		// Note: manage.py might be backend/manage.py depending on environment, but in test it defaults to manage.py
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		for i, arg := range expectedArgs {
+			if i == 2 {
+				continue // Skip manage.py path as it varies
+			}
+			if mock.commands[0].args[i] != arg {
+				t.Errorf("expected arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
+			}
 		}
 	})
 }
@@ -484,6 +507,30 @@ func TestDjangoRunServer(t *testing.T) {
 		cfg := &config.Config{Django: true, Docker: true}
 		if task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return false when Docker is enabled")
+		}
+	})
+
+	t.Run("Run locally executes uv run python manage.py runserver", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{Django: true, Docker: false}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "uv" {
+			t.Errorf("expected command 'uv', got %q", mock.commands[0].name)
+		}
+		expectedArgs := []string{"run", "python", "manage.py", "runserver"}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		if mock.commands[0].args[0] != "run" || mock.commands[0].args[1] != "python" || mock.commands[0].args[3] != "runserver" {
+			t.Errorf("unexpected args: %v", mock.commands[0].args)
 		}
 	})
 }

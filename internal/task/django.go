@@ -41,11 +41,11 @@ func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) er
 func (t *DjangoCollectStatic) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
 		return [][]string{{"docker", "compose", "run", "--rm", cfg.DjangoService,
-			"python", "manage.py", "collectstatic", "--noinput"}}
+			"uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}}
 	}
 
 	managePy := findManagePy()
-	return [][]string{{"python", managePy, "collectstatic", "--noinput"}}
+	return [][]string{{"uv", "run", "python", managePy, "collectstatic", "--noinput", "--clear"}}
 }
 
 // DjangoRunServer runs Django's development server
@@ -73,7 +73,7 @@ func (t *DjangoRunServer) Run(cfg *config.Config, exec executor.Executor) error 
 
 func (t *DjangoRunServer) Commands(cfg *config.Config) [][]string {
 	managePy := findManagePy()
-	return [][]string{{"python", managePy, "runserver"}}
+	return [][]string{{"uv", "run", "python", managePy, "runserver"}}
 }
 
 func findManagePy() string {

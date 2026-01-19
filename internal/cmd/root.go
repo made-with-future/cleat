@@ -51,6 +51,8 @@ func run(args []string) {
 			cmdArgs = []string{"docker", "rebuild"}
 		} else if selected == "django create-user-dev" {
 			cmdArgs = []string{"django", "create-user-dev"}
+		} else if selected == "django collectstatic" {
+			cmdArgs = []string{"django", "collectstatic"}
 		} else if strings.HasPrefix(selected, "npm run ") {
 			script := strings.TrimPrefix(selected, "npm run ")
 			cmdArgs = []string{"npm", script}
