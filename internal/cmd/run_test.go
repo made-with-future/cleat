@@ -6,18 +6,19 @@ import (
 	"testing"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/task"
 )
 
 func TestRunCommand(t *testing.T) {
 	var executedCommands []string
 
 	// Mock runner
-	oldRunner := runner
-	runner = func(name string, args ...string) error {
+	oldRunner := task.CommandRunner
+	task.CommandRunner = func(name string, args ...string) error {
 		executedCommands = append(executedCommands, name+" "+strings.Join(args, " "))
 		return nil
 	}
-	defer func() { runner = oldRunner }()
+	defer func() { task.CommandRunner = oldRunner }()
 
 	t.Run("Docker run", func(t *testing.T) {
 		executedCommands = nil
@@ -25,9 +26,9 @@ func TestRunCommand(t *testing.T) {
 			Docker: true,
 		}
 
-		err := runProject(cfg)
+		err := task.Run(cfg)
 		if err != nil {
-			t.Fatalf("runProject failed: %v", err)
+			t.Fatalf("Run failed: %v", err)
 		}
 
 		expected := "docker compose up --remove-orphans"
@@ -57,9 +58,9 @@ func TestRunCommand(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
-		err = runProject(cfg)
+		err = task.Run(cfg)
 		if err != nil {
-			t.Fatalf("runProject failed: %v", err)
+			t.Fatalf("task.Run failed: %v", err)
 		}
 
 		expected := "op run --env-file ./.env/dev.env -- docker compose up --remove-orphans"
@@ -74,9 +75,9 @@ func TestRunCommand(t *testing.T) {
 			Django: true,
 			Docker: false,
 		}
-		err := runProject(cfg)
+		err := task.Run(cfg)
 		if err != nil {
-			t.Fatalf("runProject failed: %v", err)
+			t.Fatalf("task.Run failed: %v", err)
 		}
 
 		expected := "python manage.py runserver"
@@ -93,9 +94,9 @@ func TestRunCommand(t *testing.T) {
 				Scripts: []string{"build"},
 			},
 		}
-		err := runProject(cfg)
+		err := task.Run(cfg)
 		if err != nil {
-			t.Fatalf("runProject failed: %v", err)
+			t.Fatalf("task.Run failed: %v", err)
 		}
 
 		expected := "npm start"
