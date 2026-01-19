@@ -7,6 +7,7 @@ import (
 
 func TestLoadConfig(t *testing.T) {
 	content := `
+version: 1
 docker: true
 python:
   django: true
@@ -30,6 +31,9 @@ python:
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
+	if cfg.Version != 1 {
+		t.Errorf("Expected Version to be 1, got %d", cfg.Version)
+	}
 	if !cfg.Docker {
 		t.Error("Expected Docker to be true")
 	}
@@ -38,6 +42,57 @@ python:
 	}
 	if cfg.Python.DjangoService != "custom-backend" {
 		t.Errorf("Expected DjangoService to be 'custom-backend', got '%s'", cfg.Python.DjangoService)
+	}
+}
+
+func TestLoadConfigDefaultVersion(t *testing.T) {
+	content := `
+docker: true
+`
+	tmpfile, err := os.CreateTemp("", "cleat.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig(tmpfile.Name())
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Version != LatestVersion {
+		t.Errorf("Expected default Version to be %d, got %d", LatestVersion, cfg.Version)
+	}
+}
+
+func TestLoadConfigInvalidVersion(t *testing.T) {
+	content := `
+version: 99
+docker: true
+`
+	tmpfile, err := os.CreateTemp("", "cleat_invalid_version.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = LoadConfig(tmpfile.Name())
+	if err == nil {
+		t.Error("Expected error for unrecognized version, got nil")
 	}
 }
 

@@ -18,6 +18,7 @@ const configPath = "cleat.yaml"
 const defaultConfigTemplate = `# Cleat configuration
 # See https://github.com/madewithfuture/cleat for documentation
 
+version: 1
 docker: true
 python:
   django: false
@@ -651,6 +652,7 @@ func (m model) View() string {
 		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Italic(true).Render("No cleat.yaml found"))
 		configLines = append(configLines, "")
 	}
+	configLines = append(configLines, fmt.Sprintf(" version: %d", m.cfg.Version))
 	configLines = append(configLines, fmt.Sprintf(" docker: %v", m.cfg.Docker))
 
 	// python block

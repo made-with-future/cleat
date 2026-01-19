@@ -69,7 +69,8 @@ func TestModelView(t *testing.T) {
 
 func TestConfigPreview(t *testing.T) {
 	cfg := &config.Config{
-		Docker: true,
+		Version: 1,
+		Docker:  true,
 		Python: config.PythonConfig{
 			Django:        true,
 			DjangoService: "web",
@@ -85,6 +86,9 @@ func TestConfigPreview(t *testing.T) {
 
 	view := m.View()
 
+	if !strings.Contains(view, "version: 1") {
+		t.Error("expected view to contain 'version: 1'")
+	}
 	if !strings.Contains(view, "docker: true") {
 		t.Error("expected view to contain 'docker: true'")
 	}
