@@ -33,6 +33,18 @@ const (
 	focusConfig
 )
 
+type CommandItem struct {
+	Label    string
+	Command  string
+	Children []CommandItem
+	Expanded bool
+}
+
+type visibleItem struct {
+	item  *CommandItem
+	level int
+}
+
 // editorFinishedMsg is sent when the editor process exits
 type editorFinishedMsg struct{ err error }
 
@@ -42,7 +54,8 @@ type model struct {
 	quitting        bool
 	width           int
 	height          int
-	commands        []string
+	tree            []CommandItem
+	visibleItems    []visibleItem
 	cursor          int
 	scrollOffset    int
 	focus           focus
@@ -51,11 +64,29 @@ type model struct {
 }
 
 func InitialModel(cfg *config.Config, cfgFound bool) model {
-	return model{
+	m := model{
 		cfg:      cfg,
 		cfgFound: cfgFound,
-		commands: buildCommandList(cfg),
+		tree:     buildCommandTree(cfg),
 		focus:    focusCommands,
+	}
+	m.updateVisibleItems()
+	return m
+}
+
+func (m *model) updateVisibleItems() {
+	m.visibleItems = []visibleItem{}
+	for i := range m.tree {
+		m.flatten(&m.tree[i], 0)
+	}
+}
+
+func (m *model) flatten(item *CommandItem, level int) {
+	m.visibleItems = append(m.visibleItems, visibleItem{item: item, level: level})
+	if item.Expanded && len(item.Children) > 0 {
+		for i := range item.Children {
+			m.flatten(&item.Children[i], level+1)
+		}
 	}
 }
 
@@ -77,8 +108,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.cfg = cfg
 			m.cfgFound = true
-			// Rebuild commands list with new npm scripts
-			m.commands = buildCommandList(cfg)
+			// Rebuild commands tree with new npm scripts
+			m.tree = buildCommandTree(cfg)
+			m.updateVisibleItems()
 		}
 		return m, nil
 
@@ -114,7 +146,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case tea.KeyDown:
-			if m.focus == focusCommands && m.cursor < len(m.commands)-1 {
+			if m.focus == focusCommands && m.cursor < len(m.visibleItems)-1 {
 				m.cursor++
 				visibleCount := m.visibleCommandCount()
 				if m.cursor >= m.scrollOffset+visibleCount {
@@ -123,9 +155,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case tea.KeyEnter:
 			if m.focus == focusCommands {
-				m.selectedCommand = m.commands[m.cursor]
-				m.quitting = true
-				return m, tea.Quit
+				item := m.visibleItems[m.cursor]
+				if len(item.item.Children) > 0 {
+					item.item.Expanded = !item.item.Expanded
+					m.updateVisibleItems()
+					if m.cursor >= len(m.visibleItems) {
+						m.cursor = len(m.visibleItems) - 1
+					}
+				} else {
+					m.selectedCommand = item.item.Command
+					m.quitting = true
+					return m, tea.Quit
+				}
 			} else if m.focus == focusConfig {
 				return m, m.openEditor()
 			}
@@ -144,7 +185,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			case "j":
-				if m.focus == focusCommands && m.cursor < len(m.commands)-1 {
+				if m.focus == focusCommands && m.cursor < len(m.visibleItems)-1 {
 					m.cursor++
 					visibleCount := m.visibleCommandCount()
 					if m.cursor >= m.scrollOffset+visibleCount {
@@ -181,22 +222,44 @@ func (m model) openEditor() tea.Cmd {
 	})
 }
 
-// buildCommandList creates the commands slice from config
-func buildCommandList(cfg *config.Config) []string {
-	commands := []string{"build", "run"}
+// buildCommandTree creates the commands tree from config
+func buildCommandTree(cfg *config.Config) []CommandItem {
+	var tree []CommandItem
+	tree = append(tree, CommandItem{Label: "build", Command: "build"})
+	tree = append(tree, CommandItem{Label: "run", Command: "run"})
+
 	if cfg.Docker {
-		commands = append(commands, "docker down", "docker rebuild")
+		tree = append(tree, CommandItem{
+			Label: "docker",
+			Children: []CommandItem{
+				{Label: "down", Command: "docker down"},
+				{Label: "rebuild", Command: "docker rebuild"},
+			},
+			Expanded: true,
+		})
 	}
-	for _, script := range cfg.Npm.Scripts {
-		commands = append(commands, fmt.Sprintf("npm run %s", script))
+
+	if len(cfg.Npm.Scripts) > 0 {
+		npmItem := CommandItem{
+			Label:    "npm",
+			Expanded: true,
+		}
+		for _, script := range cfg.Npm.Scripts {
+			npmItem.Children = append(npmItem.Children, CommandItem{
+				Label:   fmt.Sprintf("run %s", script),
+				Command: fmt.Sprintf("npm run %s", script),
+			})
+		}
+		tree = append(tree, npmItem)
 	}
-	return commands
+
+	return tree
 }
 
 // visibleCommandCount returns how many commands can fit in the pane
 func (m model) visibleCommandCount() int {
 	if m.height == 0 {
-		return len(m.commands)
+		return len(m.visibleItems)
 	}
 	titleLines := 1
 	helpLines := 2
@@ -265,7 +328,7 @@ func (m model) renderHelpOverlay() string {
 		"",
 		"  ↑/k        Move up",
 		"  ↓/j        Move down",
-		"  Enter      Select command / Edit config",
+		"  Enter      Select/Toggle / Edit config",
 		"  Tab        Switch pane",
 		"  Shift+Tab  Switch pane (reverse)",
 		"  q/Esc      Quit",
@@ -381,7 +444,7 @@ func (m model) View() string {
 
 	visibleCount := m.visibleCommandCount()
 	hasMoreAbove := m.scrollOffset > 0
-	hasMoreBelow := m.scrollOffset+visibleCount < len(m.commands)
+	hasMoreBelow := m.scrollOffset+visibleCount < len(m.visibleItems)
 
 	// Show scroll up indicator
 	if hasMoreAbove {
@@ -390,19 +453,34 @@ func (m model) View() string {
 
 	// Render visible commands
 	endIdx := m.scrollOffset + visibleCount
-	if endIdx > len(m.commands) {
-		endIdx = len(m.commands)
+	if endIdx > len(m.visibleItems) {
+		endIdx = len(m.visibleItems)
 	}
 	for i := m.scrollOffset; i < endIdx; i++ {
-		cmd := m.commands[i]
+		vItem := m.visibleItems[i]
+		label := vItem.item.Label
+		if len(vItem.item.Children) > 0 {
+			marker := "▸ "
+			if vItem.item.Expanded {
+				marker = "▾ "
+			}
+			label = marker + label
+		} else {
+			label = "  " + label
+		}
+
+		// Indentation
+		indent := strings.Repeat("  ", vItem.level)
+		label = indent + label
+
 		if i == m.cursor {
 			cursorColor := purple
 			if m.focus != focusCommands {
 				cursorColor = comment // Dim when not focused
 			}
-			leftLines = append(leftLines, " "+lipgloss.NewStyle().Foreground(cursorColor).Render("> "+cmd))
+			leftLines = append(leftLines, " "+lipgloss.NewStyle().Foreground(cursorColor).Render("> "+label))
 		} else {
-			leftLines = append(leftLines, "   "+cmd)
+			leftLines = append(leftLines, "   "+label)
 		}
 	}
 
@@ -470,7 +548,7 @@ func (m model) View() string {
 	}
 
 	// Help line
-	helpText := lipgloss.NewStyle().Foreground(comment).Render("↑/↓: navigate • enter: select • tab: switch pane • ?: help • q: quit")
+	helpText := lipgloss.NewStyle().Foreground(comment).Render("↑/↓: navigate • enter: select/toggle • tab: switch pane • ?: help • q: quit")
 	if !m.cfgFound {
 		warning := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Render("(no cleat.yaml)")
 		separator := lipgloss.NewStyle().Foreground(comment).Render(" • ")

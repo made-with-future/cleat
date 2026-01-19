@@ -212,7 +212,7 @@ func TestScrolling(t *testing.T) {
 	}
 
 	// Navigate to the end
-	numPresses := len(m.commands) - 1
+	numPresses := len(m.visibleItems) - 1
 	for i := 0; i < numPresses; i++ {
 		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 		m = updatedModel.(model)
@@ -222,7 +222,7 @@ func TestScrolling(t *testing.T) {
 		t.Error("expected scrollOffset to increase after navigating down")
 	}
 
-	expectedCursor := len(m.commands) - 1
+	expectedCursor := len(m.visibleItems) - 1
 	if m.cursor != expectedCursor {
 		t.Errorf("expected cursor at %d, got %d", expectedCursor, m.cursor)
 	}
