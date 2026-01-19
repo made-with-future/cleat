@@ -93,3 +93,51 @@ func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
 
 	return exec.Run(cmdName, args...)
 }
+
+// DockerRebuild stops all containers, removes images/volumes, and rebuilds without cache
+type DockerRebuild struct{ BaseTask }
+
+func NewDockerRebuild() *DockerRebuild {
+	return &DockerRebuild{
+		BaseTask: BaseTask{
+			TaskName:        "docker:rebuild",
+			TaskDescription: "Stop, remove all and rebuild Docker containers (all profiles, no cache)",
+			TaskDeps:        nil,
+		},
+	}
+}
+
+func (t *DockerRebuild) ShouldRun(cfg *config.Config) bool {
+	return cfg.Docker
+}
+
+func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
+	fmt.Println("==> Rebuilding Docker containers (all profiles, no cache)")
+
+	// 1. Down with --rmi all --volumes
+	fmt.Println("--> Cleaning up: stopping containers and removing images/volumes")
+	downCmd := "docker"
+	downArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes"}
+
+	if _, err := os.Stat(".env/dev.env"); err == nil {
+		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
+		downArgs = append([]string{"run", "--env-file", "./.env/dev.env", "--", "docker"}, downArgs...)
+		downCmd = "op"
+	}
+
+	if err := exec.Run(downCmd, downArgs...); err != nil {
+		return err
+	}
+
+	// 2. Build with --no-cache
+	fmt.Println("--> Rebuilding: build without cache")
+	buildCmd := "docker"
+	buildArgs := []string{"compose", "--profile", "*", "build", "--no-cache"}
+
+	if _, err := os.Stat(".env/dev.env"); err == nil {
+		buildArgs = append([]string{"run", "--env-file", "./.env/dev.env", "--", "docker"}, buildArgs...)
+		buildCmd = "op"
+	}
+
+	return exec.Run(buildCmd, buildArgs...)
+}

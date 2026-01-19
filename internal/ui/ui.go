@@ -185,7 +185,7 @@ func (m model) openEditor() tea.Cmd {
 func buildCommandList(cfg *config.Config) []string {
 	commands := []string{"build", "run"}
 	if cfg.Docker {
-		commands = append(commands, "docker down")
+		commands = append(commands, "docker down", "docker rebuild")
 	}
 	for _, script := range cfg.Npm.Scripts {
 		commands = append(commands, fmt.Sprintf("npm run %s", script))
