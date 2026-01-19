@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/muesli/termenv"
 )
@@ -319,5 +320,79 @@ func TestEscToQuit(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Error("expected a non-nil command after pressing Esc")
+	}
+}
+
+func TestTaskPreviewWrapping(t *testing.T) {
+	cfg := &config.Config{
+		Docker: true,
+	}
+	m := InitialModel(cfg, true)
+	m.width = 60
+	m.height = 20
+
+	// Trigger preview update
+	m.updateTaskPreview()
+
+	// Find a long command (like docker:rebuild)
+	m.cursor = 0
+	foundRebuild := false
+	for i, item := range m.visibleItems {
+		if item.item.Command == "docker rebuild" {
+			m.cursor = i
+			foundRebuild = true
+			break
+		}
+	}
+
+	if !foundRebuild {
+		// If not found (maybe docker tree is collapsed), expand it
+		for _, item := range m.visibleItems {
+			if item.item.Label == "docker" {
+				item.item.Expanded = true
+				m.updateVisibleItems()
+				// Try again
+				for j, item2 := range m.visibleItems {
+					if item2.item.Command == "docker rebuild" {
+						m.cursor = j
+						foundRebuild = true
+						break
+					}
+				}
+				break
+			}
+		}
+	}
+
+	if !foundRebuild {
+		t.Skip("docker rebuild command not found in tree")
+	}
+
+	m.updateTaskPreview()
+
+	// Verify that some lines in taskPreview are wrapped
+	// docker rebuild has long commands
+	hasWrappedLines := false
+	for _, line := range m.taskPreview {
+		// Strip ANSI codes for length check
+		plainLine := lipgloss.Width(line)
+		if plainLine > 0 {
+			// paneWidth = (60-2)/2 = 29. availableWidth = 26.
+			if plainLine > 26 {
+				t.Errorf("line exceeds available width: %d > 26: %q", plainLine, line)
+			}
+			// Check if we have any continuation lines (starting with 8 spaces for commands)
+			if strings.HasPrefix(ansi.Strip(line), "        ") {
+				hasWrappedLines = true
+			}
+		}
+	}
+
+	if !hasWrappedLines {
+		// It might be that the command is not long enough for 26 chars.
+		// Docker rebuild's cleanup command:
+		// "docker compose --profile * down --remove-orphans --rmi all --volumes"
+		// Length: 69. Definitely should wrap.
+		t.Error("expected wrapped lines in task preview, but found none")
 	}
 }

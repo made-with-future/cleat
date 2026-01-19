@@ -32,7 +32,25 @@ var djangoCreateUserDevCmd = &cobra.Command{
 	},
 }
 
+var djangoCollectStaticCmd = &cobra.Command{
+	Use:   "collectstatic",
+	Short: "Collect Django static files",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadConfig("cleat.yaml")
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("no cleat.yaml found in current directory")
+			}
+			return fmt.Errorf("error loading config: %w", err)
+		}
+
+		s := strategy.NewDjangoCollectStaticStrategy()
+		return s.Execute(cfg, executor.Default)
+	},
+}
+
 func init() {
 	djangoCmd.AddCommand(djangoCreateUserDevCmd)
+	djangoCmd.AddCommand(djangoCollectStaticCmd)
 	rootCmd.AddCommand(djangoCmd)
 }

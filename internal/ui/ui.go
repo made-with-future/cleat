@@ -103,16 +103,88 @@ func (m *model) updateTaskPreview() {
 	var preview []string
 	commentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6272a4"))
 
+	// Calculate available width for wrapping
+	availableWidth := 0
+	if m.width > 0 {
+		gap := 2
+		paneWidth := (m.width - gap) / 2
+		availableWidth = paneWidth - 3
+	}
+
 	for _, t := range tasks {
-		preview = append(preview, fmt.Sprintf("• %s", t.Name()))
+		// Name
+		nameLines := wrapLines(strings.Fields(t.Name()), availableWidth, "• ", "  ", lipgloss.NewStyle())
+		preview = append(preview, nameLines...)
+
+		// Description
 		if t.Description() != "" {
-			preview = append(preview, fmt.Sprintf("  %s", t.Description()))
+			descLines := wrapLines(strings.Fields(t.Description()), availableWidth, "  ", "  ", lipgloss.NewStyle())
+			preview = append(preview, descLines...)
 		}
+
+		// Commands
 		for _, cmd := range t.Commands(m.cfg) {
-			preview = append(preview, commentStyle.Render(fmt.Sprintf("    $ %s", strings.Join(cmd, " "))))
+			cmdLines := wrapLines(cmd, availableWidth, "    $ ", "        ", commentStyle)
+			preview = append(preview, cmdLines...)
 		}
 	}
 	m.taskPreview = preview
+}
+
+// wrapLines wraps a slice of strings (e.g. command arguments or words) to fit within width
+func wrapLines(args []string, width int, firstPrefix, restPrefix string, style lipgloss.Style) []string {
+	if width <= 0 || width <= len(firstPrefix) || width <= len(restPrefix) {
+		// No wrapping if width is too small or unknown
+		return []string{style.Render(firstPrefix + strings.Join(args, " "))}
+	}
+
+	var lines []string
+	var currentLine strings.Builder
+
+	prefix := firstPrefix
+	currentWidth := len(prefix)
+	currentLine.WriteString(prefix)
+
+	for _, arg := range args {
+		argWidth := lipgloss.Width(arg)
+		space := 0
+		if currentLine.Len() > len(prefix) {
+			space = 1
+		}
+
+		if currentWidth+space+argWidth > width {
+			if currentLine.Len() > len(prefix) {
+				// Current arg doesn't fit, finish line and start new one
+				lines = append(lines, style.Render(currentLine.String()))
+				prefix = restPrefix
+				currentLine.Reset()
+				currentLine.WriteString(prefix)
+				currentLine.WriteString(arg)
+				currentWidth = len(prefix) + argWidth
+			} else {
+				// Single arg is already too wide, just add it and it will be truncated later
+				currentLine.WriteString(arg)
+				lines = append(lines, style.Render(currentLine.String()))
+				prefix = restPrefix
+				currentLine.Reset()
+				currentLine.WriteString(prefix)
+				currentWidth = len(prefix)
+			}
+		} else {
+			if space > 0 {
+				currentLine.WriteString(" ")
+				currentWidth += 1
+			}
+			currentLine.WriteString(arg)
+			currentWidth += argWidth
+		}
+	}
+
+	if currentLine.Len() > len(prefix) || (len(lines) == 0 && currentLine.Len() > 0) {
+		lines = append(lines, style.Render(currentLine.String()))
+	}
+
+	return lines
 }
 
 func (m *model) updateVisibleItems() {
@@ -244,6 +316,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.updateTaskPreview()
 	}
 	return m, nil
 }
@@ -291,6 +364,7 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 			Label: "django",
 			Children: []CommandItem{
 				{Label: "create-user-dev", Command: "django create-user-dev"},
+				{Label: "collectstatic", Command: "django collectstatic"},
 			},
 			Expanded: true,
 		})
