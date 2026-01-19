@@ -365,6 +365,7 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 			Children: []CommandItem{
 				{Label: "create-user-dev", Command: "django create-user-dev"},
 				{Label: "collectstatic", Command: "django collectstatic"},
+				{Label: "migrate", Command: "django migrate"},
 			},
 			Expanded: true,
 		})

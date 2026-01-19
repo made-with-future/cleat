@@ -78,3 +78,50 @@ func TestRun(t *testing.T) {
 		run([]string{"cleat", "version"})
 	})
 }
+
+func TestRunLoop(t *testing.T) {
+	oldUIStart := UIStart
+	oldExit := Exit
+	defer func() {
+		UIStart = oldUIStart
+		Exit = oldExit
+	}()
+
+	Exit = func(code int) {}
+
+	t.Run("Loop for returnToUI command", func(t *testing.T) {
+		calls := 0
+		UIStart = func() (string, error) {
+			calls++
+			if calls == 1 {
+				return "run", nil
+			}
+			return "", nil // Quit on second call
+		}
+
+		// Mocking execute is hard, but we can verify calls to UIStart
+		// We expect UIStart to be called twice because "run" strategy has ReturnToUI = true
+		run([]string{"cleat"})
+
+		if calls != 2 {
+			t.Errorf("expected UIStart to be called 2 times, got %d", calls)
+		}
+	})
+
+	t.Run("No loop for non-returnToUI command", func(t *testing.T) {
+		calls := 0
+		UIStart = func() (string, error) {
+			calls++
+			if calls == 1 {
+				return "build", nil
+			}
+			return "", nil
+		}
+
+		run([]string{"cleat"})
+
+		if calls != 1 {
+			t.Errorf("expected UIStart to be called 1 time, got %d", calls)
+		}
+	})
+}

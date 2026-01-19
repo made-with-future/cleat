@@ -22,6 +22,9 @@ type Strategy interface {
 
 	// ResolveTasks returns the list of tasks to be executed in order
 	ResolveTasks(cfg *config.Config) ([]task.Task, error)
+
+	// ReturnToUI returns true if the TUI should be restored after execution
+	ReturnToUI() bool
 }
 
 // ExecutionMode determines how tasks are run
@@ -36,21 +39,29 @@ const (
 
 // BaseStrategy provides common execution logic
 type BaseStrategy struct {
-	name  string
-	tasks []task.Task
-	mode  ExecutionMode
+	name       string
+	tasks      []task.Task
+	mode       ExecutionMode
+	returnToUI bool
 }
 
 func NewBaseStrategy(name string, tasks []task.Task) *BaseStrategy {
 	return &BaseStrategy{
-		name:  name,
-		tasks: tasks,
-		mode:  Serial,
+		name:       name,
+		tasks:      tasks,
+		mode:       Serial,
+		returnToUI: false,
 	}
 }
 
 func (s *BaseStrategy) Name() string       { return s.name }
 func (s *BaseStrategy) Tasks() []task.Task { return s.tasks }
+func (s *BaseStrategy) ReturnToUI() bool   { return s.returnToUI }
+
+func (s *BaseStrategy) SetReturnToUI(v bool) *BaseStrategy {
+	s.returnToUI = v
+	return s
+}
 
 func (s *BaseStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
 	return s.buildExecutionPlan(cfg)
@@ -202,15 +213,23 @@ func Get(name string) (Strategy, bool) {
 
 // ResolveCommandTasks returns the execution plan for a command string
 func ResolveCommandTasks(command string, cfg *config.Config) ([]task.Task, error) {
+	s := GetStrategyForCommand(command)
+	if s == nil {
+		return nil, fmt.Errorf("unknown command: %s", command)
+	}
+	return s.ResolveTasks(cfg)
+}
+
+// GetStrategyForCommand returns a strategy by its command string
+func GetStrategyForCommand(command string) Strategy {
 	if strings.HasPrefix(command, "npm run ") {
 		script := strings.TrimPrefix(command, "npm run ")
-		s := NewNpmScriptStrategy(script)
-		return s.ResolveTasks(cfg)
+		return NewNpmScriptStrategy(script)
 	}
 
 	s, ok := Get(command)
 	if !ok {
-		return nil, fmt.Errorf("unknown command: %s", command)
+		return nil
 	}
-	return s.ResolveTasks(cfg)
+	return s
 }

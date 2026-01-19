@@ -118,3 +118,43 @@ func (t *DjangoCreateUserDev) Commands(cfg *config.Config) [][]string {
 		"--noinput",
 	}}
 }
+
+// DjangoMigrate runs Django migrations
+type DjangoMigrate struct{ BaseTask }
+
+func NewDjangoMigrate() *DjangoMigrate {
+	return &DjangoMigrate{
+		BaseTask: BaseTask{
+			TaskName:        "django:migrate",
+			TaskDescription: "Run Django migrations",
+			TaskDeps:        []string{"docker:build"},
+		},
+	}
+}
+
+func (t *DjangoMigrate) ShouldRun(cfg *config.Config) bool {
+	return cfg.Django
+}
+
+func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
+	fmt.Println("==> Running Django migrations")
+
+	if cfg.Docker {
+		fmt.Printf("--> Running migrate via Docker (%s service)\n", cfg.DjangoService)
+	} else {
+		fmt.Println("--> Running migrate locally")
+	}
+
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
+	if cfg.Docker {
+		return [][]string{{"docker", "compose", "run", "--rm", cfg.DjangoService,
+			"uv", "run", "python", "manage.py", "migrate", "--noinput"}}
+	}
+
+	managePy := findManagePy()
+	return [][]string{{"uv", "run", "python", managePy, "migrate", "--noinput"}}
+}
