@@ -30,13 +30,22 @@ func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) er
 
 	if cfg.Docker {
 		fmt.Printf("--> Running collectstatic via Docker (%s service)\n", cfg.DjangoService)
-		return exec.Run("docker", "compose", "run", "--rm", cfg.DjangoService,
-			"python", "manage.py", "collectstatic", "--noinput")
+	} else {
+		fmt.Println("--> Running collectstatic locally")
 	}
 
-	fmt.Println("--> Running collectstatic locally")
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DjangoCollectStatic) Commands(cfg *config.Config) [][]string {
+	if cfg.Docker {
+		return [][]string{{"docker", "compose", "run", "--rm", cfg.DjangoService,
+			"python", "manage.py", "collectstatic", "--noinput"}}
+	}
+
 	managePy := findManagePy()
-	return exec.Run("python", managePy, "collectstatic", "--noinput")
+	return [][]string{{"python", managePy, "collectstatic", "--noinput"}}
 }
 
 // DjangoRunServer runs Django's development server
@@ -58,8 +67,13 @@ func (t *DjangoRunServer) ShouldRun(cfg *config.Config) bool {
 
 func (t *DjangoRunServer) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Println("==> Running Django project locally")
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DjangoRunServer) Commands(cfg *config.Config) [][]string {
 	managePy := findManagePy()
-	return exec.Run("python", managePy, "runserver")
+	return [][]string{{"python", managePy, "runserver"}}
 }
 
 func findManagePy() string {

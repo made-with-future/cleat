@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/strategy"
 )
 
 const configPath = "cleat.yaml"
@@ -60,6 +61,7 @@ type model struct {
 	scrollOffset    int
 	focus           focus
 	selectedCommand string
+	taskPreview     []string
 	showHelp        bool
 }
 
@@ -71,7 +73,46 @@ func InitialModel(cfg *config.Config, cfgFound bool) model {
 		focus:    focusCommands,
 	}
 	m.updateVisibleItems()
+	m.updateTaskPreview()
 	return m
+}
+
+func (m *model) updateTaskPreview() {
+	if len(m.visibleItems) == 0 {
+		m.taskPreview = nil
+		return
+	}
+
+	item := m.visibleItems[m.cursor]
+	if item.item.Command == "" {
+		m.taskPreview = []string{"(expand to see commands)"}
+		return
+	}
+
+	tasks, err := strategy.ResolveCommandTasks(item.item.Command, m.cfg)
+	if err != nil {
+		m.taskPreview = []string{fmt.Sprintf("Error: %v", err)}
+		return
+	}
+
+	if len(tasks) == 0 {
+		m.taskPreview = []string{"No tasks will run"}
+		return
+	}
+
+	var preview []string
+	commentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6272a4"))
+
+	for _, t := range tasks {
+		preview = append(preview, fmt.Sprintf("• %s", t.Name()))
+		if t.Description() != "" {
+			preview = append(preview, fmt.Sprintf("  %s", t.Description()))
+		}
+		for _, cmd := range t.Commands(m.cfg) {
+			preview = append(preview, commentStyle.Render(fmt.Sprintf("    $ %s", strings.Join(cmd, " "))))
+		}
+	}
+	m.taskPreview = preview
 }
 
 func (m *model) updateVisibleItems() {
@@ -111,6 +152,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Rebuild commands tree with new npm scripts
 			m.tree = buildCommandTree(cfg)
 			m.updateVisibleItems()
+			m.updateTaskPreview()
 		}
 		return m, nil
 
@@ -144,6 +186,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.cursor < m.scrollOffset {
 					m.scrollOffset = m.cursor
 				}
+				m.updateTaskPreview()
 			}
 		case tea.KeyDown:
 			if m.focus == focusCommands && m.cursor < len(m.visibleItems)-1 {
@@ -152,6 +195,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.cursor >= m.scrollOffset+visibleCount {
 					m.scrollOffset = m.cursor - visibleCount + 1
 				}
+				m.updateTaskPreview()
 			}
 		case tea.KeyEnter:
 			if m.focus == focusCommands {
@@ -162,6 +206,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.cursor >= len(m.visibleItems) {
 						m.cursor = len(m.visibleItems) - 1
 					}
+					m.updateTaskPreview()
 				} else {
 					m.selectedCommand = item.item.Command
 					m.quitting = true
@@ -183,6 +228,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.cursor < m.scrollOffset {
 						m.scrollOffset = m.cursor
 					}
+					m.updateTaskPreview()
 				}
 			case "j":
 				if m.focus == focusCommands && m.cursor < len(m.visibleItems)-1 {
@@ -191,6 +237,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.cursor >= m.scrollOffset+visibleCount {
 						m.scrollOffset = m.cursor - visibleCount + 1
 					}
+					m.updateTaskPreview()
 				}
 			}
 		}
@@ -437,6 +484,10 @@ func (m model) View() string {
 	paneWidth := (m.width - gap) / 2
 	paneHeight := m.height - helpLines - titleLines
 
+	// Right panes height split
+	taskPaneHeight := paneHeight / 2
+	configPaneHeight := paneHeight - taskPaneHeight
+
 	// Build left pane content (with padding)
 	var leftLines []string
 	leftLines = append(leftLines, " "+lipgloss.NewStyle().Bold(true).Foreground(leftColor).Render("Commands"))
@@ -489,40 +540,51 @@ func (m model) View() string {
 		leftLines = append(leftLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
 	}
 
+	// Build task preview pane content
+	var taskLines []string
+	taskLines = append(taskLines, " "+lipgloss.NewStyle().Bold(true).Foreground(comment).Render("Tasks to run"))
+	taskLines = append(taskLines, "")
+	for _, line := range m.taskPreview {
+		taskLines = append(taskLines, " "+line)
+	}
+
 	// Build right pane content (with padding)
-	var rightLines []string
-	rightLines = append(rightLines, " "+lipgloss.NewStyle().Bold(true).Foreground(rightColor).Render("Configuration"))
-	rightLines = append(rightLines, "")
+	var configLines []string
+	configLines = append(configLines, " "+lipgloss.NewStyle().Bold(true).Foreground(rightColor).Render("Configuration"))
+	configLines = append(configLines, "")
 	if !m.cfgFound {
-		rightLines = append(rightLines, " "+lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Italic(true).Render("No cleat.yaml found"))
-		rightLines = append(rightLines, "")
+		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Italic(true).Render("No cleat.yaml found"))
+		configLines = append(configLines, "")
 	}
-	rightLines = append(rightLines, fmt.Sprintf(" Docker: %v", m.cfg.Docker))
-	rightLines = append(rightLines, fmt.Sprintf(" Django: %v", m.cfg.Django))
+	configLines = append(configLines, fmt.Sprintf(" Docker: %v", m.cfg.Docker))
+	configLines = append(configLines, fmt.Sprintf(" Django: %v", m.cfg.Django))
 	if m.cfg.DjangoService != "" {
-		rightLines = append(rightLines, fmt.Sprintf("   Service: %s", m.cfg.DjangoService))
+		configLines = append(configLines, fmt.Sprintf("   Service: %s", m.cfg.DjangoService))
 	}
-	rightLines = append(rightLines, fmt.Sprintf(" NPM: %v", len(m.cfg.Npm.Scripts) > 0))
+	configLines = append(configLines, fmt.Sprintf(" NPM: %v", len(m.cfg.Npm.Scripts) > 0))
 	if m.cfg.Npm.Service != "" {
-		rightLines = append(rightLines, fmt.Sprintf("   Service: %s", m.cfg.Npm.Service))
+		configLines = append(configLines, fmt.Sprintf("   Service: %s", m.cfg.Npm.Service))
 	}
-	rightLines = append(rightLines, "")
+	configLines = append(configLines, "")
 	// Action hint
 	if m.focus == focusConfig {
 		actionText := "Press Enter to edit"
 		if !m.cfgFound {
 			actionText = "Press Enter to create"
 		}
-		rightLines = append(rightLines, " "+lipgloss.NewStyle().Foreground(purple).Render(actionText))
+		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(purple).Render(actionText))
 	}
 
 	// Draw boxes
 	leftBox := drawBox(leftLines, paneWidth, paneHeight, leftColor)
-	rightBox := drawBox(rightLines, paneWidth, paneHeight, rightColor)
+	taskBox := drawBox(taskLines, paneWidth, taskPaneHeight, comment)
+	configBox := drawBox(configLines, paneWidth, configPaneHeight, rightColor)
 
 	// Join boxes horizontally
 	leftBoxLines := strings.Split(leftBox, "\n")
-	rightBoxLines := strings.Split(rightBox, "\n")
+	taskBoxLines := strings.Split(taskBox, "\n")
+	configBoxLines := strings.Split(configBox, "\n")
+	rightBoxLines := append(taskBoxLines, configBoxLines...)
 
 	var combined strings.Builder
 	maxLines := len(leftBoxLines)
