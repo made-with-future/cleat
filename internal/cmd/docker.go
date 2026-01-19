@@ -6,7 +6,7 @@ import (
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
-	"github.com/madewithfuture/cleat/internal/task"
+	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
 
@@ -27,13 +27,8 @@ var dockerDownCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		t := task.NewDockerDown()
-		if !t.ShouldRun(cfg) {
-			fmt.Println("Docker is not enabled in cleat.yaml")
-			return nil
-		}
-
-		return t.Run(cfg, executor.Default)
+		s := strategy.NewDockerDownStrategy()
+		return s.Execute(cfg, executor.Default)
 	},
 }
 
@@ -49,13 +44,8 @@ var dockerRebuildCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		t := task.NewDockerRebuild()
-		if !t.ShouldRun(cfg) {
-			fmt.Println("Docker is not enabled in cleat.yaml")
-			return nil
-		}
-
-		return t.Run(cfg, executor.Default)
+		s := strategy.NewDockerRebuildStrategy()
+		return s.Execute(cfg, executor.Default)
 	},
 }
 
