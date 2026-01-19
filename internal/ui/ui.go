@@ -392,7 +392,7 @@ func (m model) View() string {
 	}
 
 	// Minimum usable dimensions for side-by-side panes
-	const minWidth = 80
+	const minWidth = 60
 	const minHeight = 20
 	if m.width < minWidth || m.height < minHeight {
 		return lipgloss.NewStyle().
