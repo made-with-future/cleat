@@ -47,6 +47,8 @@ func run(args []string) {
 			cmdArgs = []string{"run"}
 		} else if selected == "docker down" {
 			cmdArgs = []string{"docker", "down"}
+		} else if selected == "docker rebuild" {
+			cmdArgs = []string{"docker", "rebuild"}
 		} else if strings.HasPrefix(selected, "npm run ") {
 			script := strings.TrimPrefix(selected, "npm run ")
 			cmdArgs = []string{"npm", script}

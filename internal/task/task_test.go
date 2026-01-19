@@ -172,6 +172,57 @@ func TestDockerDown(t *testing.T) {
 	})
 }
 
+func TestDockerRebuild(t *testing.T) {
+	task := NewDockerRebuild()
+
+	if task.Name() != "docker:rebuild" {
+		t.Errorf("expected name 'docker:rebuild', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
+		cfg := &config.Config{Docker: true}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when Docker is enabled")
+		}
+	})
+
+	t.Run("Run executes docker compose down and build", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{Docker: true}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 2 {
+			t.Fatalf("expected 2 commands, got %d", len(mock.commands))
+		}
+
+		// First command should be docker compose down
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected first command 'docker', got %q", mock.commands[0].name)
+		}
+		expectedDownArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes"}
+		for i, arg := range expectedDownArgs {
+			if mock.commands[0].args[i] != arg {
+				t.Errorf("expected down arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
+			}
+		}
+
+		// Second command should be docker compose build
+		if mock.commands[1].name != "docker" {
+			t.Errorf("expected second command 'docker', got %q", mock.commands[1].name)
+		}
+		expectedBuildArgs := []string{"compose", "--profile", "*", "build", "--no-cache"}
+		for i, arg := range expectedBuildArgs {
+			if mock.commands[1].args[i] != arg {
+				t.Errorf("expected build arg %d to be %q, got %q", i, arg, mock.commands[1].args[i])
+			}
+		}
+	})
+}
+
 func TestNpmBuild(t *testing.T) {
 	task := NewNpmBuild()
 
@@ -417,6 +468,7 @@ func TestTaskInterface(t *testing.T) {
 	var _ Task = NewDockerBuild()
 	var _ Task = NewDockerUp()
 	var _ Task = NewDockerDown()
+	var _ Task = NewDockerRebuild()
 	var _ Task = NewNpmBuild()
 	var _ Task = NewNpmRun("test")
 	var _ Task = NewNpmStart()
