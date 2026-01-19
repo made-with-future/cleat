@@ -6,17 +6,19 @@ import (
 	"testing"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/task"
 )
 
 func TestBuildProject(t *testing.T) {
 	var executedCommands []string
 
 	// Mock runner
-	runner = func(name string, args ...string) error {
+	oldRunner := task.CommandRunner
+	task.CommandRunner = func(name string, args ...string) error {
 		executedCommands = append(executedCommands, name+" "+strings.Join(args, " "))
 		return nil
 	}
-	defer func() { runner = runCommand }() // Restore original runner
+	defer func() { task.CommandRunner = oldRunner }() // Restore original runner
 
 	t.Run("Django and Docker", func(t *testing.T) {
 		executedCommands = nil
@@ -25,9 +27,9 @@ func TestBuildProject(t *testing.T) {
 			Django:        true,
 			DjangoService: "web",
 		}
-		err := buildProject(cfg)
+		err := task.Build(cfg)
 		if err != nil {
-			t.Fatalf("buildProject failed: %v", err)
+			t.Fatalf("Build failed: %v", err)
 		}
 
 		expected := []string{
@@ -52,9 +54,9 @@ func TestBuildProject(t *testing.T) {
 			Docker: false,
 			Django: true,
 		}
-		err := buildProject(cfg)
+		err := task.Build(cfg)
 		if err != nil {
-			t.Fatalf("buildProject failed: %v", err)
+			t.Fatalf("task.Build failed: %v", err)
 		}
 
 		expected := []string{
@@ -76,9 +78,9 @@ func TestBuildProject(t *testing.T) {
 			Docker: true,
 			Django: false,
 		}
-		err := buildProject(cfg)
+		err := task.Build(cfg)
 		if err != nil {
-			t.Fatalf("buildProject failed: %v", err)
+			t.Fatalf("task.Build failed: %v", err)
 		}
 
 		expected := []string{
@@ -103,9 +105,9 @@ func TestBuildProject(t *testing.T) {
 				Scripts: []string{"build", "css"},
 			},
 		}
-		err := buildProject(cfg)
+		err := task.Build(cfg)
 		if err != nil {
-			t.Fatalf("buildProject failed: %v", err)
+			t.Fatalf("task.Build failed: %v", err)
 		}
 
 		expected := []string{
@@ -133,9 +135,9 @@ func TestBuildProject(t *testing.T) {
 				Scripts: []string{"build"},
 			},
 		}
-		err := buildProject(cfg)
+		err := task.Build(cfg)
 		if err != nil {
-			t.Fatalf("buildProject failed: %v", err)
+			t.Fatalf("task.Build failed: %v", err)
 		}
 
 		expected := []string{
@@ -176,9 +178,9 @@ func TestBuildProject(t *testing.T) {
 				Scripts: []string{"build"},
 			},
 		}
-		err = buildProject(cfg)
+		err = task.Build(cfg)
 		if err != nil {
-			t.Fatalf("buildProject failed: %v", err)
+			t.Fatalf("task.Build failed: %v", err)
 		}
 
 		expected := []string{

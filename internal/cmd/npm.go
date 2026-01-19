@@ -9,10 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var buildCmd = &cobra.Command{
-	Use:   "build",
-	Short: "Build the project based on cleat.yaml",
-	Long:  `Executes build steps based on the project configuration in cleat.yaml. Supports Docker and Django project types.`,
+var npmRunCmd = &cobra.Command{
+	Use:    "npm-run [script]",
+	Short:  "Run an NPM script defined in cleat.yaml",
+	Hidden: true, // Hidden because it's mainly used by the TUI
+	Args:   cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig("cleat.yaml")
 		if err != nil {
@@ -22,10 +23,10 @@ var buildCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		return task.Build(cfg)
+		return task.RunNpmScript(cfg, args[0])
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(buildCmd)
+	rootCmd.AddCommand(npmRunCmd)
 }

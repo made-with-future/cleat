@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/task"
 	"github.com/spf13/cobra"
 )
 
@@ -21,48 +22,8 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		return runProject(cfg)
+		return task.Run(cfg)
 	},
-}
-
-func runProject(cfg *config.Config) error {
-	if cfg.Docker {
-		fmt.Println("==> Running project via Docker")
-		cmdName := "docker"
-		args := []string{"compose", "up", "--remove-orphans"}
-
-		// Opinionated: support 1Password CLI if .env/dev.env exists
-		if _, err := os.Stat(".env/dev.env"); err == nil {
-			fmt.Println("--> Detected .env/dev.env, checking for 1Password CLI (op)")
-			// Note: We use a simple check here, if 'op' is not in path it will just fail later
-			// or we can check now.
-			args = append([]string{"run", "--env-file", "./.env/dev.env", "--", "docker"}, args...)
-			cmdName = "op"
-		}
-
-		return runner(cmdName, args...)
-	}
-
-	// Local run logic
-	if cfg.Django {
-		fmt.Println("==> Running Django project locally")
-		managePy := "manage.py"
-		if _, err := os.Stat("backend/manage.py"); err == nil {
-			managePy = "backend/manage.py"
-		}
-		return runner("python", managePy, "runserver")
-	}
-
-	if len(cfg.Npm.Scripts) > 0 {
-		fmt.Println("==> Running frontend (NPM) locally")
-		args := []string{"start"}
-		if _, err := os.Stat("frontend/package.json"); err == nil {
-			args = append([]string{"--prefix", "frontend"}, args...)
-		}
-		return runner("npm", args...)
-	}
-
-	return fmt.Errorf("no run command defined for this project type in cleat.yaml")
 }
 
 func init() {
