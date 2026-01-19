@@ -40,6 +40,7 @@ Cleat is configured via a `cleat.yaml` file in your project root. This file tell
 
 | Field | Type | Description | Default / Auto-detection |
 | :--- | :--- | :--- | :--- |
+| `version` | integer | The version of the Cleat configuration schema. | `1` |
 | `docker` | boolean | Whether to use Docker Compose for build steps. | `true` if `docker-compose.yaml` exists. |
 | `python` | object | Python build configuration. | |
 | `python.django` | boolean | Whether this is a Django project. Enables `collectstatic` during build. | `false` |
@@ -51,6 +52,7 @@ Cleat is configured via a `cleat.yaml` file in your project root. This file tell
 #### Example
 
 ```yaml
+version: 1
 docker: true
 python:
   django: true

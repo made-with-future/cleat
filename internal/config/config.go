@@ -1,11 +1,14 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
+
+const LatestVersion = 1
 
 type NpmConfig struct {
 	Service string   `yaml:"service"`
@@ -18,9 +21,10 @@ type PythonConfig struct {
 }
 
 type Config struct {
-	Docker bool         `yaml:"docker"`
-	Python PythonConfig `yaml:"python"`
-	Npm    NpmConfig    `yaml:"npm"`
+	Version int          `yaml:"version"`
+	Docker  bool         `yaml:"docker"`
+	Python  PythonConfig `yaml:"python"`
+	Npm     NpmConfig    `yaml:"npm"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -35,6 +39,14 @@ func LoadConfig(path string) (*Config, error) {
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.Version == 0 {
+		cfg.Version = LatestVersion
+	}
+
+	if cfg.Version > LatestVersion || cfg.Version < 1 {
+		return nil, fmt.Errorf("unrecognized configuration version: %d", cfg.Version)
 	}
 
 	if cfg.Python.DjangoService == "" {
