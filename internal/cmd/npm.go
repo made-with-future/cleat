@@ -5,15 +5,16 @@ import (
 	"os"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/task"
+	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
 
-var npmRunCmd = &cobra.Command{
-	Use:    "npm-run [script]",
-	Short:  "Run an NPM script defined in cleat.yaml",
-	Hidden: true, // Hidden because it's mainly used by the TUI
-	Args:   cobra.ExactArgs(1),
+var npmCmd = &cobra.Command{
+	Use:   "npm [script]",
+	Short: "Run an npm script",
+	Long:  `Runs the specified npm script, either locally or via Docker based on configuration.`,
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig("cleat.yaml")
 		if err != nil {
@@ -23,10 +24,11 @@ var npmRunCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		return task.RunNpmScript(cfg, args[0])
+		s := strategy.NewNpmScriptStrategy(args[0])
+		return s.Execute(cfg, executor.Default)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(npmRunCmd)
+	rootCmd.AddCommand(npmCmd)
 }

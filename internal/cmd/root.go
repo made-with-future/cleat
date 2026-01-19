@@ -25,6 +25,7 @@ func Execute() {
 	run(os.Args)
 }
 
+// ... existing code ...
 func run(args []string) {
 	// If no subcommand is provided, run the TUI
 	if len(args) == 1 {
@@ -46,7 +47,7 @@ func run(args []string) {
 			cmdArgs = []string{"run"}
 		} else if strings.HasPrefix(selected, "npm run ") {
 			script := strings.TrimPrefix(selected, "npm run ")
-			cmdArgs = []string{"npm-run", script}
+			cmdArgs = []string{"npm", script}
 		}
 
 		if len(cmdArgs) > 0 {
@@ -63,6 +64,8 @@ func run(args []string) {
 		Exit(1)
 	}
 }
+
+// ... existing code ...
 
 func init() {
 	// Add flags or subcommands here

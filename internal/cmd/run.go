@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/task"
+	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +23,8 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		return task.Run(cfg)
+		s := strategy.NewRunStrategy()
+		return s.Execute(cfg, executor.Default)
 	},
 }
 

@@ -1,9 +1,193 @@
 package strategy
 
-import "github.com/madewithfuture/cleat/internal/config"
+import (
+	"fmt"
 
-type Runner func(name string, args ...string) error
+	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/task"
+)
 
+// Strategy defines how to execute a command
 type Strategy interface {
-	Run(cfg *config.Config, runner Runner) error
+	// Name returns the command name (e.g., "build", "run")
+	Name() string
+
+	// Tasks returns all tasks this strategy may execute
+	Tasks() []task.Task
+
+	// Execute runs the strategy with dependency resolution
+	Execute(cfg *config.Config, exec executor.Executor) error
+}
+
+// ExecutionMode determines how tasks are run
+type ExecutionMode int
+
+const (
+	// Serial runs tasks one at a time
+	Serial ExecutionMode = iota
+	// Parallel runs independent tasks concurrently (future)
+	// Parallel
+)
+
+// BaseStrategy provides common execution logic
+type BaseStrategy struct {
+	name  string
+	tasks []task.Task
+	mode  ExecutionMode
+}
+
+func NewBaseStrategy(name string, tasks []task.Task) *BaseStrategy {
+	return &BaseStrategy{
+		name:  name,
+		tasks: tasks,
+		mode:  Serial,
+	}
+}
+
+func (s *BaseStrategy) Name() string       { return s.name }
+func (s *BaseStrategy) Tasks() []task.Task { return s.tasks }
+
+// Execute runs tasks in dependency order
+func (s *BaseStrategy) Execute(cfg *config.Config, exec executor.Executor) error {
+	// Build execution plan respecting dependencies
+	plan, err := s.buildExecutionPlan(cfg)
+	if err != nil {
+		return err
+	}
+
+	if len(plan) == 0 {
+		fmt.Printf("No tasks to run for '%s' based on current configuration\n", s.name)
+		return nil
+	}
+
+	// Execute tasks
+	for _, t := range plan {
+		if err := t.Run(cfg, exec); err != nil {
+			return fmt.Errorf("task '%s' failed: %w", t.Name(), err)
+		}
+	}
+
+	fmt.Printf("==> %s completed successfully\n", s.name)
+	return nil
+}
+
+// buildExecutionPlan returns tasks in dependency order, filtering by ShouldRun
+func (s *BaseStrategy) buildExecutionPlan(cfg *config.Config) ([]task.Task, error) {
+	// Build lookup map
+	taskMap := make(map[string]task.Task)
+	for _, t := range s.tasks {
+		taskMap[t.Name()] = t
+	}
+
+	// Filter to tasks that should run
+	var candidates []task.Task
+	for _, t := range s.tasks {
+		if t.ShouldRun(cfg) {
+			candidates = append(candidates, t)
+		}
+	}
+
+	// Topological sort for dependency order
+	return topologicalSort(candidates, taskMap, cfg)
+}
+
+// topologicalSort orders tasks respecting dependencies
+func topologicalSort(tasks []task.Task, allTasks map[string]task.Task, cfg *config.Config) ([]task.Task, error) {
+	// Track which tasks we need to run
+	needed := make(map[string]bool)
+	for _, t := range tasks {
+		needed[t.Name()] = true
+	}
+
+	// Build in-degree map and adjacency list
+	inDegree := make(map[string]int)
+	dependents := make(map[string][]string) // dep -> tasks that depend on it
+
+	for _, t := range tasks {
+		name := t.Name()
+		if _, exists := inDegree[name]; !exists {
+			inDegree[name] = 0
+		}
+
+		for _, dep := range t.Dependencies() {
+			// Only count dependency if the dep task exists AND should run
+			if depTask, exists := allTasks[dep]; exists && depTask.ShouldRun(cfg) {
+				inDegree[name]++
+				dependents[dep] = append(dependents[dep], name)
+				// Ensure dependency is in our needed set
+				needed[dep] = true
+			}
+		}
+	}
+
+	// Add any dependencies we discovered that weren't in original candidates
+	for name := range needed {
+		if t, exists := allTasks[name]; exists && t.ShouldRun(cfg) {
+			found := false
+			for _, existing := range tasks {
+				if existing.Name() == name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				tasks = append(tasks, t)
+				if _, exists := inDegree[name]; !exists {
+					inDegree[name] = 0
+				}
+			}
+		}
+	}
+
+	// Kahn's algorithm
+	var queue []task.Task
+	for _, t := range tasks {
+		if inDegree[t.Name()] == 0 {
+			queue = append(queue, t)
+		}
+	}
+
+	var result []task.Task
+	for len(queue) > 0 {
+		t := queue[0]
+		queue = queue[1:]
+		result = append(result, t)
+
+		for _, depName := range dependents[t.Name()] {
+			inDegree[depName]--
+			if inDegree[depName] == 0 {
+				for _, candidate := range tasks {
+					if candidate.Name() == depName {
+						queue = append(queue, candidate)
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Check for cycles
+	if len(result) != len(tasks) {
+		return nil, fmt.Errorf("circular dependency detected in tasks")
+	}
+
+	return result, nil
+}
+
+// Registry holds all available strategies (for future config-driven selection)
+var Registry = make(map[string]func() Strategy)
+
+// Register adds a strategy constructor to the registry
+func Register(name string, constructor func() Strategy) {
+	Registry[name] = constructor
+}
+
+// Get returns a strategy by name
+func Get(name string) (Strategy, bool) {
+	constructor, ok := Registry[name]
+	if !ok {
+		return nil, false
+	}
+	return constructor(), true
 }
