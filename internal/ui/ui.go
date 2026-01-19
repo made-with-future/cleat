@@ -19,8 +19,9 @@ const defaultConfigTemplate = `# Cleat configuration
 # See https://github.com/madewithfuture/cleat for documentation
 
 docker: true
-django: false
-django_service: backend
+python:
+  django: false
+  django_service: backend
 npm:
   service: backend-node
   scripts:
@@ -359,14 +360,23 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 		})
 	}
 
-	if cfg.Django && cfg.Docker {
+	if cfg.Python.Django {
+		var djangoChildren []CommandItem
+		if cfg.Docker {
+			djangoChildren = append(djangoChildren, CommandItem{Label: "create-user-dev", Command: "django create-user-dev"})
+		}
+		djangoChildren = append(djangoChildren, CommandItem{Label: "collectstatic", Command: "django collectstatic"})
+		djangoChildren = append(djangoChildren, CommandItem{Label: "migrate", Command: "django migrate"})
+
+		djangoItem := CommandItem{
+			Label:    "django",
+			Children: djangoChildren,
+			Expanded: true,
+		}
+
 		tree = append(tree, CommandItem{
-			Label: "django",
-			Children: []CommandItem{
-				{Label: "create-user-dev", Command: "django create-user-dev"},
-				{Label: "collectstatic", Command: "django collectstatic"},
-				{Label: "migrate", Command: "django migrate"},
-			},
+			Label:    "python",
+			Children: []CommandItem{djangoItem},
 			Expanded: true,
 		})
 	}
@@ -641,14 +651,24 @@ func (m model) View() string {
 		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Italic(true).Render("No cleat.yaml found"))
 		configLines = append(configLines, "")
 	}
-	configLines = append(configLines, fmt.Sprintf(" Docker: %v", m.cfg.Docker))
-	configLines = append(configLines, fmt.Sprintf(" Django: %v", m.cfg.Django))
-	if m.cfg.DjangoService != "" {
-		configLines = append(configLines, fmt.Sprintf("   Service: %s", m.cfg.DjangoService))
+	configLines = append(configLines, fmt.Sprintf(" docker: %v", m.cfg.Docker))
+
+	// python block
+	if m.cfg.Python.Django {
+		configLines = append(configLines, " python:")
+		configLines = append(configLines, fmt.Sprintf("   django: %v", m.cfg.Python.Django))
+		if m.cfg.Python.DjangoService != "" {
+			configLines = append(configLines, fmt.Sprintf("   service: %s", m.cfg.Python.DjangoService))
+		}
 	}
-	configLines = append(configLines, fmt.Sprintf(" NPM: %v", len(m.cfg.Npm.Scripts) > 0))
-	if m.cfg.Npm.Service != "" {
-		configLines = append(configLines, fmt.Sprintf("   Service: %s", m.cfg.Npm.Service))
+
+	// npm block
+	if len(m.cfg.Npm.Scripts) > 0 {
+		configLines = append(configLines, " npm:")
+		configLines = append(configLines, fmt.Sprintf("   enabled: %v", len(m.cfg.Npm.Scripts) > 0))
+		if m.cfg.Npm.Service != "" {
+			configLines = append(configLines, fmt.Sprintf("   service: %s", m.cfg.Npm.Service))
+		}
 	}
 	configLines = append(configLines, "")
 	// Action hint
