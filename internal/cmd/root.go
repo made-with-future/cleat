@@ -10,22 +10,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	UIStart = ui.Start
+	Exit    = os.Exit
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "cleat",
 	Short: "Cleat is a TUI-based CLI tool",
 	Long:  `Cleat is a tool that provides both a terminal user interface and command line actions.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// This will be handled in Execute()
-	},
 }
 
 func Execute() {
+	run(os.Args)
+}
+
+func run(args []string) {
 	// If no subcommand is provided, run the TUI
-	if len(os.Args) == 1 {
-		selected, err := ui.Start()
+	if len(args) == 1 {
+		selected, err := UIStart()
 		if err != nil {
 			fmt.Printf("Error starting TUI: %v\n", err)
-			os.Exit(1)
+			Exit(1)
+			return
 		}
 
 		if selected == "" {
@@ -43,15 +50,17 @@ func Execute() {
 		}
 
 		if len(cmdArgs) > 0 {
-			os.Args = append([]string{os.Args[0]}, cmdArgs...)
+			rootCmd.SetArgs(cmdArgs)
 		} else {
 			return
 		}
+	} else {
+		rootCmd.SetArgs(args[1:])
 	}
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		Exit(1)
 	}
 }
 
