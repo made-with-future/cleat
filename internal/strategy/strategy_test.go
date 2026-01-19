@@ -300,6 +300,7 @@ var _ task.Task = &mockTask{}
 func TestResolveCommandTasks(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
+		Django: true,
 		Npm: config.NpmConfig{
 			Scripts: []string{"build"},
 		},
@@ -309,10 +310,11 @@ func TestResolveCommandTasks(t *testing.T) {
 		command string
 		want    []string
 	}{
-		{"build", []string{"docker:build", "npm:build"}},
+		{"build", []string{"docker:build", "npm:build", "django:collectstatic"}},
 		{"run", []string{"docker:up"}},
 		{"docker down", []string{"docker:down"}},
 		{"docker rebuild", []string{"docker:rebuild"}},
+		{"django create-user-dev", []string{"django:create-user-dev"}},
 		{"npm run build", []string{"npm:run:build"}},
 	}
 

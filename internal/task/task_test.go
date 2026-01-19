@@ -488,6 +488,61 @@ func TestDjangoRunServer(t *testing.T) {
 	})
 }
 
+func TestDjangoCreateUserDev(t *testing.T) {
+	task := NewDjangoCreateUserDev()
+
+	if task.Name() != "django:create-user-dev" {
+		t.Errorf("expected name 'django:create-user-dev', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun with Django and Docker enabled", func(t *testing.T) {
+		cfg := &config.Config{Django: true, Docker: true}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true")
+		}
+	})
+
+	t.Run("ShouldRun false when Docker disabled", func(t *testing.T) {
+		cfg := &config.Config{Django: true, Docker: false}
+		if task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return false")
+		}
+	})
+
+	t.Run("Commands returns correct docker run command", func(t *testing.T) {
+		cfg := &config.Config{
+			Django:        true,
+			Docker:        true,
+			DjangoService: "backend",
+		}
+		cmds := task.Commands(cfg)
+		if len(cmds) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(cmds))
+		}
+
+		cmd := cmds[0]
+		expected := []string{
+			"docker", "compose", "run",
+			"-e", "DJANGO_SUPERUSER_USERNAME=dev",
+			"-e", "DJANGO_SUPERUSER_PASSWORD=dev",
+			"--rm",
+			"backend",
+			"uv", "run", "python", "manage.py", "createsuperuser",
+			"--email", "dev@madewithfuture.com",
+			"--noinput",
+		}
+
+		if len(cmd) != len(expected) {
+			t.Fatalf("expected %d args, got %d", len(expected), len(cmd))
+		}
+		for i, v := range expected {
+			if cmd[i] != v {
+				t.Errorf("arg %d: expected %q, got %q", i, v, cmd[i])
+			}
+		}
+	})
+}
+
 // Verify all tasks implement the Task interface
 func TestTaskInterface(t *testing.T) {
 	var _ Task = NewDockerBuild()
@@ -499,6 +554,7 @@ func TestTaskInterface(t *testing.T) {
 	var _ Task = NewNpmStart()
 	var _ Task = NewDjangoCollectStatic()
 	var _ Task = NewDjangoRunServer()
+	var _ Task = NewDjangoCreateUserDev()
 }
 
 // Helper to verify interface at compile time

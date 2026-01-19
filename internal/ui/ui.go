@@ -286,6 +286,16 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 		})
 	}
 
+	if cfg.Django && cfg.Docker {
+		tree = append(tree, CommandItem{
+			Label: "django",
+			Children: []CommandItem{
+				{Label: "create-user-dev", Command: "django create-user-dev"},
+			},
+			Expanded: true,
+		})
+	}
+
 	if len(cfg.Npm.Scripts) > 0 {
 		npmItem := CommandItem{
 			Label:    "npm",

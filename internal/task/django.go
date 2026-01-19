@@ -82,3 +82,39 @@ func findManagePy() string {
 	}
 	return "manage.py"
 }
+
+// DjangoCreateUserDev creates a Django superuser for development
+type DjangoCreateUserDev struct{ BaseTask }
+
+func NewDjangoCreateUserDev() *DjangoCreateUserDev {
+	return &DjangoCreateUserDev{
+		BaseTask: BaseTask{
+			TaskName:        "django:create-user-dev",
+			TaskDescription: "Create a Django superuser (dev/dev)",
+			TaskDeps:        nil,
+		},
+	}
+}
+
+func (t *DjangoCreateUserDev) ShouldRun(cfg *config.Config) bool {
+	return cfg.Django && cfg.Docker
+}
+
+func (t *DjangoCreateUserDev) Run(cfg *config.Config, exec executor.Executor) error {
+	fmt.Println("==> Creating Django dev superuser")
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DjangoCreateUserDev) Commands(cfg *config.Config) [][]string {
+	return [][]string{{
+		"docker", "compose", "run",
+		"-e", "DJANGO_SUPERUSER_USERNAME=dev",
+		"-e", "DJANGO_SUPERUSER_PASSWORD=dev",
+		"--rm",
+		cfg.DjangoService,
+		"uv", "run", "python", "manage.py", "createsuperuser",
+		"--email", "dev@madewithfuture.com",
+		"--noinput",
+	}}
+}
