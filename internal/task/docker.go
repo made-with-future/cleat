@@ -61,3 +61,35 @@ func (t *DockerUp) Run(cfg *config.Config, exec executor.Executor) error {
 
 	return exec.Run(cmdName, args...)
 }
+
+// DockerDown stops Docker containers
+type DockerDown struct{ BaseTask }
+
+func NewDockerDown() *DockerDown {
+	return &DockerDown{
+		BaseTask: BaseTask{
+			TaskName:        "docker:down",
+			TaskDescription: "Stop Docker containers",
+			TaskDeps:        nil,
+		},
+	}
+}
+
+func (t *DockerDown) ShouldRun(cfg *config.Config) bool {
+	return cfg.Docker
+}
+
+func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
+	fmt.Println("==> Stopping Docker containers (all profiles)")
+	cmdName := "docker"
+	args := []string{"compose", "--profile", "*", "down", "--remove-orphans"}
+
+	// 1Password integration
+	if _, err := os.Stat(".env/dev.env"); err == nil {
+		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
+		args = append([]string{"run", "--env-file", "./.env/dev.env", "--", "docker"}, args...)
+		cmdName = "op"
+	}
+
+	return exec.Run(cmdName, args...)
+}

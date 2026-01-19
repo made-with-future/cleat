@@ -130,6 +130,48 @@ func TestDockerUp(t *testing.T) {
 	})
 }
 
+func TestDockerDown(t *testing.T) {
+	task := NewDockerDown()
+
+	if task.Name() != "docker:down" {
+		t.Errorf("expected name 'docker:down', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
+		cfg := &config.Config{Docker: true}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when Docker is enabled")
+		}
+	})
+
+	t.Run("Run executes docker compose down with all profiles", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{Docker: true}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+
+		expectedArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans"}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		for i, arg := range expectedArgs {
+			if mock.commands[0].args[i] != arg {
+				t.Errorf("expected arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
+			}
+		}
+	})
+}
+
 func TestNpmBuild(t *testing.T) {
 	task := NewNpmBuild()
 
@@ -374,6 +416,7 @@ func TestDjangoRunServer(t *testing.T) {
 func TestTaskInterface(t *testing.T) {
 	var _ Task = NewDockerBuild()
 	var _ Task = NewDockerUp()
+	var _ Task = NewDockerDown()
 	var _ Task = NewNpmBuild()
 	var _ Task = NewNpmRun("test")
 	var _ Task = NewNpmStart()
