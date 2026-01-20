@@ -780,10 +780,10 @@ func (m model) View() string {
 		for j := range svc.Modules {
 			mod := &svc.Modules[j]
 			if mod.Python != nil && mod.Python.Django {
-				configLines = append(configLines, "   python.django:")
+				configLines = append(configLines, "   python:")
 				configLines = append(configLines, fmt.Sprintf("     django: %v", mod.Python.Django))
 				if mod.Python.DjangoService != "" {
-					configLines = append(configLines, fmt.Sprintf("     service: %s", mod.Python.DjangoService))
+					configLines = append(configLines, fmt.Sprintf("     django_service: %s", mod.Python.DjangoService))
 				}
 			}
 			if mod.Npm != nil && len(mod.Npm.Scripts) > 0 {

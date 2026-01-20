@@ -21,7 +21,7 @@ type PythonConfig struct {
 }
 
 type ModuleConfig struct {
-	Python *PythonConfig `yaml:"python.django,omitempty"`
+	Python *PythonConfig `yaml:"python,omitempty"`
 	Npm    *NpmConfig    `yaml:"npm,omitempty"`
 }
 
