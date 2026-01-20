@@ -18,6 +18,7 @@ func TestDefaultExecutor(t *testing.T) {
 // MockExecutor for use in other package tests
 type MockExecutor struct {
 	Commands []struct {
+		Dir  string
 		Name string
 		Args []string
 	}
@@ -25,9 +26,14 @@ type MockExecutor struct {
 }
 
 func (m *MockExecutor) Run(name string, args ...string) error {
+	return m.RunWithDir("", name, args...)
+}
+
+func (m *MockExecutor) RunWithDir(dir string, name string, args ...string) error {
 	m.Commands = append(m.Commands, struct {
+		Dir  string
 		Name string
 		Args []string
-	}{Name: name, Args: args})
+	}{Dir: dir, Name: name, Args: args})
 	return m.Error
 }

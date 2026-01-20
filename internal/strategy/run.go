@@ -12,11 +12,14 @@ func init() {
 // NewRunStrategy creates the run command strategy
 func NewRunStrategy(cfg *config.Config) Strategy {
 	var tasks []task.Task
-	tasks = append(tasks, task.NewDockerUp())
+	tasks = append(tasks, task.NewDockerUp(nil))
 
 	if cfg != nil {
 		for i := range cfg.Services {
 			svc := &cfg.Services[i]
+			if svc.Docker {
+				tasks = append(tasks, task.NewDockerUp(svc))
+			}
 			for j := range svc.Modules {
 				mod := &svc.Modules[j]
 				if mod.Python != nil {

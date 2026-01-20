@@ -12,11 +12,14 @@ func init() {
 // NewBuildStrategy creates the build command strategy
 func NewBuildStrategy(cfg *config.Config) Strategy {
 	var tasks []task.Task
-	tasks = append(tasks, task.NewDockerBuild())
+	tasks = append(tasks, task.NewDockerBuild(nil))
 
 	if cfg != nil {
 		for i := range cfg.Services {
 			svc := &cfg.Services[i]
+			if svc.Docker {
+				tasks = append(tasks, task.NewDockerBuild(svc))
+			}
 			for j := range svc.Modules {
 				mod := &svc.Modules[j]
 				if mod.Npm != nil {
