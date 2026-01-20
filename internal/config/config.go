@@ -20,6 +20,10 @@ type PythonConfig struct {
 	DjangoService string `yaml:"django_service"`
 }
 
+type GCPConfig struct {
+	ProjectName string `yaml:"project_name"`
+}
+
 type ModuleConfig struct {
 	Python *PythonConfig `yaml:"python,omitempty"`
 	Npm    *NpmConfig    `yaml:"npm,omitempty"`
@@ -37,9 +41,10 @@ type ServiceConfig struct {
 }
 
 type Config struct {
-	Version  int             `yaml:"version"`
-	Docker   bool            `yaml:"docker"`
-	Services []ServiceConfig `yaml:"services"`
+	Version             int             `yaml:"version"`
+	Docker              bool            `yaml:"docker"`
+	GoogleCloudPlatform *GCPConfig      `yaml:"google_cloud_platform,omitempty"`
+	Services            []ServiceConfig `yaml:"services"`
 
 	// Legacy fields for V1
 	Python *PythonConfig `yaml:"python,omitempty"`

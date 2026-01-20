@@ -547,3 +547,53 @@ func TestTaskPreviewWrapping(t *testing.T) {
 		t.Error("expected wrapped lines in task preview, but found none")
 	}
 }
+
+func TestConfigScrolling(t *testing.T) {
+	cfg := &config.Config{
+		Services: make([]config.ServiceConfig, 20),
+	}
+	for i := 0; i < 20; i++ {
+		cfg.Services[i] = config.ServiceConfig{Name: "service-" + string(rune('a'+i))}
+	}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 20
+	m.focus = focusConfig
+
+	if m.configScrollOffset != 0 {
+		t.Errorf("expected initial configScrollOffset 0, got %d", m.configScrollOffset)
+	}
+
+	// Move down
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(model)
+	if m.configScrollOffset != 1 {
+		t.Errorf("expected configScrollOffset 1 after Down, got %d", m.configScrollOffset)
+	}
+
+	// Move up
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updatedModel.(model)
+	if m.configScrollOffset != 0 {
+		t.Errorf("expected configScrollOffset 0 after Up, got %d", m.configScrollOffset)
+	}
+
+	// Move down multiple times
+	for i := 0; i < 100; i++ {
+		updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updatedModel.(model)
+	}
+
+	if m.configScrollOffset == 0 {
+		t.Error("expected configScrollOffset to be > 0 after multiple Down presses")
+	}
+
+	lastOffset := m.configScrollOffset
+
+	// One more down should not increase offset if at end
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(model)
+	if m.configScrollOffset != lastOffset {
+		t.Errorf("expected configScrollOffset to be capped, but it changed from %d to %d", lastOffset, m.configScrollOffset)
+	}
+}

@@ -266,3 +266,35 @@ func TestLoadConfigAutoNpm(t *testing.T) {
 		t.Errorf("Expected Npm scripts to be ['build'], got %v", cfg.Services[0].Modules)
 	}
 }
+
+func TestLoadConfigGCP(t *testing.T) {
+	content := `
+version: 2
+google_cloud_platform:
+  project_name: test-project
+`
+	tmpfile, err := os.CreateTemp("", "cleat_gcp.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig(tmpfile.Name())
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.GoogleCloudPlatform == nil {
+		t.Fatal("Expected GoogleCloudPlatform to be not nil")
+	}
+	if cfg.GoogleCloudPlatform.ProjectName != "test-project" {
+		t.Errorf("Expected project_name to be 'test-project', got '%s'", cfg.GoogleCloudPlatform.ProjectName)
+	}
+}
