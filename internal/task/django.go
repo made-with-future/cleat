@@ -55,7 +55,7 @@ func (t *DjangoCollectStatic) Commands(cfg *config.Config) [][]string {
 			"uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}}
 	}
 
-	managePy := findManagePy(t.Service.Location)
+	managePy := findManagePy(t.Service.Dir)
 	return [][]string{{"uv", "run", "python", managePy, "collectstatic", "--noinput", "--clear"}}
 }
 
@@ -93,15 +93,15 @@ func (t *DjangoRunServer) Run(cfg *config.Config, exec executor.Executor) error 
 }
 
 func (t *DjangoRunServer) Commands(cfg *config.Config) [][]string {
-	managePy := findManagePy(t.Service.Location)
+	managePy := findManagePy(t.Service.Dir)
 	return [][]string{{"uv", "run", "python", managePy, "runserver"}}
 }
 
-func findManagePy(location string) string {
-	if _, err := os.Stat(filepath.Join(location, "backend/manage.py")); err == nil {
-		return filepath.Join(location, "backend/manage.py")
+func findManagePy(dir string) string {
+	if _, err := os.Stat(filepath.Join(dir, "backend/manage.py")); err == nil {
+		return filepath.Join(dir, "backend/manage.py")
 	}
-	return filepath.Join(location, "manage.py")
+	return filepath.Join(dir, "manage.py")
 }
 
 // DjangoCreateUserDev creates a Django superuser for development
@@ -196,6 +196,6 @@ func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
 			"uv", "run", "python", "manage.py", "migrate", "--noinput"}}
 	}
 
-	managePy := findManagePy(t.Service.Location)
+	managePy := findManagePy(t.Service.Dir)
 	return [][]string{{"uv", "run", "python", managePy, "migrate", "--noinput"}}
 }

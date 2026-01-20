@@ -19,9 +19,9 @@ type ModuleConfig struct {
 }
 
 type ServiceConfig struct {
-	Name     string         `yaml:"name"`
-	Location string         `yaml:"location"`
-	Modules  []ModuleConfig `yaml:"modules"`
+	Name    string         `yaml:"name"`
+	Dir     string         `yaml:"dir"`
+	Modules []ModuleConfig `yaml:"modules"`
 }
 
 type Config struct {
@@ -32,7 +32,7 @@ func main() {
 	data := `
 services:
   - name: backend
-    location: ./backend
+    dir: ./backend
     modules:
       - python.django:
           django: true

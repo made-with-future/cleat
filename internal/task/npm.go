@@ -142,13 +142,13 @@ func (t *NpmStart) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *NpmStart) Commands(cfg *config.Config) [][]string {
 	args := []string{"run", "start"} // Default to 'npm run start'
-	// Check for 'frontend' subdir relative to service location
-	pkgPath := filepath.Join(t.Service.Location, "package.json")
-	if _, err := os.Stat(filepath.Join(t.Service.Location, "frontend/package.json")); err == nil {
-		args = append([]string{"--prefix", filepath.Join(t.Service.Location, "frontend")}, "start")
+	// Check for 'frontend' subdir relative to service dir
+	pkgPath := filepath.Join(t.Service.Dir, "package.json")
+	if _, err := os.Stat(filepath.Join(t.Service.Dir, "frontend/package.json")); err == nil {
+		args = append([]string{"--prefix", filepath.Join(t.Service.Dir, "frontend")}, "start")
 	} else if _, err := os.Stat(pkgPath); err == nil {
-		if t.Service.Location != "" && t.Service.Location != "." {
-			args = append([]string{"--prefix", t.Service.Location}, "start")
+		if t.Service.Dir != "" && t.Service.Dir != "." {
+			args = append([]string{"--prefix", t.Service.Dir}, "start")
 		} else {
 			args = []string{"run", "start"}
 		}
@@ -164,10 +164,10 @@ func npmScriptCommands(cfg *config.Config, svc *config.ServiceConfig, npm *confi
 
 	args := []string{"run", script}
 	if svc != nil {
-		if _, err := os.Stat(filepath.Join(svc.Location, "frontend/package.json")); err == nil {
-			args = append([]string{"--prefix", filepath.Join(svc.Location, "frontend")}, script)
-		} else if svc.Location != "" && svc.Location != "." {
-			args = append([]string{"--prefix", svc.Location}, script)
+		if _, err := os.Stat(filepath.Join(svc.Dir, "frontend/package.json")); err == nil {
+			args = append([]string{"--prefix", filepath.Join(svc.Dir, "frontend")}, script)
+		} else if svc.Dir != "" && svc.Dir != "." {
+			args = append([]string{"--prefix", svc.Dir}, script)
 		}
 	}
 	return [][]string{append([]string{"npm"}, args...)}

@@ -65,12 +65,12 @@ version: 2
 docker: true
 services:
   - name: backend
-    location: ./backend
+    dir: ./backend
     python:
       django: true
       django_service: web
   - name: frontend
-    location: ./frontend
+    dir: ./frontend
     npm:
       scripts:
         - build
@@ -99,7 +99,7 @@ services:
 	}
 
 	svc1 := cfg.Services[0]
-	if svc1.Name != "backend" || svc1.Location != "./backend" {
+	if svc1.Name != "backend" || svc1.Dir != "./backend" {
 		t.Errorf("Unexpected svc1: %+v", svc1)
 	}
 	if len(svc1.Modules) == 0 || svc1.Modules[0].Python == nil || !svc1.Modules[0].Python.Django {
@@ -107,7 +107,7 @@ services:
 	}
 
 	svc2 := cfg.Services[1]
-	if svc2.Name != "frontend" || svc2.Location != "./frontend" {
+	if svc2.Name != "frontend" || svc2.Dir != "./frontend" {
 		t.Errorf("Unexpected svc2: %+v", svc2)
 	}
 	if len(svc2.Modules) == 0 || svc2.Modules[0].Npm == nil || len(svc2.Modules[0].Npm.Scripts) != 1 {
