@@ -62,8 +62,8 @@ func TestModelView(t *testing.T) {
 	if !strings.Contains(view, "Configuration") {
 		t.Error("expected view to contain 'Configuration' section")
 	}
-	if !strings.Contains(view, "Tasks to run") {
-		t.Error("expected view to contain 'Tasks to run' section")
+	if !strings.Contains(view, "Tasks for build") {
+		t.Error("expected view to contain 'Tasks for build' section")
 	}
 }
 

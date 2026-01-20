@@ -538,8 +538,8 @@ func (m model) visibleCommandCount() int {
 	titleLines := 1
 	helpLines := 2
 	paneHeight := m.height - helpLines - titleLines
-	// Subtract: 2 for borders, 1 for title, 1 for blank line after title (or filter bar), 1 for potential scroll indicator
-	availableLines := paneHeight - 2 - 1 - 1 - 1
+	// Subtract: 2 for borders, 0 for title (now on border), 1 for blank line after title (or filter bar), 1 for potential scroll indicator
+	availableLines := paneHeight - 2 - 0 - 1 - 1
 	if availableLines < 1 {
 		availableLines = 1
 	}
@@ -555,16 +555,16 @@ func (m model) visibleConfigCount() int {
 	paneHeight := m.height - helpLines - titleLines
 	configPaneHeight := paneHeight - (paneHeight / 2)
 
-	// Subtract: 2 for borders, 1 for title, 1 for blank line, 1 for action hint, 1 for potential scroll indicator
-	availableLines := configPaneHeight - 2 - 1 - 1 - 1 - 1
+	// Subtract: 2 for borders, 0 for title (now on border), 1 for blank line, 1 for action hint, 1 for potential scroll indicator
+	availableLines := configPaneHeight - 2 - 0 - 1 - 1 - 1
 	if availableLines < 1 {
 		availableLines = 1
 	}
 	return availableLines
 }
 
-// drawBox draws a box with rounded corners around content
-func drawBox(lines []string, width, height int, borderColor lipgloss.Color) string {
+// drawBox draws a box with rounded corners around content, with an optional title in the top border
+func drawBox(lines []string, width, height int, borderColor lipgloss.Color, title string) string {
 	colorStyle := lipgloss.NewStyle().Foreground(borderColor)
 
 	innerWidth := width - 2 // Account for left and right borders
@@ -572,7 +572,22 @@ func drawBox(lines []string, width, height int, borderColor lipgloss.Color) stri
 	var result strings.Builder
 
 	// Top border
-	result.WriteString(colorStyle.Render("╭" + strings.Repeat("─", innerWidth) + "╮"))
+	if title != "" {
+		renderedTitle := " " + title + " "
+		titleWidth := lipgloss.Width(renderedTitle)
+		if titleWidth > innerWidth-2 {
+			// Truncate if too long
+			renderedTitle = " " + ansi.Truncate(strings.TrimSpace(title), innerWidth-4, "…") + " "
+			titleWidth = lipgloss.Width(renderedTitle)
+		}
+		dashes := innerWidth - titleWidth - 1
+		if dashes < 0 {
+			dashes = 0
+		}
+		result.WriteString(colorStyle.Render("╭─" + renderedTitle + strings.Repeat("─", dashes) + "╮"))
+	} else {
+		result.WriteString(colorStyle.Render("╭" + strings.Repeat("─", innerWidth) + "╮"))
+	}
 	result.WriteString("\n")
 
 	// Content lines
@@ -780,7 +795,6 @@ func (m model) View() string {
 
 	// Build left pane content (with padding)
 	var leftLines []string
-	leftLines = append(leftLines, " "+lipgloss.NewStyle().Bold(true).Foreground(leftColor).Render("Commands"))
 
 	if m.filtering {
 		filterStyle := lipgloss.NewStyle().Foreground(purple)
@@ -841,7 +855,6 @@ func (m model) View() string {
 
 	// Build task preview pane content
 	var taskLines []string
-	taskLines = append(taskLines, " "+lipgloss.NewStyle().Bold(true).Foreground(comment).Render("Tasks to run"))
 	taskLines = append(taskLines, "")
 	for _, line := range m.taskPreview {
 		taskLines = append(taskLines, " "+line)
@@ -849,7 +862,6 @@ func (m model) View() string {
 
 	// Build right pane content (with padding)
 	var configLines []string
-	configLines = append(configLines, " "+lipgloss.NewStyle().Bold(true).Foreground(rightColor).Render("Configuration"))
 	configLines = append(configLines, "")
 
 	allConfigLines := m.buildConfigLines()
@@ -887,9 +899,18 @@ func (m model) View() string {
 	}
 
 	// Draw boxes
-	leftBox := drawBox(leftLines, paneWidth, paneHeight, leftColor)
-	taskBox := drawBox(taskLines, paneWidth, taskPaneHeight, comment)
-	configBox := drawBox(configLines, paneWidth, configPaneHeight, rightColor)
+	leftBox := drawBox(leftLines, paneWidth, paneHeight, leftColor, "Commands")
+
+	taskTitle := "Tasks to run"
+	if len(m.visibleItems) > 0 {
+		item := m.visibleItems[m.cursor]
+		if item.item.Command != "" {
+			taskTitle = fmt.Sprintf("Tasks for %s", strings.TrimSpace(item.item.Label))
+		}
+	}
+	taskBox := drawBox(taskLines, paneWidth, taskPaneHeight, comment, taskTitle)
+
+	configBox := drawBox(configLines, paneWidth, configPaneHeight, rightColor, "Configuration")
 
 	// Join boxes horizontally
 	leftBoxLines := strings.Split(leftBox, "\n")
