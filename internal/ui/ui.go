@@ -70,6 +70,8 @@ type model struct {
 	selectedCommand string
 	taskPreview     []string
 	showHelp        bool
+	filtering       bool
+	filterText      string
 }
 
 func InitialModel(cfg *config.Config, cfgFound bool) model {
@@ -196,8 +198,14 @@ func wrapLines(args []string, width int, firstPrefix, restPrefix string, style l
 
 func (m *model) updateVisibleItems() {
 	m.visibleItems = []visibleItem{}
-	for i := range m.tree {
-		m.flatten(&m.tree[i], 0)
+	if m.filterText != "" {
+		for i := range m.tree {
+			m.flattenFiltered(&m.tree[i], 0)
+		}
+	} else {
+		for i := range m.tree {
+			m.flatten(&m.tree[i], 0)
+		}
 	}
 }
 
@@ -206,6 +214,39 @@ func (m *model) flatten(item *CommandItem, level int) {
 	if item.Expanded && len(item.Children) > 0 {
 		for i := range item.Children {
 			m.flatten(&item.Children[i], level+1)
+		}
+	}
+}
+
+func matches(item *CommandItem, text string) bool {
+	if text == "" {
+		return true
+	}
+	text = strings.ToLower(text)
+	return strings.Contains(strings.ToLower(item.Label), text) ||
+		strings.Contains(strings.ToLower(item.Command), text)
+}
+
+func anyDescendantMatches(item *CommandItem, text string) bool {
+	for i := range item.Children {
+		if matches(&item.Children[i], text) || anyDescendantMatches(&item.Children[i], text) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *model) flattenFiltered(item *CommandItem, level int) {
+	selfMatches := matches(item, m.filterText)
+	descendantMatches := anyDescendantMatches(item, m.filterText)
+
+	if selfMatches || descendantMatches {
+		m.visibleItems = append(m.visibleItems, visibleItem{item: item, level: level})
+		for i := range item.Children {
+			child := &item.Children[i]
+			if selfMatches || matches(child, m.filterText) || anyDescendantMatches(child, m.filterText) {
+				m.flattenFiltered(child, level+1)
+			}
 		}
 	}
 }
@@ -236,6 +277,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		if m.filtering {
+			switch msg.Type {
+			case tea.KeyEsc:
+				m.filtering = false
+				m.filterText = ""
+				m.updateVisibleItems()
+				m.cursor = 0
+				m.scrollOffset = 0
+				m.updateTaskPreview()
+				return m, nil
+			case tea.KeyEnter:
+				m.filtering = false
+			case tea.KeyBackspace:
+				if len(m.filterText) > 0 {
+					m.filterText = m.filterText[:len(m.filterText)-1]
+					m.updateVisibleItems()
+					m.cursor = 0
+					m.scrollOffset = 0
+					m.updateTaskPreview()
+				} else {
+					m.filtering = false
+					m.updateVisibleItems()
+					m.updateTaskPreview()
+				}
+				return m, nil
+			}
+		}
+
 		// If help is showing, any key dismisses it
 		if m.showHelp {
 			switch msg.Type {
@@ -277,7 +346,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateTaskPreview()
 			}
 		case tea.KeyEnter:
-			if m.focus == focusCommands {
+			if m.focus == focusCommands && len(m.visibleItems) > 0 {
 				item := m.visibleItems[m.cursor]
 				if len(item.item.Children) > 0 {
 					item.item.Expanded = !item.item.Expanded
@@ -295,10 +364,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.openEditor()
 			}
 		case tea.KeyRunes:
+			if m.filtering {
+				m.filterText += string(msg.Runes)
+				m.updateVisibleItems()
+				m.cursor = 0
+				m.scrollOffset = 0
+				m.updateTaskPreview()
+				return m, nil
+			}
+
 			switch string(msg.Runes) {
 			case "q":
 				m.quitting = true
 				return m, tea.Quit
+			case "/":
+				m.filtering = true
+				m.filterText = ""
+				m.updateVisibleItems()
+				m.cursor = 0
+				m.scrollOffset = 0
+				m.updateTaskPreview()
+				return m, nil
 			case "?":
 				m.showHelp = true
 			case "k":
@@ -424,7 +510,7 @@ func (m model) visibleCommandCount() int {
 	titleLines := 1
 	helpLines := 2
 	paneHeight := m.height - helpLines - titleLines
-	// Subtract: 2 for borders, 1 for title, 1 for blank line after title, 1 for potential scroll indicator
+	// Subtract: 2 for borders, 1 for title, 1 for blank line after title (or filter bar), 1 for potential scroll indicator
 	availableLines := paneHeight - 2 - 1 - 1 - 1
 	if availableLines < 1 {
 		availableLines = 1
@@ -488,6 +574,7 @@ func (m model) renderHelpOverlay() string {
 		"",
 		"  ↑/k        Move up",
 		"  ↓/j        Move down",
+		"  /          Filter commands",
 		"  Enter      Select/Toggle / Edit config",
 		"  Tab        Switch pane",
 		"  Shift+Tab  Switch pane (reverse)",
@@ -604,7 +691,16 @@ func (m model) View() string {
 	// Build left pane content (with padding)
 	var leftLines []string
 	leftLines = append(leftLines, " "+lipgloss.NewStyle().Bold(true).Foreground(leftColor).Render("Commands"))
-	leftLines = append(leftLines, "")
+
+	if m.filtering {
+		filterStyle := lipgloss.NewStyle().Foreground(purple)
+		leftLines = append(leftLines, " "+filterStyle.Render("/"+m.filterText+"█"))
+	} else if m.filterText != "" {
+		filterStyle := lipgloss.NewStyle().Foreground(comment)
+		leftLines = append(leftLines, " "+filterStyle.Render("/"+m.filterText))
+	} else {
+		leftLines = append(leftLines, "")
+	}
 
 	visibleCount := m.visibleCommandCount()
 	hasMoreAbove := m.scrollOffset > 0
@@ -677,6 +773,9 @@ func (m model) View() string {
 		configLines = append(configLines, fmt.Sprintf(" service: %s", svc.Name))
 		if svc.Location != "" {
 			configLines = append(configLines, fmt.Sprintf("   location: %s", svc.Location))
+		}
+		if svc.Docker {
+			configLines = append(configLines, fmt.Sprintf("   docker: %v", svc.Docker))
 		}
 		for j := range svc.Modules {
 			mod := &svc.Modules[j]

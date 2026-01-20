@@ -11,13 +11,29 @@ func init() {
 }
 
 func NewDockerDownStrategy(cfg *config.Config) Strategy {
-	return NewBaseStrategy("docker down", []task.Task{
-		task.NewDockerDown(),
-	})
+	var tasks []task.Task
+	tasks = append(tasks, task.NewDockerDown(nil))
+	if cfg != nil {
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
+			if svc.Docker {
+				tasks = append(tasks, task.NewDockerDown(svc))
+			}
+		}
+	}
+	return NewBaseStrategy("docker down", tasks)
 }
 
 func NewDockerRebuildStrategy(cfg *config.Config) Strategy {
-	return NewBaseStrategy("docker rebuild", []task.Task{
-		task.NewDockerRebuild(),
-	})
+	var tasks []task.Task
+	tasks = append(tasks, task.NewDockerRebuild(nil))
+	if cfg != nil {
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
+			if svc.Docker {
+				tasks = append(tasks, task.NewDockerRebuild(svc))
+			}
+		}
+	}
+	return NewBaseStrategy("docker rebuild", tasks)
 }

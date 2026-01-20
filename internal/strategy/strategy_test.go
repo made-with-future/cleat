@@ -20,6 +20,11 @@ func (m *mockExecutor) Run(name string, args ...string) error {
 	return m.err
 }
 
+func (m *mockExecutor) RunWithDir(dir string, name string, args ...string) error {
+	m.commands = append(m.commands, name)
+	return m.err
+}
+
 // mockTask for testing strategy execution
 type mockTask struct {
 	task.BaseTask

@@ -28,6 +28,7 @@ type ModuleConfig struct {
 type ServiceConfig struct {
 	Name     string         `yaml:"name"`
 	Location string         `yaml:"location"`
+	Docker   bool           `yaml:"docker"`
 	Modules  []ModuleConfig `yaml:"modules"`
 
 	// Legacy fields for migration
@@ -132,6 +133,13 @@ func LoadConfig(path string) (*Config, error) {
 				svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
 			} else if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
 				svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
+			}
+		}
+
+		// Auto-detect Docker for service
+		if !svc.Docker {
+			if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yaml")); err == nil {
+				svc.Docker = true
 			}
 		}
 

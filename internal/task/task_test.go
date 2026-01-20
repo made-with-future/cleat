@@ -1,7 +1,6 @@
 package task
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/madewithfuture/cleat/internal/config"
@@ -11,6 +10,7 @@ import (
 // mockExecutor records commands for verification
 type mockExecutor struct {
 	commands []struct {
+		dir  string
 		name string
 		args []string
 	}
@@ -18,10 +18,15 @@ type mockExecutor struct {
 }
 
 func (m *mockExecutor) Run(name string, args ...string) error {
+	return m.RunWithDir("", name, args...)
+}
+
+func (m *mockExecutor) RunWithDir(dir string, name string, args ...string) error {
 	m.commands = append(m.commands, struct {
+		dir  string
 		name string
 		args []string
-	}{name: name, args: args})
+	}{dir: dir, name: name, args: args})
 	return m.err
 }
 
@@ -44,7 +49,7 @@ func TestBaseTask(t *testing.T) {
 }
 
 func TestDockerBuild(t *testing.T) {
-	task := NewDockerBuild()
+	task := NewDockerBuild(nil)
 
 	if task.Name() != "docker:build" {
 		t.Errorf("expected name 'docker:build', got %q", task.Name())
@@ -61,6 +66,15 @@ func TestDockerBuild(t *testing.T) {
 		cfg := &config.Config{Docker: false}
 		if task.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return false when Docker is disabled")
+		}
+	})
+
+	t.Run("ShouldRun with Service Docker", func(t *testing.T) {
+		svc := &config.ServiceConfig{Name: "svc", Docker: true}
+		svcTask := NewDockerBuild(svc)
+		cfg := &config.Config{Docker: false}
+		if !svcTask.ShouldRun(cfg) {
+			t.Error("expected ShouldRun true for service task when service docker is enabled")
 		}
 	})
 
@@ -87,30 +101,36 @@ func TestDockerBuild(t *testing.T) {
 		}
 	})
 
-	t.Run("Run returns executor error", func(t *testing.T) {
-		mock := &mockExecutor{err: errors.New("docker failed")}
-		cfg := &config.Config{Docker: true}
+	t.Run("Run with project directory", func(t *testing.T) {
+		mock := &mockExecutor{}
+		svc := &config.ServiceConfig{Name: "svc", Location: "./svc"}
+		svcTask := NewDockerBuild(svc)
+		cfg := &config.Config{}
 
-		err := task.Run(cfg, mock)
-		if err == nil {
-			t.Error("expected error, got nil")
+		err := svcTask.Run(cfg, mock)
+		if err != nil {
+			t.Fatal(err)
 		}
-	})
 
-	t.Run("Commands returns correct command", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		cmds := task.Commands(cfg)
-		if len(cmds) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(cmds))
+		if mock.commands[0].dir != "./svc" {
+			t.Errorf("expected dir './svc', got %q", mock.commands[0].dir)
 		}
-		if cmds[0][0] != "docker" || cmds[0][1] != "compose" || cmds[0][2] != "build" {
-			t.Errorf("unexpected command: %v", cmds[0])
+
+		expected := []string{"compose", "build"}
+		args := mock.commands[0].args
+		if len(args) != len(expected) {
+			t.Fatalf("expected %d args, got %d", len(expected), len(args))
+		}
+		for i, v := range expected {
+			if args[i] != v {
+				t.Errorf("arg %d: expected %q, got %q", i, v, args[i])
+			}
 		}
 	})
 }
 
 func TestDockerUp(t *testing.T) {
-	task := NewDockerUp()
+	task := NewDockerUp(nil)
 
 	if task.Name() != "docker:up" {
 		t.Errorf("expected name 'docker:up', got %q", task.Name())
@@ -142,7 +162,7 @@ func TestDockerUp(t *testing.T) {
 }
 
 func TestDockerDown(t *testing.T) {
-	task := NewDockerDown()
+	task := NewDockerDown(nil)
 
 	if task.Name() != "docker:down" {
 		t.Errorf("expected name 'docker:down', got %q", task.Name())
@@ -184,7 +204,7 @@ func TestDockerDown(t *testing.T) {
 }
 
 func TestDockerRebuild(t *testing.T) {
-	task := NewDockerRebuild()
+	task := NewDockerRebuild(nil)
 
 	if task.Name() != "docker:rebuild" {
 		t.Errorf("expected name 'docker:rebuild', got %q", task.Name())
@@ -588,10 +608,10 @@ func TestTaskInterface(t *testing.T) {
 	python := &config.PythonConfig{Django: true}
 	npm := &config.NpmConfig{Scripts: []string{"build"}}
 
-	var _ Task = NewDockerBuild()
-	var _ Task = NewDockerUp()
-	var _ Task = NewDockerDown()
-	var _ Task = NewDockerRebuild()
+	var _ Task = NewDockerBuild(nil)
+	var _ Task = NewDockerUp(nil)
+	var _ Task = NewDockerDown(nil)
+	var _ Task = NewDockerRebuild(nil)
 	var _ Task = NewNpmBuild(svc, npm)
 	var _ Task = NewNpmRun(svc, npm, "test")
 	var _ Task = NewNpmStart(svc, npm)

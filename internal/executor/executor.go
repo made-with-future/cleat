@@ -10,14 +10,24 @@ import (
 // Executor abstracts command execution for testability
 type Executor interface {
 	Run(name string, args ...string) error
+	RunWithDir(dir string, name string, args ...string) error
 }
 
 // ShellExecutor runs real shell commands
 type ShellExecutor struct{}
 
 func (e *ShellExecutor) Run(name string, args ...string) error {
-	fmt.Printf("Executing: %s %s\n", name, strings.Join(args, " "))
+	return e.RunWithDir("", name, args...)
+}
+
+func (e *ShellExecutor) RunWithDir(dir string, name string, args ...string) error {
+	if dir != "" {
+		fmt.Printf("Executing (in %s): %s %s\n", dir, name, strings.Join(args, " "))
+	} else {
+		fmt.Printf("Executing: %s %s\n", name, strings.Join(args, " "))
+	}
 	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
