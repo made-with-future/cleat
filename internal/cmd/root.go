@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/ui"
 	"github.com/spf13/cobra"
@@ -52,15 +53,22 @@ func run(args []string) {
 				cmdArgs = []string{"docker", "down"}
 			} else if selected == "docker rebuild" {
 				cmdArgs = []string{"docker", "rebuild"}
-			} else if selected == "django create-user-dev" {
-				cmdArgs = []string{"django", "create-user-dev"}
-			} else if selected == "django collectstatic" {
-				cmdArgs = []string{"django", "collectstatic"}
-			} else if selected == "django migrate" {
-				cmdArgs = []string{"django", "migrate"}
+			} else if strings.HasPrefix(selected, "django ") {
+				parts := strings.Split(selected, ":")
+				cmdPart := parts[0]
+				cmdArgs = strings.Fields(cmdPart)
+				if len(parts) == 2 {
+					cmdArgs = append(cmdArgs, parts[1])
+				}
 			} else if strings.HasPrefix(selected, "npm run ") {
-				script := strings.TrimPrefix(selected, "npm run ")
-				cmdArgs = []string{"npm", script}
+				scriptPart := strings.TrimPrefix(selected, "npm run ")
+				parts := strings.Split(scriptPart, ":")
+				if len(parts) == 2 {
+					// npm run svc:script -> cleat npm script svc
+					cmdArgs = []string{"npm", parts[1], parts[0]}
+				} else {
+					cmdArgs = []string{"npm", scriptPart}
+				}
 			}
 
 			if len(cmdArgs) > 0 {
@@ -81,7 +89,8 @@ func run(args []string) {
 		}
 
 		if tuiMode {
-			s := strategy.GetStrategyForCommand(selected)
+			cfg, _ := config.LoadConfig("cleat.yaml")
+			s := strategy.GetStrategyForCommand(selected, cfg)
 			if s != nil && s.ReturnToUI() {
 				continue
 			}

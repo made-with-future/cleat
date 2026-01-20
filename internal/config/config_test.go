@@ -37,11 +37,81 @@ python:
 	if !cfg.Docker {
 		t.Error("Expected Docker to be true")
 	}
-	if !cfg.Python.Django {
-		t.Error("Expected Django to be true")
+
+	// Root level fields should be migrated and cleared
+	if cfg.Python != nil {
+		t.Error("Expected root Python to be migrated and cleared")
 	}
-	if cfg.Python.DjangoService != "custom-backend" {
-		t.Errorf("Expected DjangoService to be 'custom-backend', got '%s'", cfg.Python.DjangoService)
+
+	// Check if it was migrated to Services
+	if len(cfg.Services) != 1 {
+		t.Fatalf("Expected 1 migrated service, got %d", len(cfg.Services))
+	}
+	svc := cfg.Services[0]
+	if svc.Name != "default" {
+		t.Errorf("Expected migrated service name 'default', got '%s'", svc.Name)
+	}
+	if len(svc.Modules) == 0 || svc.Modules[0].Python == nil || !svc.Modules[0].Python.Django {
+		t.Error("Expected Django enabled in migrated module")
+	}
+	if svc.Modules[0].Python.DjangoService != "custom-backend" {
+		t.Errorf("Expected DjangoService to be 'custom-backend', got '%s'", svc.Modules[0].Python.DjangoService)
+	}
+}
+
+func TestLoadConfigV2(t *testing.T) {
+	content := `
+version: 2
+docker: true
+services:
+  - name: backend
+    location: ./backend
+    python:
+      django: true
+      django_service: web
+  - name: frontend
+    location: ./frontend
+    npm:
+      scripts:
+        - build
+`
+	tmpfile, err := os.CreateTemp("", "cleat_v2.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	tmpfile.Close()
+
+	cfg, err := LoadConfig(tmpfile.Name())
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Version != 2 {
+		t.Errorf("Expected version 2, got %d", cfg.Version)
+	}
+	if len(cfg.Services) != 2 {
+		t.Fatalf("Expected 2 services, got %d", len(cfg.Services))
+	}
+
+	svc1 := cfg.Services[0]
+	if svc1.Name != "backend" || svc1.Location != "./backend" {
+		t.Errorf("Unexpected svc1: %+v", svc1)
+	}
+	if len(svc1.Modules) == 0 || svc1.Modules[0].Python == nil || !svc1.Modules[0].Python.Django {
+		t.Error("Expected Django enabled for svc1 in modules")
+	}
+
+	svc2 := cfg.Services[1]
+	if svc2.Name != "frontend" || svc2.Location != "./frontend" {
+		t.Errorf("Unexpected svc2: %+v", svc2)
+	}
+	if len(svc2.Modules) == 0 || svc2.Modules[0].Npm == nil || len(svc2.Modules[0].Npm.Scripts) != 1 {
+		t.Error("Expected NPM scripts for svc2 in modules")
 	}
 }
 
@@ -119,8 +189,8 @@ python:
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	if cfg.Python.DjangoService != "backend" {
-		t.Errorf("Expected default DjangoService to be 'backend', got '%s'", cfg.Python.DjangoService)
+	if len(cfg.Services) == 0 || len(cfg.Services[0].Modules) == 0 || cfg.Services[0].Modules[0].Python == nil || cfg.Services[0].Modules[0].Python.DjangoService != "backend" {
+		t.Errorf("Expected default DjangoService to be 'backend', got '%v'", cfg.Services[0].Modules[0].Python)
 	}
 }
 
@@ -185,7 +255,14 @@ func TestLoadConfigAutoNpm(t *testing.T) {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	if len(cfg.Npm.Scripts) != 1 || cfg.Npm.Scripts[0] != "build" {
-		t.Errorf("Expected Npm scripts to be ['build'], got %v", cfg.Npm.Scripts)
+	foundNpm := false
+	for _, mod := range cfg.Services[0].Modules {
+		if mod.Npm != nil && len(mod.Npm.Scripts) == 1 && mod.Npm.Scripts[0] == "build" {
+			foundNpm = true
+			break
+		}
+	}
+	if !foundNpm {
+		t.Errorf("Expected Npm scripts to be ['build'], got %v", cfg.Services[0].Modules)
 	}
 }

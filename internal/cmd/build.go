@@ -23,7 +23,7 @@ var buildCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		s := strategy.NewBuildStrategy()
+		s := strategy.NewBuildStrategy(cfg)
 		return s.Execute(cfg, executor.Default)
 	},
 }

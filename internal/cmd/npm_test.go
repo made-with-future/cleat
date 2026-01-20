@@ -5,8 +5,8 @@ import (
 )
 
 func TestNpmCmd(t *testing.T) {
-	if npmCmd.Use != "npm [script]" {
-		t.Errorf("expected npmCmd.Use to be 'npm [script]', got %s", npmCmd.Use)
+	if npmCmd.Use != "npm [script] [service]" {
+		t.Errorf("expected npmCmd.Use to be 'npm [script] [service]', got %s", npmCmd.Use)
 	}
 
 	if npmCmd.Short == "" {

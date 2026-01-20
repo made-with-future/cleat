@@ -3,33 +3,44 @@ package task
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
 )
 
 // DjangoCollectStatic runs Django's collectstatic command
-type DjangoCollectStatic struct{ BaseTask }
+type DjangoCollectStatic struct {
+	BaseTask
+	Service *config.ServiceConfig
+	Python  *config.PythonConfig
+}
 
-func NewDjangoCollectStatic() *DjangoCollectStatic {
+func NewDjangoCollectStatic(svc *config.ServiceConfig, python *config.PythonConfig) *DjangoCollectStatic {
+	name := "django:collectstatic"
+	if svc != nil && svc.Name != "default" {
+		name = fmt.Sprintf("django:collectstatic:%s", svc.Name)
+	}
 	return &DjangoCollectStatic{
 		BaseTask: BaseTask{
-			TaskName:        "django:collectstatic",
+			TaskName:        name,
 			TaskDescription: "Collect Django static files",
 			TaskDeps:        []string{"docker:build", "npm:build"}, // Static files often come from npm build
 		},
+		Service: svc,
+		Python:  python,
 	}
 }
 
 func (t *DjangoCollectStatic) ShouldRun(cfg *config.Config) bool {
-	return cfg.Python.Django
+	return t.Service != nil && t.Python != nil && t.Python.Django
 }
 
 func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) error {
-	fmt.Println("==> Collecting Django static files")
+	fmt.Printf("==> Collecting Django static files for service '%s'\n", t.Service.Name)
 
 	if cfg.Docker {
-		fmt.Printf("--> Running collectstatic via Docker (%s service)\n", cfg.Python.DjangoService)
+		fmt.Printf("--> Running collectstatic via Docker (%s service)\n", t.Python.DjangoService)
 	} else {
 		fmt.Println("--> Running collectstatic locally")
 	}
@@ -40,68 +51,88 @@ func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) er
 
 func (t *DjangoCollectStatic) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		return [][]string{{"docker", "compose", "run", "--rm", cfg.Python.DjangoService,
+		return [][]string{{"docker", "compose", "run", "--rm", t.Python.DjangoService,
 			"uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}}
 	}
 
-	managePy := findManagePy()
+	managePy := findManagePy(t.Service.Location)
 	return [][]string{{"uv", "run", "python", managePy, "collectstatic", "--noinput", "--clear"}}
 }
 
 // DjangoRunServer runs Django's development server
-type DjangoRunServer struct{ BaseTask }
+type DjangoRunServer struct {
+	BaseTask
+	Service *config.ServiceConfig
+	Python  *config.PythonConfig
+}
 
-func NewDjangoRunServer() *DjangoRunServer {
+func NewDjangoRunServer(svc *config.ServiceConfig, python *config.PythonConfig) *DjangoRunServer {
+	name := "django:runserver"
+	if svc != nil && svc.Name != "default" {
+		name = fmt.Sprintf("django:runserver:%s", svc.Name)
+	}
 	return &DjangoRunServer{
 		BaseTask: BaseTask{
-			TaskName:        "django:runserver",
+			TaskName:        name,
 			TaskDescription: "Start Django development server",
 			TaskDeps:        nil,
 		},
+		Service: svc,
+		Python:  python,
 	}
 }
 
 func (t *DjangoRunServer) ShouldRun(cfg *config.Config) bool {
-	return cfg.Python.Django && !cfg.Docker
+	return t.Service != nil && t.Python != nil && t.Python.Django && !cfg.Docker
 }
 
 func (t *DjangoRunServer) Run(cfg *config.Config, exec executor.Executor) error {
-	fmt.Println("==> Running Django project locally")
+	fmt.Printf("==> Running Django project '%s' locally\n", t.Service.Name)
 	cmds := t.Commands(cfg)
 	return exec.Run(cmds[0][0], cmds[0][1:]...)
 }
 
 func (t *DjangoRunServer) Commands(cfg *config.Config) [][]string {
-	managePy := findManagePy()
+	managePy := findManagePy(t.Service.Location)
 	return [][]string{{"uv", "run", "python", managePy, "runserver"}}
 }
 
-func findManagePy() string {
-	if _, err := os.Stat("backend/manage.py"); err == nil {
-		return "backend/manage.py"
+func findManagePy(location string) string {
+	if _, err := os.Stat(filepath.Join(location, "backend/manage.py")); err == nil {
+		return filepath.Join(location, "backend/manage.py")
 	}
-	return "manage.py"
+	return filepath.Join(location, "manage.py")
 }
 
 // DjangoCreateUserDev creates a Django superuser for development
-type DjangoCreateUserDev struct{ BaseTask }
+type DjangoCreateUserDev struct {
+	BaseTask
+	Service *config.ServiceConfig
+	Python  *config.PythonConfig
+}
 
-func NewDjangoCreateUserDev() *DjangoCreateUserDev {
+func NewDjangoCreateUserDev(svc *config.ServiceConfig, python *config.PythonConfig) *DjangoCreateUserDev {
+	name := "django:create-user-dev"
+	if svc != nil && svc.Name != "default" {
+		name = fmt.Sprintf("django:create-user-dev:%s", svc.Name)
+	}
 	return &DjangoCreateUserDev{
 		BaseTask: BaseTask{
-			TaskName:        "django:create-user-dev",
+			TaskName:        name,
 			TaskDescription: "Create a Django superuser (dev/dev)",
 			TaskDeps:        nil,
 		},
+		Service: svc,
+		Python:  python,
 	}
 }
 
 func (t *DjangoCreateUserDev) ShouldRun(cfg *config.Config) bool {
-	return cfg.Python.Django && cfg.Docker
+	return t.Service != nil && t.Python != nil && t.Python.Django && cfg.Docker
 }
 
 func (t *DjangoCreateUserDev) Run(cfg *config.Config, exec executor.Executor) error {
-	fmt.Println("==> Creating Django dev superuser")
+	fmt.Printf("==> Creating Django dev superuser for service '%s'\n", t.Service.Name)
 	cmds := t.Commands(cfg)
 	return exec.Run(cmds[0][0], cmds[0][1:]...)
 }
@@ -112,7 +143,7 @@ func (t *DjangoCreateUserDev) Commands(cfg *config.Config) [][]string {
 		"-e", "DJANGO_SUPERUSER_USERNAME=dev",
 		"-e", "DJANGO_SUPERUSER_PASSWORD=dev",
 		"--rm",
-		cfg.Python.DjangoService,
+		t.Python.DjangoService,
 		"uv", "run", "python", "manage.py", "createsuperuser",
 		"--email", "dev@madewithfuture.com",
 		"--noinput",
@@ -120,27 +151,37 @@ func (t *DjangoCreateUserDev) Commands(cfg *config.Config) [][]string {
 }
 
 // DjangoMigrate runs Django migrations
-type DjangoMigrate struct{ BaseTask }
+type DjangoMigrate struct {
+	BaseTask
+	Service *config.ServiceConfig
+	Python  *config.PythonConfig
+}
 
-func NewDjangoMigrate() *DjangoMigrate {
+func NewDjangoMigrate(svc *config.ServiceConfig, python *config.PythonConfig) *DjangoMigrate {
+	name := "django:migrate"
+	if svc != nil && svc.Name != "default" {
+		name = fmt.Sprintf("django:migrate:%s", svc.Name)
+	}
 	return &DjangoMigrate{
 		BaseTask: BaseTask{
-			TaskName:        "django:migrate",
+			TaskName:        name,
 			TaskDescription: "Run Django migrations",
 			TaskDeps:        []string{"docker:build"},
 		},
+		Service: svc,
+		Python:  python,
 	}
 }
 
 func (t *DjangoMigrate) ShouldRun(cfg *config.Config) bool {
-	return cfg.Python.Django
+	return t.Service != nil && t.Python != nil && t.Python.Django
 }
 
 func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
-	fmt.Println("==> Running Django migrations")
+	fmt.Printf("==> Running Django migrations for service '%s'\n", t.Service.Name)
 
 	if cfg.Docker {
-		fmt.Printf("--> Running migrate via Docker (%s service)\n", cfg.Python.DjangoService)
+		fmt.Printf("--> Running migrate via Docker (%s service)\n", t.Python.DjangoService)
 	} else {
 		fmt.Println("--> Running migrate locally")
 	}
@@ -151,10 +192,10 @@ func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		return [][]string{{"docker", "compose", "run", "--rm", cfg.Python.DjangoService,
+		return [][]string{{"docker", "compose", "run", "--rm", t.Python.DjangoService,
 			"uv", "run", "python", "manage.py", "migrate", "--noinput"}}
 	}
 
-	managePy := findManagePy()
+	managePy := findManagePy(t.Service.Location)
 	return [][]string{{"uv", "run", "python", managePy, "migrate", "--noinput"}}
 }

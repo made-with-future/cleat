@@ -18,15 +18,20 @@ const configPath = "cleat.yaml"
 const defaultConfigTemplate = `# Cleat configuration
 # See https://github.com/madewithfuture/cleat for documentation
 
-version: 1
+version: 2
 docker: true
-python:
-  django: false
-  django_service: backend
-npm:
-  service: backend-node
-  scripts:
-    - build
+services:
+  - name: backend
+    location: .
+    python:
+      django: true
+      django_service: backend
+  - name: frontend
+    location: ./frontend
+    npm:
+      service: backend-node
+      scripts:
+        - build
 `
 
 type focus int
@@ -361,39 +366,51 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 		})
 	}
 
-	if cfg.Python.Django {
-		var djangoChildren []CommandItem
-		if cfg.Docker {
-			djangoChildren = append(djangoChildren, CommandItem{Label: "create-user-dev", Command: "django create-user-dev"})
-		}
-		djangoChildren = append(djangoChildren, CommandItem{Label: "collectstatic", Command: "django collectstatic"})
-		djangoChildren = append(djangoChildren, CommandItem{Label: "migrate", Command: "django migrate"})
-
-		djangoItem := CommandItem{
-			Label:    "django",
-			Children: djangoChildren,
+	for i := range cfg.Services {
+		svc := &cfg.Services[i]
+		svcItem := CommandItem{
+			Label:    svc.Name,
 			Expanded: true,
 		}
 
-		tree = append(tree, CommandItem{
-			Label:    "python",
-			Children: []CommandItem{djangoItem},
-			Expanded: true,
-		})
-	}
+		for j := range svc.Modules {
+			mod := &svc.Modules[j]
 
-	if len(cfg.Npm.Scripts) > 0 {
-		npmItem := CommandItem{
-			Label:    "npm",
-			Expanded: true,
+			// Python/Django
+			if mod.Python != nil && mod.Python.Django {
+				var djangoChildren []CommandItem
+				if cfg.Docker {
+					djangoChildren = append(djangoChildren, CommandItem{Label: "create-user-dev", Command: fmt.Sprintf("django create-user-dev:%s", svc.Name)})
+				}
+				djangoChildren = append(djangoChildren, CommandItem{Label: "collectstatic", Command: fmt.Sprintf("django collectstatic:%s", svc.Name)})
+				djangoChildren = append(djangoChildren, CommandItem{Label: "migrate", Command: fmt.Sprintf("django migrate:%s", svc.Name)})
+
+				svcItem.Children = append(svcItem.Children, CommandItem{
+					Label:    "django",
+					Children: djangoChildren,
+					Expanded: true,
+				})
+			}
+
+			// NPM
+			if mod.Npm != nil && len(mod.Npm.Scripts) > 0 {
+				npmItem := CommandItem{
+					Label:    "npm",
+					Expanded: true,
+				}
+				for _, script := range mod.Npm.Scripts {
+					npmItem.Children = append(npmItem.Children, CommandItem{
+						Label:   fmt.Sprintf("run %s", script),
+						Command: fmt.Sprintf("npm run %s:%s", svc.Name, script),
+					})
+				}
+				svcItem.Children = append(svcItem.Children, npmItem)
+			}
 		}
-		for _, script := range cfg.Npm.Scripts {
-			npmItem.Children = append(npmItem.Children, CommandItem{
-				Label:   fmt.Sprintf("run %s", script),
-				Command: fmt.Sprintf("npm run %s", script),
-			})
+
+		if len(svcItem.Children) > 0 {
+			tree = append(tree, svcItem)
 		}
-		tree = append(tree, npmItem)
 	}
 
 	return tree
@@ -655,21 +672,25 @@ func (m model) View() string {
 	configLines = append(configLines, fmt.Sprintf(" version: %d", m.cfg.Version))
 	configLines = append(configLines, fmt.Sprintf(" docker: %v", m.cfg.Docker))
 
-	// python block
-	if m.cfg.Python.Django {
-		configLines = append(configLines, " python:")
-		configLines = append(configLines, fmt.Sprintf("   django: %v", m.cfg.Python.Django))
-		if m.cfg.Python.DjangoService != "" {
-			configLines = append(configLines, fmt.Sprintf("   service: %s", m.cfg.Python.DjangoService))
+	for i := range m.cfg.Services {
+		svc := &m.cfg.Services[i]
+		configLines = append(configLines, fmt.Sprintf(" service: %s", svc.Name))
+		if svc.Location != "" {
+			configLines = append(configLines, fmt.Sprintf("   location: %s", svc.Location))
 		}
-	}
-
-	// npm block
-	if len(m.cfg.Npm.Scripts) > 0 {
-		configLines = append(configLines, " npm:")
-		configLines = append(configLines, fmt.Sprintf("   enabled: %v", len(m.cfg.Npm.Scripts) > 0))
-		if m.cfg.Npm.Service != "" {
-			configLines = append(configLines, fmt.Sprintf("   service: %s", m.cfg.Npm.Service))
+		for j := range svc.Modules {
+			mod := &svc.Modules[j]
+			if mod.Python != nil && mod.Python.Django {
+				configLines = append(configLines, "   python.django:")
+				configLines = append(configLines, fmt.Sprintf("     django: %v", mod.Python.Django))
+				if mod.Python.DjangoService != "" {
+					configLines = append(configLines, fmt.Sprintf("     service: %s", mod.Python.DjangoService))
+				}
+			}
+			if mod.Npm != nil && len(mod.Npm.Scripts) > 0 {
+				configLines = append(configLines, "   npm:")
+				configLines = append(configLines, fmt.Sprintf("     service: %s", mod.Npm.Service))
+			}
 		}
 	}
 	configLines = append(configLines, "")

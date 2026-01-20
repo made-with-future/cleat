@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const LatestVersion = 1
+const LatestVersion = 2
 
 type NpmConfig struct {
 	Service string   `yaml:"service"`
@@ -20,11 +20,29 @@ type PythonConfig struct {
 	DjangoService string `yaml:"django_service"`
 }
 
+type ModuleConfig struct {
+	Python *PythonConfig `yaml:"python.django,omitempty"`
+	Npm    *NpmConfig    `yaml:"npm,omitempty"`
+}
+
+type ServiceConfig struct {
+	Name     string         `yaml:"name"`
+	Location string         `yaml:"location"`
+	Modules  []ModuleConfig `yaml:"modules"`
+
+	// Legacy fields for migration
+	Python *PythonConfig `yaml:"python,omitempty"`
+	Npm    *NpmConfig    `yaml:"npm,omitempty"`
+}
+
 type Config struct {
-	Version int          `yaml:"version"`
-	Docker  bool         `yaml:"docker"`
-	Python  PythonConfig `yaml:"python"`
-	Npm     NpmConfig    `yaml:"npm"`
+	Version  int             `yaml:"version"`
+	Docker   bool            `yaml:"docker"`
+	Services []ServiceConfig `yaml:"services"`
+
+	// Legacy fields for V1
+	Python *PythonConfig `yaml:"python,omitempty"`
+	Npm    *NpmConfig    `yaml:"npm,omitempty"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -49,25 +67,109 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("unrecognized configuration version: %d", cfg.Version)
 	}
 
-	if cfg.Python.DjangoService == "" {
-		cfg.Python.DjangoService = "backend"
+	// Migrate root-level Python/Npm to Services structure
+	if cfg.Python != nil || cfg.Npm != nil {
+		svc := ServiceConfig{
+			Name: "default",
+		}
+		if cfg.Python != nil {
+			svc.Python = cfg.Python
+			cfg.Python = nil
+		}
+		if cfg.Npm != nil {
+			svc.Npm = cfg.Npm
+			cfg.Npm = nil
+		}
+		cfg.Services = append(cfg.Services, svc)
 	}
 
+	// Migrate Service-level Python/Npm to Modules
+	for i := range cfg.Services {
+		svc := &cfg.Services[i]
+		if svc.Python != nil {
+			svc.Modules = append(svc.Modules, ModuleConfig{Python: svc.Python})
+			svc.Python = nil
+		}
+		if svc.Npm != nil {
+			svc.Modules = append(svc.Modules, ModuleConfig{Npm: svc.Npm})
+			svc.Npm = nil
+		}
+	}
+
+	// Apply defaults and auto-detection for each service and its modules
+	for i := range cfg.Services {
+		svc := &cfg.Services[i]
+
+		// Auto-detect modules
+		hasPython := false
+		hasNpm := false
+		for _, m := range svc.Modules {
+			if m.Python != nil {
+				hasPython = true
+			}
+			if m.Npm != nil {
+				hasNpm = true
+			}
+		}
+
+		searchDir := baseDir
+		if svc.Location != "" {
+			searchDir = filepath.Join(baseDir, svc.Location)
+		}
+
+		if !hasPython {
+			// Check for Django
+			if _, err := os.Stat(filepath.Join(searchDir, "manage.py")); err == nil {
+				svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
+			} else if _, err := os.Stat(filepath.Join(searchDir, "backend/manage.py")); err == nil {
+				svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
+			}
+		}
+
+		if !hasNpm {
+			// Check for NPM
+			if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
+				svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
+			} else if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
+				svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
+			}
+		}
+
+		for j := range svc.Modules {
+			mod := &svc.Modules[j]
+
+			if mod.Python != nil {
+				if mod.Python.DjangoService == "" {
+					mod.Python.DjangoService = "backend"
+				}
+			}
+
+			if mod.Npm != nil {
+				if len(mod.Npm.Scripts) == 0 {
+					searchDir := baseDir
+					if svc.Location != "" {
+						searchDir = filepath.Join(baseDir, svc.Location)
+					}
+					if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
+						mod.Npm.Scripts = []string{"build"}
+					} else if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
+						mod.Npm.Scripts = []string{"build"}
+					}
+				}
+
+				if mod.Npm.Service == "" {
+					if cfg.Docker {
+						mod.Npm.Service = "backend-node"
+					}
+				}
+			}
+		}
+	}
+
+	// Global auto-detection
 	if !cfg.Docker {
 		if _, err := os.Stat(filepath.Join(baseDir, "docker-compose.yaml")); err == nil {
 			cfg.Docker = true
-		}
-	}
-
-	if len(cfg.Npm.Scripts) == 0 {
-		if _, err := os.Stat(filepath.Join(baseDir, "frontend/package.json")); err == nil {
-			cfg.Npm.Scripts = []string{"build"}
-		}
-	}
-
-	if cfg.Npm.Service == "" {
-		if cfg.Docker {
-			cfg.Npm.Service = "backend-node"
 		}
 	}
 

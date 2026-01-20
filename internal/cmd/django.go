@@ -16,7 +16,7 @@ var djangoCmd = &cobra.Command{
 }
 
 var djangoCreateUserDevCmd = &cobra.Command{
-	Use:   "create-user-dev",
+	Use:   "create-user-dev [service]",
 	Short: "Create a Django superuser (dev/dev)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig("cleat.yaml")
@@ -27,13 +27,28 @@ var djangoCreateUserDevCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		s := strategy.NewDjangoCreateUserDevStrategy()
+		var s strategy.Strategy
+		if len(args) > 0 {
+			var targetSvc *config.ServiceConfig
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == args[0] {
+					targetSvc = &cfg.Services[i]
+					break
+				}
+			}
+			if targetSvc == nil {
+				return fmt.Errorf("service '%s' not found", args[0])
+			}
+			s = strategy.NewDjangoCreateUserDevStrategy(targetSvc)
+		} else {
+			s = strategy.NewDjangoCreateUserDevStrategyGlobal(cfg)
+		}
 		return s.Execute(cfg, executor.Default)
 	},
 }
 
 var djangoCollectStaticCmd = &cobra.Command{
-	Use:   "collectstatic",
+	Use:   "collectstatic [service]",
 	Short: "Collect Django static files",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig("cleat.yaml")
@@ -44,13 +59,28 @@ var djangoCollectStaticCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		s := strategy.NewDjangoCollectStaticStrategy()
+		var s strategy.Strategy
+		if len(args) > 0 {
+			var targetSvc *config.ServiceConfig
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == args[0] {
+					targetSvc = &cfg.Services[i]
+					break
+				}
+			}
+			if targetSvc == nil {
+				return fmt.Errorf("service '%s' not found", args[0])
+			}
+			s = strategy.NewDjangoCollectStaticStrategy(targetSvc)
+		} else {
+			s = strategy.NewDjangoCollectStaticStrategyGlobal(cfg)
+		}
 		return s.Execute(cfg, executor.Default)
 	},
 }
 
 var djangoMigrateCmd = &cobra.Command{
-	Use:   "migrate",
+	Use:   "migrate [service]",
 	Short: "Run Django migrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig("cleat.yaml")
@@ -61,7 +91,22 @@ var djangoMigrateCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		s := strategy.NewDjangoMigrateStrategy()
+		var s strategy.Strategy
+		if len(args) > 0 {
+			var targetSvc *config.ServiceConfig
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == args[0] {
+					targetSvc = &cfg.Services[i]
+					break
+				}
+			}
+			if targetSvc == nil {
+				return fmt.Errorf("service '%s' not found", args[0])
+			}
+			s = strategy.NewDjangoMigrateStrategy(targetSvc)
+		} else {
+			s = strategy.NewDjangoMigrateStrategyGlobal(cfg)
+		}
 		return s.Execute(cfg, executor.Default)
 	},
 }

@@ -194,26 +194,26 @@ func topologicalSort(tasks []task.Task, allTasks map[string]task.Task, cfg *conf
 	return result, nil
 }
 
-// Registry holds all available strategies (for future config-driven selection)
-var Registry = make(map[string]func() Strategy)
+// Registry holds all available strategies
+var Registry = make(map[string]func(*config.Config) Strategy)
 
 // Register adds a strategy constructor to the registry
-func Register(name string, constructor func() Strategy) {
+func Register(name string, constructor func(*config.Config) Strategy) {
 	Registry[name] = constructor
 }
 
 // Get returns a strategy by name
-func Get(name string) (Strategy, bool) {
+func Get(name string, cfg *config.Config) (Strategy, bool) {
 	constructor, ok := Registry[name]
 	if !ok {
 		return nil, false
 	}
-	return constructor(), true
+	return constructor(cfg), true
 }
 
 // ResolveCommandTasks returns the execution plan for a command string
 func ResolveCommandTasks(command string, cfg *config.Config) ([]task.Task, error) {
-	s := GetStrategyForCommand(command)
+	s := GetStrategyForCommand(command, cfg)
 	if s == nil {
 		return nil, fmt.Errorf("unknown command: %s", command)
 	}
@@ -221,13 +221,84 @@ func ResolveCommandTasks(command string, cfg *config.Config) ([]task.Task, error
 }
 
 // GetStrategyForCommand returns a strategy by its command string
-func GetStrategyForCommand(command string) Strategy {
+func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 	if strings.HasPrefix(command, "npm run ") {
-		script := strings.TrimPrefix(command, "npm run ")
-		return NewNpmScriptStrategy(script)
+		// Command might be "npm run script" or "npm run service:script"
+		parts := strings.Split(strings.TrimPrefix(command, "npm run "), ":")
+		if len(parts) == 2 {
+			svcName := parts[0]
+			script := parts[1]
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == svcName {
+					svc := &cfg.Services[i]
+					// Find the NPM module in this service
+					for j := range svc.Modules {
+						mod := &svc.Modules[j]
+						if mod.Npm != nil {
+							// If there are multiple NPM modules, this might be ambiguous,
+							// but for now we'll take the first one or the one that has the script
+							for _, s := range mod.Npm.Scripts {
+								if s == script {
+									return NewNpmScriptStrategy(svc, mod.Npm, script)
+								}
+							}
+						}
+					}
+					// If no module has the script, try the first NPM module
+					for j := range svc.Modules {
+						if svc.Modules[j].Npm != nil {
+							return NewNpmScriptStrategy(svc, svc.Modules[j].Npm, script)
+						}
+					}
+				}
+			}
+		} else {
+			script := parts[0]
+			// Try to find a service and module that has this script
+			for i := range cfg.Services {
+				svc := &cfg.Services[i]
+				for j := range svc.Modules {
+					mod := &svc.Modules[j]
+					if mod.Npm != nil {
+						for _, s := range mod.Npm.Scripts {
+							if s == script {
+								return NewNpmScriptStrategy(svc, mod.Npm, script)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
-	s, ok := Get(command)
+	// Handle service-specific django commands from TUI: "django migrate:backend"
+	if strings.HasPrefix(command, "django ") {
+		parts := strings.Split(command, ":")
+		if len(parts) == 2 {
+			baseCmd := parts[0]
+			svcName := parts[1]
+			var targetSvc *config.ServiceConfig
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == svcName {
+					targetSvc = &cfg.Services[i]
+					break
+				}
+			}
+
+			if targetSvc != nil {
+				switch baseCmd {
+				case "django migrate":
+					return NewDjangoMigrateStrategy(targetSvc)
+				case "django collectstatic":
+					return NewDjangoCollectStaticStrategy(targetSvc)
+				case "django create-user-dev":
+					return NewDjangoCreateUserDevStrategy(targetSvc)
+				}
+			}
+		}
+	}
+
+	s, ok := Get(command, cfg)
 	if !ok {
 		return nil
 	}
