@@ -602,6 +602,45 @@ func TestDjangoMigrate(t *testing.T) {
 	})
 }
 
+func TestGCPActivate(t *testing.T) {
+	cfg := &config.Config{
+		GoogleCloudPlatform: &config.GCPConfig{
+			ProjectName: "test-project",
+		},
+	}
+	task := NewGCPActivate()
+
+	if !task.ShouldRun(cfg) {
+		t.Error("Expected ShouldRun to return true")
+	}
+
+	mock := &mockExecutor{}
+	if err := task.Run(cfg, mock); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	if len(mock.commands) != 2 {
+		t.Errorf("Expected 2 calls, got %d", len(mock.commands))
+	}
+	expected1 := "gcloud config configurations activate test-project"
+	actual1 := mock.commands[0].name
+	for _, arg := range mock.commands[0].args {
+		actual1 += " " + arg
+	}
+	if actual1 != expected1 {
+		t.Errorf("Expected call 1 '%s', got '%s'", expected1, actual1)
+	}
+
+	expected2 := "gcloud auth application-default set-quota-project test-project"
+	actual2 := mock.commands[1].name
+	for _, arg := range mock.commands[1].args {
+		actual2 += " " + arg
+	}
+	if actual2 != expected2 {
+		t.Errorf("Expected call 2 '%s', got '%s'", expected2, actual2)
+	}
+}
+
 // Verify all tasks implement the Task interface
 func TestTaskInterface(t *testing.T) {
 	svc := &config.ServiceConfig{Name: "default", Dir: "."}
@@ -619,6 +658,7 @@ func TestTaskInterface(t *testing.T) {
 	var _ Task = NewDjangoRunServer(svc, python)
 	var _ Task = NewDjangoCreateUserDev(svc, python)
 	var _ Task = NewDjangoMigrate(svc, python)
+	var _ Task = NewGCPActivate()
 }
 
 // Helper to verify interface at compile time

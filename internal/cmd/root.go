@@ -53,6 +53,8 @@ func run(args []string) {
 				cmdArgs = []string{"docker", "down"}
 			} else if selected == "docker rebuild" {
 				cmdArgs = []string{"docker", "rebuild"}
+			} else if selected == "gcp activate" {
+				cmdArgs = []string{"gcp", "activate"}
 			} else if strings.HasPrefix(selected, "django ") {
 				parts := strings.Split(selected, ":")
 				cmdPart := parts[0]

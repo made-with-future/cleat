@@ -57,21 +57,22 @@ type visibleItem struct {
 type editorFinishedMsg struct{ err error }
 
 type model struct {
-	cfg             *config.Config
-	cfgFound        bool
-	quitting        bool
-	width           int
-	height          int
-	tree            []CommandItem
-	visibleItems    []visibleItem
-	cursor          int
-	scrollOffset    int
-	focus           focus
-	selectedCommand string
-	taskPreview     []string
-	showHelp        bool
-	filtering       bool
-	filterText      string
+	cfg                *config.Config
+	cfgFound           bool
+	quitting           bool
+	width              int
+	height             int
+	tree               []CommandItem
+	visibleItems       []visibleItem
+	cursor             int
+	scrollOffset       int
+	configScrollOffset int
+	focus              focus
+	selectedCommand    string
+	taskPreview        []string
+	showHelp           bool
+	filtering          bool
+	filterText         string
 }
 
 func InitialModel(cfg *config.Config, cfgFound bool) model {
@@ -273,6 +274,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tree = buildCommandTree(cfg)
 			m.updateVisibleItems()
 			m.updateTaskPreview()
+			m.configScrollOffset = 0
 		}
 		return m, nil
 
@@ -335,6 +337,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.scrollOffset = m.cursor
 				}
 				m.updateTaskPreview()
+			} else if m.focus == focusConfig && m.configScrollOffset > 0 {
+				m.configScrollOffset--
 			}
 		case tea.KeyDown:
 			if m.focus == focusCommands && m.cursor < len(m.visibleItems)-1 {
@@ -344,6 +348,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.scrollOffset = m.cursor - visibleCount + 1
 				}
 				m.updateTaskPreview()
+			} else if m.focus == focusConfig {
+				lines := m.buildConfigLines()
+				visibleCount := m.visibleConfigCount()
+				if m.configScrollOffset < len(lines)-visibleCount {
+					m.configScrollOffset++
+				}
 			}
 		case tea.KeyEnter:
 			if m.focus == focusCommands && len(m.visibleItems) > 0 {
@@ -394,6 +404,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.scrollOffset = m.cursor
 					}
 					m.updateTaskPreview()
+				} else if m.focus == focusConfig && m.configScrollOffset > 0 {
+					m.configScrollOffset--
 				}
 			case "j":
 				if m.focus == focusCommands && m.cursor < len(m.visibleItems)-1 {
@@ -403,6 +415,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.scrollOffset = m.cursor - visibleCount + 1
 					}
 					m.updateTaskPreview()
+				} else if m.focus == focusConfig {
+					lines := m.buildConfigLines()
+					visibleCount := m.visibleConfigCount()
+					if m.configScrollOffset < len(lines)-visibleCount {
+						m.configScrollOffset++
+					}
 				}
 			}
 		}
@@ -447,6 +465,16 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 			Children: []CommandItem{
 				{Label: "down", Command: "docker down"},
 				{Label: "rebuild", Command: "docker rebuild"},
+			},
+			Expanded: true,
+		})
+	}
+
+	if cfg.GoogleCloudPlatform != nil {
+		tree = append(tree, CommandItem{
+			Label: "gcp",
+			Children: []CommandItem{
+				{Label: "activate", Command: "gcp activate"},
 			},
 			Expanded: true,
 		})
@@ -512,6 +540,23 @@ func (m model) visibleCommandCount() int {
 	paneHeight := m.height - helpLines - titleLines
 	// Subtract: 2 for borders, 1 for title, 1 for blank line after title (or filter bar), 1 for potential scroll indicator
 	availableLines := paneHeight - 2 - 1 - 1 - 1
+	if availableLines < 1 {
+		availableLines = 1
+	}
+	return availableLines
+}
+
+func (m model) visibleConfigCount() int {
+	if m.height == 0 {
+		return 0
+	}
+	titleLines := 1
+	helpLines := 2
+	paneHeight := m.height - helpLines - titleLines
+	configPaneHeight := paneHeight - (paneHeight / 2)
+
+	// Subtract: 2 for borders, 1 for title, 1 for blank line, 1 for action hint, 1 for potential scroll indicator
+	availableLines := configPaneHeight - 2 - 1 - 1 - 1 - 1
 	if availableLines < 1 {
 		availableLines = 1
 	}
@@ -622,6 +667,51 @@ func (m model) renderHelpOverlay() string {
 	}
 
 	return result.String()
+}
+
+func (m model) buildConfigLines() []string {
+	var configLines []string
+
+	if !m.cfgFound {
+		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Italic(true).Render("No cleat.yaml found"))
+		configLines = append(configLines, "")
+	}
+	configLines = append(configLines, fmt.Sprintf(" version: %d", m.cfg.Version))
+	configLines = append(configLines, fmt.Sprintf(" docker: %v", m.cfg.Docker))
+
+	if m.cfg.GoogleCloudPlatform != nil {
+		configLines = append(configLines, " google_cloud_platform:")
+		if m.cfg.GoogleCloudPlatform.ProjectName != "" {
+			configLines = append(configLines, fmt.Sprintf("   project_name: %s", m.cfg.GoogleCloudPlatform.ProjectName))
+		}
+	}
+
+	for i := range m.cfg.Services {
+		svc := &m.cfg.Services[i]
+		configLines = append(configLines, fmt.Sprintf(" service: %s", svc.Name))
+		if svc.Dir != "" {
+			configLines = append(configLines, fmt.Sprintf("   dir: %s", svc.Dir))
+		}
+		if svc.Docker {
+			configLines = append(configLines, fmt.Sprintf("   docker: %v", svc.Docker))
+		}
+		for j := range svc.Modules {
+			mod := &svc.Modules[j]
+			if mod.Python != nil && mod.Python.Django {
+				configLines = append(configLines, "   python:")
+				configLines = append(configLines, fmt.Sprintf("     django: %v", mod.Python.Django))
+				if mod.Python.DjangoService != "" {
+					configLines = append(configLines, fmt.Sprintf("     django_service: %s", mod.Python.DjangoService))
+				}
+			}
+			if mod.Npm != nil && len(mod.Npm.Scripts) > 0 {
+				configLines = append(configLines, "   npm:")
+				configLines = append(configLines, fmt.Sprintf("     service: %s", mod.Npm.Service))
+			}
+		}
+	}
+
+	return configLines
 }
 
 func (m model) View() string {
@@ -761,37 +851,31 @@ func (m model) View() string {
 	var configLines []string
 	configLines = append(configLines, " "+lipgloss.NewStyle().Bold(true).Foreground(rightColor).Render("Configuration"))
 	configLines = append(configLines, "")
-	if !m.cfgFound {
-		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Italic(true).Render("No cleat.yaml found"))
-		configLines = append(configLines, "")
-	}
-	configLines = append(configLines, fmt.Sprintf(" version: %d", m.cfg.Version))
-	configLines = append(configLines, fmt.Sprintf(" docker: %v", m.cfg.Docker))
 
-	for i := range m.cfg.Services {
-		svc := &m.cfg.Services[i]
-		configLines = append(configLines, fmt.Sprintf(" service: %s", svc.Name))
-		if svc.Dir != "" {
-			configLines = append(configLines, fmt.Sprintf("   dir: %s", svc.Dir))
-		}
-		if svc.Docker {
-			configLines = append(configLines, fmt.Sprintf("   docker: %v", svc.Docker))
-		}
-		for j := range svc.Modules {
-			mod := &svc.Modules[j]
-			if mod.Python != nil && mod.Python.Django {
-				configLines = append(configLines, "   python:")
-				configLines = append(configLines, fmt.Sprintf("     django: %v", mod.Python.Django))
-				if mod.Python.DjangoService != "" {
-					configLines = append(configLines, fmt.Sprintf("     django_service: %s", mod.Python.DjangoService))
-				}
-			}
-			if mod.Npm != nil && len(mod.Npm.Scripts) > 0 {
-				configLines = append(configLines, "   npm:")
-				configLines = append(configLines, fmt.Sprintf("     service: %s", mod.Npm.Service))
-			}
-		}
+	allConfigLines := m.buildConfigLines()
+	visibleConfigCount := m.visibleConfigCount()
+	hasMoreConfigAbove := m.configScrollOffset > 0
+	hasMoreConfigBelow := m.configScrollOffset+visibleConfigCount < len(allConfigLines)
+
+	// Show scroll up indicator
+	if hasMoreConfigAbove {
+		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
 	}
+
+	// Render visible config lines
+	endConfigIdx := m.configScrollOffset + visibleConfigCount
+	if endConfigIdx > len(allConfigLines) {
+		endConfigIdx = len(allConfigLines)
+	}
+	for i := m.configScrollOffset; i < endConfigIdx; i++ {
+		configLines = append(configLines, " "+allConfigLines[i])
+	}
+
+	// Show scroll down indicator
+	if hasMoreConfigBelow {
+		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
+	}
+
 	configLines = append(configLines, "")
 	// Action hint
 	if m.focus == focusConfig {
