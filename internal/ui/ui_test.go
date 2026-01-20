@@ -597,3 +597,54 @@ func TestConfigScrolling(t *testing.T) {
 		t.Errorf("expected configScrollOffset to be capped, but it changed from %d to %d", lastOffset, m.configScrollOffset)
 	}
 }
+
+func TestInputCollectionModal(t *testing.T) {
+	cfg := &config.Config{
+		GoogleCloudPlatform: &config.GCPConfig{
+			ProjectName: "test-project",
+		},
+	}
+	m := InitialModel(cfg, true)
+
+	// Navigate to gcp set-config
+	found := false
+	for i, item := range m.visibleItems {
+		if item.item.Command == "gcp set-config" {
+			m.cursor = i
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatal("gcp set-config not found in visible items")
+	}
+
+	// Press Enter to select command
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateInputCollection {
+		t.Fatalf("expected state stateInputCollection, got %v", m.state)
+	}
+
+	if len(m.requirements) == 0 {
+		t.Fatal("expected requirements for gcp set-config when account is missing")
+	}
+
+	// Simulate typing input "test@example.com"
+	for _, r := range "test@example.com" {
+		updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updatedModel.(model)
+	}
+
+	// Press Enter to submit input
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+
+	if !m.quitting {
+		t.Error("expected quitting after filling all requirements")
+	}
+	if m.collectedInputs["gcp:account"] != "test@example.com" {
+		t.Errorf("expected gcp:account to be 'test@example.com', got %q", m.collectedInputs["gcp:account"])
+	}
+}

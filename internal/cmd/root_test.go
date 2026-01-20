@@ -30,8 +30,8 @@ func TestRun(t *testing.T) {
 	}
 
 	t.Run("No args, TUI returns build", func(t *testing.T) {
-		UIStart = func() (string, error) {
-			return "build", nil
+		UIStart = func() (string, map[string]string, error) {
+			return "build", nil, nil
 		}
 		// We need to prevent actual task execution if possible, or just check if buildCmd was triggered
 		// Since we don't have a clean way to mock the command implementation without more refactoring,
@@ -45,8 +45,8 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns error", func(t *testing.T) {
 		exitCode = 0
-		UIStart = func() (string, error) {
-			return "", errors.New("TUI error")
+		UIStart = func() (string, map[string]string, error) {
+			return "", nil, errors.New("TUI error")
 		}
 		run([]string{"cleat"})
 		if exitCode != 1 {
@@ -56,8 +56,8 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns empty (quit)", func(t *testing.T) {
 		exitCode = 0
-		UIStart = func() (string, error) {
-			return "", nil
+		UIStart = func() (string, map[string]string, error) {
+			return "", nil, nil
 		}
 		run([]string{"cleat"})
 		if exitCode != 0 {
@@ -66,10 +66,22 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("No args, TUI returns npm run", func(t *testing.T) {
-		UIStart = func() (string, error) {
-			return "npm run test", nil
+		UIStart = func() (string, map[string]string, error) {
+			return "npm run test", nil, nil
 		}
 		// Should set args to [npm-run test]
+		run([]string{"cleat"})
+	})
+
+	t.Run("No args, TUI returns gcp init", func(t *testing.T) {
+		calls := 0
+		UIStart = func() (string, map[string]string, error) {
+			calls++
+			if calls == 1 {
+				return "gcp init", nil, nil
+			}
+			return "", nil, nil
+		}
 		run([]string{"cleat"})
 	})
 
@@ -91,12 +103,12 @@ func TestRunLoop(t *testing.T) {
 
 	t.Run("Loop for returnToUI command", func(t *testing.T) {
 		calls := 0
-		UIStart = func() (string, error) {
+		UIStart = func() (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
-				return "run", nil
+				return "run", nil, nil
 			}
-			return "", nil // Quit on second call
+			return "", nil, nil // Quit on second call
 		}
 
 		// Mocking execute is hard, but we can verify calls to UIStart
@@ -108,14 +120,31 @@ func TestRunLoop(t *testing.T) {
 		}
 	})
 
-	t.Run("No loop for non-returnToUI command", func(t *testing.T) {
+	t.Run("Loop for gcp init command", func(t *testing.T) {
 		calls := 0
-		UIStart = func() (string, error) {
+		UIStart = func() (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
-				return "build", nil
+				return "gcp init", nil, nil
 			}
-			return "", nil
+			return "", nil, nil // Quit on second call
+		}
+
+		run([]string{"cleat"})
+
+		if calls != 2 {
+			t.Errorf("expected UIStart to be called 2 times for gcp init, got %d", calls)
+		}
+	})
+
+	t.Run("No loop for non-returnToUI command", func(t *testing.T) {
+		calls := 0
+		UIStart = func() (string, map[string]string, error) {
+			calls++
+			if calls == 1 {
+				return "build", nil, nil
+			}
+			return "", nil, nil
 		}
 
 		run([]string{"cleat"})

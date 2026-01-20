@@ -24,6 +24,16 @@ type Task interface {
 
 	// Commands returns the actual CLI commands that will be executed
 	Commands(cfg *config.Config) [][]string
+
+	// Requirements returns the input requirements for this task
+	Requirements(cfg *config.Config) []InputRequirement
+}
+
+// InputRequirement represents a piece of information needed from the user
+type InputRequirement struct {
+	Key     string
+	Prompt  string
+	Default string
 }
 
 // BaseTask provides common defaults for tasks
@@ -36,3 +46,6 @@ type BaseTask struct {
 func (t *BaseTask) Name() string           { return t.TaskName }
 func (t *BaseTask) Description() string    { return t.TaskDescription }
 func (t *BaseTask) Dependencies() []string { return t.TaskDeps }
+func (t *BaseTask) Requirements(cfg *config.Config) []InputRequirement {
+	return nil
+}

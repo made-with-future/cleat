@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 type Executor interface {
 	Run(name string, args ...string) error
 	RunWithDir(dir string, name string, args ...string) error
+	Prompt(message string, defaultValue string) (string, error)
 }
 
 // ShellExecutor runs real shell commands
@@ -32,6 +34,24 @@ func (e *ShellExecutor) RunWithDir(dir string, name string, args ...string) erro
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
+}
+
+func (e *ShellExecutor) Prompt(message string, defaultValue string) (string, error) {
+	if defaultValue != "" {
+		fmt.Printf("%s [%s]: ", message, defaultValue)
+	} else {
+		fmt.Printf("%s: ", message)
+	}
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return defaultValue, nil
+	}
+	return input, nil
 }
 
 // Default is the production executor

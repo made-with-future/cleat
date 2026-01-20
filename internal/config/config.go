@@ -22,6 +22,7 @@ type PythonConfig struct {
 
 type GCPConfig struct {
 	ProjectName string `yaml:"project_name"`
+	Account     string `yaml:"account,omitempty"`
 }
 
 type ModuleConfig struct {
@@ -46,9 +47,21 @@ type Config struct {
 	GoogleCloudPlatform *GCPConfig      `yaml:"google_cloud_platform,omitempty"`
 	Services            []ServiceConfig `yaml:"services"`
 
+	// Inputs stores transient values collected during execution
+	Inputs map[string]string `yaml:"-"`
+
 	// Legacy fields for V1
 	Python *PythonConfig `yaml:"python,omitempty"`
 	Npm    *NpmConfig    `yaml:"npm,omitempty"`
+}
+
+var transientInputs = make(map[string]string)
+
+// SetTransientInputs sets inputs that will be merged into all future loaded configs
+func SetTransientInputs(inputs map[string]string) {
+	for k, v := range inputs {
+		transientInputs[k] = v
+	}
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -71,6 +84,11 @@ func LoadConfig(path string) (*Config, error) {
 
 	if cfg.Version > LatestVersion || cfg.Version < 1 {
 		return nil, fmt.Errorf("unrecognized configuration version: %d", cfg.Version)
+	}
+
+	cfg.Inputs = make(map[string]string)
+	for k, v := range transientInputs {
+		cfg.Inputs[k] = v
 	}
 
 	// Migrate root-level Python/Npm to Services structure

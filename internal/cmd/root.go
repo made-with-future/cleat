@@ -32,8 +32,9 @@ func run(args []string) {
 	for {
 		var selected string
 		if tuiMode {
+			var inputs map[string]string
 			var err error
-			selected, err = UIStart()
+			selected, inputs, err = UIStart()
 			if err != nil {
 				fmt.Printf("Error starting TUI: %v\n", err)
 				Exit(1)
@@ -42,6 +43,10 @@ func run(args []string) {
 
 			if selected == "" {
 				return
+			}
+
+			if len(inputs) > 0 {
+				config.SetTransientInputs(inputs)
 			}
 
 			var cmdArgs []string
@@ -53,8 +58,8 @@ func run(args []string) {
 				cmdArgs = []string{"docker", "down"}
 			} else if selected == "docker rebuild" {
 				cmdArgs = []string{"docker", "rebuild"}
-			} else if selected == "gcp activate" {
-				cmdArgs = []string{"gcp", "activate"}
+			} else if strings.HasPrefix(selected, "gcp ") {
+				cmdArgs = strings.Fields(selected)
 			} else if strings.HasPrefix(selected, "django ") {
 				parts := strings.Split(selected, ":")
 				cmdPart := parts[0]
