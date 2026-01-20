@@ -16,7 +16,7 @@ func TestNpmCmd(t *testing.T) {
 	// Verify it's registered as a subcommand
 	found := false
 	for _, cmd := range rootCmd.Commands() {
-		if cmd.Use == "npm [script]" {
+		if cmd.Use == "npm [script] [service]" {
 			found = true
 			break
 		}

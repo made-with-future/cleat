@@ -222,6 +222,14 @@ func ResolveCommandTasks(command string, cfg *config.Config) ([]task.Task, error
 
 // GetStrategyForCommand returns a strategy by its command string
 func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
+	if cfg == nil {
+		s, ok := Get(command, nil)
+		if !ok {
+			return nil
+		}
+		return s
+	}
+
 	if strings.HasPrefix(command, "npm run ") {
 		// Command might be "npm run script" or "npm run service:script"
 		parts := strings.Split(strings.TrimPrefix(command, "npm run "), ":")
