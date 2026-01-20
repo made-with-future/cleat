@@ -26,10 +26,10 @@ type ModuleConfig struct {
 }
 
 type ServiceConfig struct {
-	Name     string         `yaml:"name"`
-	Location string         `yaml:"location"`
-	Docker   bool           `yaml:"docker"`
-	Modules  []ModuleConfig `yaml:"modules"`
+	Name    string         `yaml:"name"`
+	Dir     string         `yaml:"dir"`
+	Docker  bool           `yaml:"docker"`
+	Modules []ModuleConfig `yaml:"modules"`
 
 	// Legacy fields for migration
 	Python *PythonConfig `yaml:"python,omitempty"`
@@ -114,8 +114,8 @@ func LoadConfig(path string) (*Config, error) {
 		}
 
 		searchDir := baseDir
-		if svc.Location != "" {
-			searchDir = filepath.Join(baseDir, svc.Location)
+		if svc.Dir != "" {
+			searchDir = filepath.Join(baseDir, svc.Dir)
 		}
 
 		if !hasPython {
@@ -155,8 +155,8 @@ func LoadConfig(path string) (*Config, error) {
 			if mod.Npm != nil {
 				if len(mod.Npm.Scripts) == 0 {
 					searchDir := baseDir
-					if svc.Location != "" {
-						searchDir = filepath.Join(baseDir, svc.Location)
+					if svc.Dir != "" {
+						searchDir = filepath.Join(baseDir, svc.Dir)
 					}
 					if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
 						mod.Npm.Scripts = []string{"build"}

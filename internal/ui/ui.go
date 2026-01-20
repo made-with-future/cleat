@@ -22,12 +22,12 @@ version: 2
 docker: true
 services:
   - name: backend
-    location: .
+    dir: .
     python:
       django: true
       django_service: backend
   - name: frontend
-    location: ./frontend
+    dir: ./frontend
     npm:
       service: backend-node
       scripts:
@@ -771,8 +771,8 @@ func (m model) View() string {
 	for i := range m.cfg.Services {
 		svc := &m.cfg.Services[i]
 		configLines = append(configLines, fmt.Sprintf(" service: %s", svc.Name))
-		if svc.Location != "" {
-			configLines = append(configLines, fmt.Sprintf("   location: %s", svc.Location))
+		if svc.Dir != "" {
+			configLines = append(configLines, fmt.Sprintf("   dir: %s", svc.Dir))
 		}
 		if svc.Docker {
 			configLines = append(configLines, fmt.Sprintf("   docker: %v", svc.Docker))

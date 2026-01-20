@@ -103,7 +103,7 @@ func TestDockerBuild(t *testing.T) {
 
 	t.Run("Run with project directory", func(t *testing.T) {
 		mock := &mockExecutor{}
-		svc := &config.ServiceConfig{Name: "svc", Location: "./svc"}
+		svc := &config.ServiceConfig{Name: "svc", Dir: "./svc"}
 		svcTask := NewDockerBuild(svc)
 		cfg := &config.Config{}
 
@@ -269,7 +269,7 @@ func TestDockerRebuild(t *testing.T) {
 }
 
 func TestNpmBuild(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Location: "."}
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
 	npm := &config.NpmConfig{Scripts: []string{"build"}}
 	task := NewNpmBuild(svc, npm)
 
@@ -356,7 +356,7 @@ func TestNpmBuild(t *testing.T) {
 }
 
 func TestNpmRun(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Location: "."}
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
 	npm := &config.NpmConfig{Service: "node"}
 	task := NewNpmRun(svc, npm, "lint")
 
@@ -392,7 +392,7 @@ func TestNpmRun(t *testing.T) {
 }
 
 func TestNpmStart(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Location: "."}
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
 	npm := &config.NpmConfig{Scripts: []string{"build"}}
 	task := NewNpmStart(svc, npm)
 
@@ -416,7 +416,7 @@ func TestNpmStart(t *testing.T) {
 }
 
 func TestDjangoCollectStatic(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Location: "."}
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
 	python := &config.PythonConfig{Django: true}
 	task := NewDjangoCollectStatic(svc, python)
 
@@ -513,7 +513,7 @@ func TestDjangoCollectStatic(t *testing.T) {
 }
 
 func TestDjangoRunServer(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Location: "."}
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
 	python := &config.PythonConfig{Django: true}
 	task := NewDjangoRunServer(svc, python)
 
@@ -533,7 +533,7 @@ func TestDjangoRunServer(t *testing.T) {
 }
 
 func TestDjangoCreateUserDev(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Location: "."}
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
 	python := &config.PythonConfig{Django: true, DjangoService: "backend"}
 	task := NewDjangoCreateUserDev(svc, python)
 
@@ -557,7 +557,7 @@ func TestDjangoCreateUserDev(t *testing.T) {
 }
 
 func TestDjangoMigrate(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Location: "."}
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
 	python := &config.PythonConfig{Django: true, DjangoService: "backend"}
 	task := NewDjangoMigrate(svc, python)
 
@@ -604,7 +604,7 @@ func TestDjangoMigrate(t *testing.T) {
 
 // Verify all tasks implement the Task interface
 func TestTaskInterface(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Location: "."}
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
 	python := &config.PythonConfig{Django: true}
 	npm := &config.NpmConfig{Scripts: []string{"build"}}
 

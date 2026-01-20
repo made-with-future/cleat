@@ -42,7 +42,7 @@ func (t *DockerBuild) Run(cfg *config.Config, exec executor.Executor) error {
 	cmds := t.Commands(cfg)
 	dir := ""
 	if t.Service != nil {
-		dir = t.Service.Location
+		dir = t.Service.Dir
 	}
 	return exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
 }
@@ -86,8 +86,8 @@ func (t *DockerUp) Run(cfg *config.Config, exec executor.Executor) error {
 
 	// 1Password integration
 	searchDir := "."
-	if t.Service != nil && t.Service.Location != "" {
-		searchDir = t.Service.Location
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
 	}
 	if _, err := os.Stat(filepath.Join(searchDir, ".env/dev.env")); err == nil {
 		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
@@ -96,7 +96,7 @@ func (t *DockerUp) Run(cfg *config.Config, exec executor.Executor) error {
 	cmds := t.Commands(cfg)
 	dir := ""
 	if t.Service != nil {
-		dir = t.Service.Location
+		dir = t.Service.Dir
 	}
 	return exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
 }
@@ -109,8 +109,8 @@ func (t *DockerUp) Commands(cfg *config.Config) [][]string {
 	// 1Password integration
 	searchDir := "."
 	envFile := "./.env/dev.env"
-	if t.Service != nil && t.Service.Location != "" {
-		searchDir = t.Service.Location
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
 		envFile = ".env/dev.env"
 	}
 	if _, err := os.Stat(filepath.Join(searchDir, ".env/dev.env")); err == nil {
@@ -154,8 +154,8 @@ func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
 
 	// 1Password integration
 	searchDir := "."
-	if t.Service != nil && t.Service.Location != "" {
-		searchDir = t.Service.Location
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
 	}
 	if _, err := os.Stat(filepath.Join(searchDir, ".env/dev.env")); err == nil {
 		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
@@ -164,7 +164,7 @@ func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
 	cmds := t.Commands(cfg)
 	dir := ""
 	if t.Service != nil {
-		dir = t.Service.Location
+		dir = t.Service.Dir
 	}
 	return exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
 }
@@ -177,8 +177,8 @@ func (t *DockerDown) Commands(cfg *config.Config) [][]string {
 	// 1Password integration
 	searchDir := "."
 	envFile := "./.env/dev.env"
-	if t.Service != nil && t.Service.Location != "" {
-		searchDir = t.Service.Location
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
 		envFile = ".env/dev.env"
 	}
 	if _, err := os.Stat(filepath.Join(searchDir, ".env/dev.env")); err == nil {
@@ -222,8 +222,8 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 
 	// 1Password integration check for logging
 	searchDir := "."
-	if t.Service != nil && t.Service.Location != "" {
-		searchDir = t.Service.Location
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
 	}
 	if _, err := os.Stat(filepath.Join(searchDir, ".env/dev.env")); err == nil {
 		fmt.Println("--> Detected .env/dev.env, using 1Password CLI (op)")
@@ -232,7 +232,7 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 	cmds := t.Commands(cfg)
 	dir := ""
 	if t.Service != nil {
-		dir = t.Service.Location
+		dir = t.Service.Dir
 	}
 
 	// 1. Down with --rmi all --volumes
@@ -260,8 +260,8 @@ func (t *DockerRebuild) Commands(cfg *config.Config) [][]string {
 	// 1Password integration
 	searchDir := "."
 	envFile := "./.env/dev.env"
-	if t.Service != nil && t.Service.Location != "" {
-		searchDir = t.Service.Location
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
 		envFile = ".env/dev.env"
 	}
 
