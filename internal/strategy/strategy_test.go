@@ -11,8 +11,9 @@ import (
 
 // mockExecutor for testing
 type mockExecutor struct {
-	commands []string
-	err      error
+	commands        []string
+	promptResponses map[string]string
+	err             error
 }
 
 func (m *mockExecutor) Run(name string, args ...string) error {
@@ -23,6 +24,82 @@ func (m *mockExecutor) Run(name string, args ...string) error {
 func (m *mockExecutor) RunWithDir(dir string, name string, args ...string) error {
 	m.commands = append(m.commands, name)
 	return m.err
+}
+
+func (m *mockExecutor) Prompt(message string, defaultValue string) (string, error) {
+	if m.promptResponses != nil {
+		if resp, ok := m.promptResponses[message]; ok {
+			return resp, nil
+		}
+	}
+	return defaultValue, nil
+}
+
+type mockExecutorWithPrompts struct {
+	mockExecutor
+	promptResponses map[string]string
+	promptsCalled   []string
+}
+
+func (m *mockExecutorWithPrompts) Prompt(message string, defaultValue string) (string, error) {
+	m.promptsCalled = append(m.promptsCalled, message)
+	if m.promptResponses != nil {
+		if resp, ok := m.promptResponses[message]; ok {
+			return resp, nil
+		}
+	}
+	return defaultValue, nil
+}
+
+type requirementTask struct {
+	mockTask
+	reqs []task.InputRequirement
+}
+
+func (t *requirementTask) Requirements(cfg *config.Config) []task.InputRequirement {
+	return t.reqs
+}
+
+func (t *requirementTask) Run(cfg *config.Config, exec executor.Executor) error {
+	t.runCalled = true
+	return nil
+}
+
+func TestExecuteWithRequirements(t *testing.T) {
+	req := task.InputRequirement{
+		Key:    "test:key",
+		Prompt: "Test Prompt",
+	}
+	task1 := &requirementTask{
+		mockTask: mockTask{BaseTask: task.BaseTask{TaskName: "task1"}, shouldRun: true},
+		reqs:     []task.InputRequirement{req},
+	}
+
+	s := NewBaseStrategy("test", []task.Task{task1})
+	mock := &mockExecutorWithPrompts{
+		promptResponses: map[string]string{"Test Prompt": "test-value"},
+	}
+	cfg := &config.Config{
+		Inputs: make(map[string]string),
+	}
+
+	err := s.Execute(cfg, mock)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if len(mock.promptsCalled) != 1 {
+		t.Errorf("expected 1 prompt, got %d", len(mock.promptsCalled))
+	}
+	if mock.promptsCalled[0] != "Test Prompt" {
+		t.Errorf("expected prompt 'Test Prompt', got %q", mock.promptsCalled[0])
+	}
+	if cfg.Inputs["test:key"] != "test-value" {
+		t.Errorf("expected input 'test-value', got %q", cfg.Inputs["test:key"])
+	}
+	if !task1.runCalled {
+		t.Error("expected task1 to be run")
+	}
 }
 
 // mockTask for testing strategy execution
@@ -232,6 +309,15 @@ func TestGetStrategyForCommand(t *testing.T) {
 	}
 	if s.ReturnToUI() {
 		t.Error("expected build strategy to have ReturnToUI = false")
+	}
+
+	// gcp init strategy should have ReturnToUI = true
+	s = GetStrategyForCommand("gcp init", cfg)
+	if s == nil {
+		t.Fatal("expected to get gcp init strategy")
+	}
+	if !s.ReturnToUI() {
+		t.Error("expected gcp init strategy to have ReturnToUI = true")
 	}
 
 	// npm run should work

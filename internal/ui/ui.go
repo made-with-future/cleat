@@ -6,11 +6,13 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/strategy"
+	"github.com/madewithfuture/cleat/internal/task"
 )
 
 const configPath = "cleat.yaml"
@@ -41,6 +43,13 @@ const (
 	focusConfig
 )
 
+type uiState int
+
+const (
+	stateBrowsing uiState = iota
+	stateInputCollection
+)
+
 type CommandItem struct {
 	Label    string
 	Command  string
@@ -69,18 +78,29 @@ type model struct {
 	configScrollOffset int
 	focus              focus
 	selectedCommand    string
+	collectedInputs    map[string]string
 	taskPreview        []string
 	showHelp           bool
 	filtering          bool
 	filterText         string
+	state              uiState
+	requirements       []task.InputRequirement
+	requirementIdx     int
+	textInput          textinput.Model
 }
 
 func InitialModel(cfg *config.Config, cfgFound bool) model {
+	ti := textinput.New()
+	ti.Focus()
+
 	m := model{
-		cfg:      cfg,
-		cfgFound: cfgFound,
-		tree:     buildCommandTree(cfg),
-		focus:    focusCommands,
+		cfg:             cfg,
+		cfgFound:        cfgFound,
+		tree:            buildCommandTree(cfg),
+		focus:           focusCommands,
+		state:           stateBrowsing,
+		collectedInputs: make(map[string]string),
+		textInput:       ti,
 	}
 	m.updateVisibleItems()
 	m.updateTaskPreview()
@@ -257,6 +277,34 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.state == stateInputCollection {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.Type {
+			case tea.KeyEnter:
+				m.collectedInputs[m.requirements[m.requirementIdx].Key] = m.textInput.Value()
+				m.requirementIdx++
+				if m.requirementIdx >= len(m.requirements) {
+					m.quitting = true
+					return m, tea.Quit
+				}
+				m.textInput.Prompt = m.requirements[m.requirementIdx].Prompt + ": "
+				m.textInput.SetValue(m.requirements[m.requirementIdx].Default)
+				m.textInput.CursorEnd()
+				return m, nil
+			case tea.KeyEsc:
+				m.state = stateBrowsing
+				return m, nil
+			case tea.KeyCtrlC:
+				m.quitting = true
+				return m, tea.Quit
+			}
+		}
+		var cmd tea.Cmd
+		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case editorFinishedMsg:
 		// Reload config after editor closes
@@ -367,6 +415,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.updateTaskPreview()
 				} else {
 					m.selectedCommand = item.item.Command
+					s := strategy.GetStrategyForCommand(m.selectedCommand, m.cfg)
+					if s != nil {
+						plan, _ := s.ResolveTasks(m.cfg)
+						var reqs []task.InputRequirement
+						seen := make(map[string]bool)
+						for _, t := range plan {
+							for _, r := range t.Requirements(m.cfg) {
+								if !seen[r.Key] {
+									reqs = append(reqs, r)
+									seen[r.Key] = true
+								}
+							}
+						}
+						if len(reqs) > 0 {
+							m.state = stateInputCollection
+							m.requirements = reqs
+							m.requirementIdx = 0
+							m.textInput.Prompt = reqs[0].Prompt + ": "
+							m.textInput.SetValue(reqs[0].Default)
+							m.textInput.CursorEnd()
+							return m, nil
+						}
+					}
 					m.quitting = true
 					return m, tea.Quit
 				}
@@ -475,6 +546,9 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 			Label: "gcp",
 			Children: []CommandItem{
 				{Label: "activate", Command: "gcp activate"},
+				{Label: "adc-login", Command: "gcp adc-login"},
+				{Label: "init", Command: "gcp init"},
+				{Label: "set-config", Command: "gcp set-config"},
 			},
 			Expanded: true,
 		})
@@ -729,6 +803,62 @@ func (m model) buildConfigLines() []string {
 	return configLines
 }
 
+func (m model) renderInputModal() string {
+	purple := lipgloss.Color("#bd93f9")
+	fg := lipgloss.Color("#f8f8f2")
+
+	title := lipgloss.NewStyle().Bold(true).Foreground(purple).Render("Input Required")
+
+	stepInfo := fmt.Sprintf("Step %d of %d", m.requirementIdx+1, len(m.requirements))
+
+	content := []string{
+		"",
+		title,
+		"",
+		stepInfo,
+		"",
+		m.textInput.View(),
+		"",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#6272a4")).Render("  Enter: continue • Esc: cancel"),
+		"",
+	}
+
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(purple).
+		Foreground(fg).
+		Padding(0, 2)
+
+	box := boxStyle.Render(strings.Join(content, "\n"))
+
+	// Center the box on screen
+	boxWidth := lipgloss.Width(box)
+	boxHeight := lipgloss.Height(box)
+
+	horizontalPad := (m.width - boxWidth) / 2
+	verticalPad := (m.height - boxHeight) / 2
+
+	if horizontalPad < 0 {
+		horizontalPad = 0
+	}
+	if verticalPad < 0 {
+		verticalPad = 0
+	}
+
+	var result strings.Builder
+	for i := 0; i < verticalPad; i++ {
+		result.WriteString("\n")
+	}
+
+	for _, line := range strings.Split(box, "\n") {
+		result.WriteString(strings.Repeat(" ", horizontalPad))
+		result.WriteString(line)
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
+
 func (m model) View() string {
 	if m.quitting {
 		return ""
@@ -736,6 +866,10 @@ func (m model) View() string {
 
 	if m.width == 0 || m.height == 0 {
 		return "Initializing..."
+	}
+
+	if m.state == stateInputCollection {
+		return m.renderInputModal()
 	}
 
 	// Show help overlay if active
@@ -952,7 +1086,7 @@ func (m model) View() string {
 	return titleBar + "\n" + combined.String() + "\n\n" + helpText
 }
 
-func Start() (string, error) {
+func Start() (string, map[string]string, error) {
 	cfg, err := config.LoadConfig("cleat.yaml")
 	cfgFound := true
 	if err != nil {
@@ -960,7 +1094,7 @@ func Start() (string, error) {
 			cfg = &config.Config{}
 			cfgFound = false
 		} else {
-			return "", err
+			return "", nil, err
 		}
 	}
 
@@ -968,12 +1102,12 @@ func Start() (string, error) {
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	if fm, ok := finalModel.(model); ok {
-		return fm.selectedCommand, nil
+		return fm.selectedCommand, fm.collectedInputs, nil
 	}
 
-	return "", nil
+	return "", nil, nil
 }

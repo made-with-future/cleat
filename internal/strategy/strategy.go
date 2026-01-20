@@ -80,6 +80,25 @@ func (s *BaseStrategy) Execute(cfg *config.Config, exec executor.Executor) error
 		return nil
 	}
 
+	// Collect requirements from all tasks
+	requirements := make(map[string]task.InputRequirement)
+	for _, t := range plan {
+		for _, req := range t.Requirements(cfg) {
+			requirements[req.Key] = req
+		}
+	}
+
+	// Prompt for missing inputs
+	for key, req := range requirements {
+		if _, ok := cfg.Inputs[key]; !ok {
+			val, err := exec.Prompt(req.Prompt, req.Default)
+			if err != nil {
+				return fmt.Errorf("failed to get input for %s: %w", key, err)
+			}
+			cfg.Inputs[key] = val
+		}
+	}
+
 	// Execute tasks
 	for _, t := range plan {
 		if err := t.Run(cfg, exec); err != nil {

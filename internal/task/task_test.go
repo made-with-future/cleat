@@ -14,7 +14,12 @@ type mockExecutor struct {
 		name string
 		args []string
 	}
-	err error
+	prompts []struct {
+		message      string
+		defaultValue string
+	}
+	promptResponses map[string]string
+	err             error
 }
 
 func (m *mockExecutor) Run(name string, args ...string) error {
@@ -28,6 +33,19 @@ func (m *mockExecutor) RunWithDir(dir string, name string, args ...string) error
 		args []string
 	}{dir: dir, name: name, args: args})
 	return m.err
+}
+
+func (m *mockExecutor) Prompt(message string, defaultValue string) (string, error) {
+	m.prompts = append(m.prompts, struct {
+		message      string
+		defaultValue string
+	}{message, defaultValue})
+	if m.promptResponses != nil {
+		if resp, ok := m.promptResponses[message]; ok {
+			return resp, nil
+		}
+	}
+	return defaultValue, nil
 }
 
 func TestBaseTask(t *testing.T) {
@@ -641,6 +659,184 @@ func TestGCPActivate(t *testing.T) {
 	}
 }
 
+func TestGCPInit(t *testing.T) {
+	cfg := &config.Config{
+		GoogleCloudPlatform: &config.GCPConfig{
+			ProjectName: "test-project",
+		},
+	}
+	task := NewGCPInit()
+
+	if !task.ShouldRun(cfg) {
+		t.Error("Expected ShouldRun to return true")
+	}
+
+	mock := &mockExecutor{}
+	if err := task.Run(cfg, mock); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	if len(mock.commands) != 1 {
+		t.Errorf("Expected 1 call, got %d", len(mock.commands))
+	}
+	expected1 := "gcloud config configurations create test-project"
+	actual1 := mock.commands[0].name
+	for _, arg := range mock.commands[0].args {
+		actual1 += " " + arg
+	}
+	if actual1 != expected1 {
+		t.Errorf("Expected call 1 '%s', got '%s'", expected1, actual1)
+	}
+}
+
+func TestGCPADCLogin(t *testing.T) {
+	cfg := &config.Config{
+		GoogleCloudPlatform: &config.GCPConfig{
+			ProjectName: "test-project",
+		},
+	}
+	task := NewGCPADCLogin()
+
+	if !task.ShouldRun(cfg) {
+		t.Error("Expected ShouldRun to return true")
+	}
+
+	mock := &mockExecutor{}
+	if err := task.Run(cfg, mock); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	if len(mock.commands) != 4 {
+		t.Errorf("Expected 4 calls, got %d", len(mock.commands))
+	}
+	expectedCommands := []string{
+		"gcloud config configurations activate test-project",
+		"gcloud auth application-default login --project test-project",
+		"gcloud auth login --project test-project",
+		"gcloud auth application-default set-quota-project test-project",
+	}
+
+	for i, expected := range expectedCommands {
+		actual := mock.commands[i].name
+		for _, arg := range mock.commands[i].args {
+			actual += " " + arg
+		}
+		if actual != expected {
+			t.Errorf("Expected call %d '%s', got '%s'", i+1, expected, actual)
+		}
+	}
+}
+
+func TestGCPSetConfig(t *testing.T) {
+	t.Run("Without account", func(t *testing.T) {
+		cfg := &config.Config{
+			GoogleCloudPlatform: &config.GCPConfig{
+				ProjectName: "test-project",
+			},
+		}
+		task := NewGCPSetConfig()
+
+		mock := &mockExecutor{}
+		if err := task.Run(cfg, mock); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if len(mock.commands) != 3 {
+			t.Errorf("Expected 3 calls, got %d", len(mock.commands))
+		}
+		expectedCommands := []string{
+			"gcloud config set project test-project",
+			"gcloud config set app/promote_by_default false",
+			"gcloud config set billing/quota_project test-project",
+		}
+
+		for i, expected := range expectedCommands {
+			actual := mock.commands[i].name
+			for _, arg := range mock.commands[i].args {
+				actual += " " + arg
+			}
+			if actual != expected {
+				t.Errorf("Expected call %d '%s', got '%s'", i+1, expected, actual)
+			}
+		}
+	})
+
+	t.Run("With account", func(t *testing.T) {
+		cfg := &config.Config{
+			GoogleCloudPlatform: &config.GCPConfig{
+				ProjectName: "test-project",
+				Account:     "test@example.com",
+			},
+		}
+		task := NewGCPSetConfig()
+
+		mock := &mockExecutor{}
+		if err := task.Run(cfg, mock); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if len(mock.commands) != 4 {
+			t.Errorf("Expected 4 calls, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "gcloud" || mock.commands[0].args[3] != "test@example.com" {
+			t.Errorf("Expected account set to test@example.com, got %v", mock.commands[0])
+		}
+	})
+
+	t.Run("With account from inputs", func(t *testing.T) {
+		cfg := &config.Config{
+			GoogleCloudPlatform: &config.GCPConfig{
+				ProjectName: "test-project",
+			},
+			Inputs: map[string]string{
+				"gcp:account": "input@example.com",
+			},
+		}
+		task := NewGCPSetConfig()
+
+		mock := &mockExecutor{}
+		if err := task.Run(cfg, mock); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if len(mock.commands) != 4 {
+			t.Errorf("Expected 4 calls, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "gcloud" || mock.commands[0].args[3] != "input@example.com" {
+			t.Errorf("Expected account set to input@example.com, got %v", mock.commands[0])
+		}
+	})
+
+	t.Run("Requirements", func(t *testing.T) {
+		task := NewGCPSetConfig()
+
+		t.Run("Needs account", func(t *testing.T) {
+			cfg := &config.Config{
+				GoogleCloudPlatform: &config.GCPConfig{
+					ProjectName: "test-project",
+				},
+			}
+			reqs := task.Requirements(cfg)
+			if len(reqs) != 1 || reqs[0].Key != "gcp:account" {
+				t.Errorf("Expected 1 requirement for gcp:account, got %v", reqs)
+			}
+		})
+
+		t.Run("Has account in config", func(t *testing.T) {
+			cfg := &config.Config{
+				GoogleCloudPlatform: &config.GCPConfig{
+					ProjectName: "test-project",
+					Account:     "test@example.com",
+				},
+			}
+			reqs := task.Requirements(cfg)
+			if len(reqs) != 0 {
+				t.Errorf("Expected 0 requirements, got %v", reqs)
+			}
+		})
+	})
+}
+
 // Verify all tasks implement the Task interface
 func TestTaskInterface(t *testing.T) {
 	svc := &config.ServiceConfig{Name: "default", Dir: "."}
@@ -659,6 +855,8 @@ func TestTaskInterface(t *testing.T) {
 	var _ Task = NewDjangoCreateUserDev(svc, python)
 	var _ Task = NewDjangoMigrate(svc, python)
 	var _ Task = NewGCPActivate()
+	var _ Task = NewGCPInit()
+	var _ Task = NewGCPSetConfig()
 }
 
 // Helper to verify interface at compile time
