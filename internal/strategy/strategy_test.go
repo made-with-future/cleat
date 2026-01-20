@@ -200,8 +200,19 @@ func TestReturnToUI(t *testing.T) {
 }
 
 func TestGetStrategyForCommand(t *testing.T) {
+	cfg := &config.Config{
+		Services: []config.ServiceConfig{
+			{
+				Name: "default",
+				Modules: []config.ModuleConfig{
+					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
+				},
+			},
+		},
+	}
+
 	// run strategy should have ReturnToUI = true
-	s := GetStrategyForCommand("run")
+	s := GetStrategyForCommand("run", cfg)
 	if s == nil {
 		t.Fatal("expected to get run strategy")
 	}
@@ -210,7 +221,7 @@ func TestGetStrategyForCommand(t *testing.T) {
 	}
 
 	// build strategy should have ReturnToUI = false
-	s = GetStrategyForCommand("build")
+	s = GetStrategyForCommand("build", cfg)
 	if s == nil {
 		t.Fatal("expected to get build strategy")
 	}
@@ -219,7 +230,7 @@ func TestGetStrategyForCommand(t *testing.T) {
 	}
 
 	// npm run should work
-	s = GetStrategyForCommand("npm run build")
+	s = GetStrategyForCommand("npm run build", cfg)
 	if s == nil {
 		t.Fatal("expected to get npm strategy")
 	}
@@ -251,7 +262,7 @@ func TestCircularDependencyDetection(t *testing.T) {
 
 func TestRegistry(t *testing.T) {
 	// Save registry for restoration
-	oldRegistry := make(map[string]func() Strategy)
+	oldRegistry := make(map[string]func(*config.Config) Strategy)
 	for k, v := range Registry {
 		oldRegistry[k] = v
 	}
@@ -264,11 +275,12 @@ func TestRegistry(t *testing.T) {
 		delete(Registry, k)
 	}
 
-	Register("test-strategy", func() Strategy {
+	Register("test-strategy", func(cfg *config.Config) Strategy {
 		return NewBaseStrategy("test-strategy", nil)
 	})
 
-	s, ok := Get("test-strategy")
+	cfg := &config.Config{}
+	s, ok := Get("test-strategy", cfg)
 	if !ok {
 		t.Fatal("expected to find registered strategy")
 	}
@@ -276,14 +288,25 @@ func TestRegistry(t *testing.T) {
 		t.Errorf("expected name 'test-strategy', got %q", s.Name())
 	}
 
-	_, ok = Get("nonexistent")
+	_, ok = Get("nonexistent", cfg)
 	if ok {
 		t.Error("expected not to find nonexistent strategy")
 	}
 }
 
 func TestBuildStrategy(t *testing.T) {
-	s := NewBuildStrategy()
+	cfg := &config.Config{
+		Services: []config.ServiceConfig{
+			{
+				Name: "default",
+				Modules: []config.ModuleConfig{
+					{Python: &config.PythonConfig{Django: true}},
+					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
+				},
+			},
+		},
+	}
+	s := NewBuildStrategy(cfg)
 
 	if s.Name() != "build" {
 		t.Errorf("expected name 'build', got %q", s.Name())
@@ -309,7 +332,8 @@ func TestBuildStrategy(t *testing.T) {
 }
 
 func TestRunStrategy(t *testing.T) {
-	s := NewRunStrategy()
+	cfg := &config.Config{}
+	s := NewRunStrategy(cfg)
 
 	if s.Name() != "run" {
 		t.Errorf("expected name 'run', got %q", s.Name())
@@ -322,7 +346,9 @@ func TestRunStrategy(t *testing.T) {
 }
 
 func TestNpmScriptStrategy(t *testing.T) {
-	s := NewNpmScriptStrategy("lint")
+	svc := &config.ServiceConfig{Name: "default"}
+	npm := &config.NpmConfig{Scripts: []string{"lint"}}
+	s := NewNpmScriptStrategy(svc, npm, "lint")
 
 	if s.Name() != "npm:lint" {
 		t.Errorf("expected name 'npm:lint', got %q", s.Name())
@@ -341,9 +367,14 @@ var _ task.Task = &mockTask{}
 func TestResolveCommandTasks(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
-		Python: config.PythonConfig{Django: true},
-		Npm: config.NpmConfig{
-			Scripts: []string{"build"},
+		Services: []config.ServiceConfig{
+			{
+				Name: "default",
+				Modules: []config.ModuleConfig{
+					{Python: &config.PythonConfig{Django: true, DjangoService: "backend"}},
+					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
+				},
+			},
 		},
 	}
 

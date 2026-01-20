@@ -23,7 +23,7 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		s := strategy.NewRunStrategy()
+		s := strategy.NewRunStrategy(cfg)
 		return s.Execute(cfg, executor.Default)
 	},
 }

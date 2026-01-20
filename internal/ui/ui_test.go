@@ -71,13 +71,24 @@ func TestConfigPreview(t *testing.T) {
 	cfg := &config.Config{
 		Version: 1,
 		Docker:  true,
-		Python: config.PythonConfig{
-			Django:        true,
-			DjangoService: "web",
-		},
-		Npm: config.NpmConfig{
-			Service: "node",
-			Scripts: []string{"build"},
+		Services: []config.ServiceConfig{
+			{
+				Name: "default",
+				Modules: []config.ModuleConfig{
+					{
+						Python: &config.PythonConfig{
+							Django:        true,
+							DjangoService: "web",
+						},
+					},
+					{
+						Npm: &config.NpmConfig{
+							Service: "node",
+							Scripts: []string{"build"},
+						},
+					},
+				},
+			},
 		},
 	}
 	m := InitialModel(cfg, true)
@@ -92,8 +103,8 @@ func TestConfigPreview(t *testing.T) {
 	if !strings.Contains(view, "docker: true") {
 		t.Error("expected view to contain 'docker: true'")
 	}
-	if !strings.Contains(view, "python:") {
-		t.Error("expected view to contain 'python:' block")
+	if !strings.Contains(view, "python.django:") {
+		t.Error("expected view to contain 'python.django:' block")
 	}
 	if !strings.Contains(view, "django: true") {
 		t.Error("expected view to contain 'django: true'")
@@ -113,11 +124,14 @@ func TestConfigPreviewFiltering(t *testing.T) {
 	// Configuration with Django false and NPM disabled
 	cfg := &config.Config{
 		Docker: true,
-		Python: config.PythonConfig{
-			Django: false,
-		},
-		Npm: config.NpmConfig{
-			Scripts: []string{},
+		Services: []config.ServiceConfig{
+			{
+				Name: "default",
+				Modules: []config.ModuleConfig{
+					{Python: &config.PythonConfig{Django: false}},
+					{Npm: &config.NpmConfig{Scripts: []string{}}},
+				},
+			},
 		},
 	}
 	m := InitialModel(cfg, true)
@@ -126,11 +140,11 @@ func TestConfigPreviewFiltering(t *testing.T) {
 
 	view := m.View()
 
-	if strings.Contains(view, "python:") {
-		t.Error("expected view NOT to contain 'python:' block when Django is false")
+	if strings.Contains(view, "python.django:") {
+		t.Error("expected view NOT to contain 'python.django:' block when Django is false")
 	}
-	if strings.Contains(view, "django:") {
-		t.Error("expected view NOT to contain 'django:' when it's false")
+	if strings.Contains(view, "django: false") {
+		t.Error("expected view NOT to contain 'django: false' (it should be filtered out)")
 	}
 	if strings.Contains(view, "npm:") {
 		t.Error("expected view NOT to contain 'npm:' block when no scripts are enabled")
@@ -163,8 +177,13 @@ func TestSmallDimensions(t *testing.T) {
 func TestCommandTreeNesting(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
-		Python: config.PythonConfig{
-			Django: true,
+		Services: []config.ServiceConfig{
+			{
+				Name: "backend",
+				Modules: []config.ModuleConfig{
+					{Python: &config.PythonConfig{Django: true}},
+				},
+			},
 		},
 	}
 	m := InitialModel(cfg, true)
@@ -175,7 +194,7 @@ func TestCommandTreeNesting(t *testing.T) {
 	// docker (level 0)
 	//   down (level 1)
 	//   rebuild (level 1)
-	// python (level 0)
+	// backend (level 0)
 	//   django (level 1)
 	//     create-user-dev (level 2)
 	//     collectstatic (level 2)
@@ -190,7 +209,7 @@ func TestCommandTreeNesting(t *testing.T) {
 		{"docker", 0},
 		{"down", 1},
 		{"rebuild", 1},
-		{"python", 0},
+		{"backend", 0},
 		{"django", 1},
 		{"create-user-dev", 2},
 		{"collectstatic", 2},
@@ -213,8 +232,13 @@ func TestCommandTreeNesting(t *testing.T) {
 
 func TestNavigation(t *testing.T) {
 	cfg := &config.Config{
-		Npm: config.NpmConfig{
-			Scripts: []string{"dev", "build"},
+		Services: []config.ServiceConfig{
+			{
+				Name: "frontend",
+				Modules: []config.ModuleConfig{
+					{Npm: &config.NpmConfig{Scripts: []string{"dev", "build"}}},
+				},
+			},
 		},
 	}
 	m := InitialModel(cfg, true)
@@ -318,8 +342,17 @@ func TestConfigPaneAction(t *testing.T) {
 
 func TestScrolling(t *testing.T) {
 	cfg := &config.Config{
-		Npm: config.NpmConfig{
-			Scripts: []string{"script1", "script2", "script3", "script4", "script5", "script6", "script7", "script8", "script9", "script10"},
+		Services: []config.ServiceConfig{
+			{
+				Name: "frontend",
+				Modules: []config.ModuleConfig{
+					{
+						Npm: &config.NpmConfig{
+							Scripts: []string{"script1", "script2", "script3", "script4", "script5", "script6", "script7", "script8", "script9", "script10"},
+						},
+					},
+				},
+			},
 		},
 	}
 	m := InitialModel(cfg, true)

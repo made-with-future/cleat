@@ -27,7 +27,7 @@ var dockerDownCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		s := strategy.NewDockerDownStrategy()
+		s := strategy.NewDockerDownStrategy(cfg)
 		return s.Execute(cfg, executor.Default)
 	},
 }
@@ -44,7 +44,7 @@ var dockerRebuildCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		s := strategy.NewDockerRebuildStrategy()
+		s := strategy.NewDockerRebuildStrategy(cfg)
 		return s.Execute(cfg, executor.Default)
 	},
 }
