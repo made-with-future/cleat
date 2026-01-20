@@ -14,7 +14,7 @@ type NpmConfig struct {
 }
 
 type ModuleConfig struct {
-	Python *PythonConfig `yaml:"python.django,omitempty"`
+	Python *PythonConfig `yaml:"python,omitempty"`
 	Npm    *NpmConfig    `yaml:"npm,omitempty"`
 }
 
@@ -34,7 +34,7 @@ services:
   - name: backend
     dir: ./backend
     modules:
-      - python.django:
+      - python:
           django: true
       - npm:
           scripts: [build]

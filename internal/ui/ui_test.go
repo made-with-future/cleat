@@ -103,14 +103,17 @@ func TestConfigPreview(t *testing.T) {
 	if !strings.Contains(view, "docker: true") {
 		t.Error("expected view to contain 'docker: true'")
 	}
-	if !strings.Contains(view, "python.django:") {
-		t.Error("expected view to contain 'python.django:' block")
+	if !strings.Contains(view, "python:") {
+		t.Error("expected view to contain 'python:' block")
+	}
+	if !strings.Contains(view, "django:") {
+		t.Error("expected view to contain 'django:' block under python")
 	}
 	if !strings.Contains(view, "django: true") {
 		t.Error("expected view to contain 'django: true'")
 	}
-	if !strings.Contains(view, "service: web") {
-		t.Error("expected view to contain 'service: web'")
+	if !strings.Contains(view, "django_service: web") {
+		t.Error("expected view to contain 'django_service: web'")
 	}
 	if !strings.Contains(view, "npm:") {
 		t.Error("expected view to contain 'npm:' block")
@@ -140,8 +143,8 @@ func TestConfigPreviewFiltering(t *testing.T) {
 
 	view := m.View()
 
-	if strings.Contains(view, "python.django:") {
-		t.Error("expected view NOT to contain 'python.django:' block when Django is false")
+	if strings.Contains(view, "python:") {
+		t.Error("expected view NOT to contain 'python:' block when Django is false")
 	}
 	if strings.Contains(view, "django: false") {
 		t.Error("expected view NOT to contain 'django: false' (it should be filtered out)")
