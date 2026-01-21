@@ -528,6 +528,27 @@ func TestDjangoCollectStatic(t *testing.T) {
 			t.Errorf("expected command 'uv', got %q", mock.commands[0].name)
 		}
 	})
+
+	t.Run("Run locally with pip", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: false,
+		}
+		pythonMod := &config.PythonConfig{Django: true, PackageManager: "pip"}
+		taskPip := NewDjangoCollectStatic(svc, pythonMod)
+
+		err := taskPip.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "python" {
+			t.Errorf("expected command 'python', got %q", mock.commands[0].name)
+		}
+	})
 }
 
 func TestDjangoRunServer(t *testing.T) {
@@ -615,6 +636,31 @@ func TestDjangoMigrate(t *testing.T) {
 		for i, v := range expectedArgs {
 			if mock.commands[0].args[i] != v {
 				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
+			}
+		}
+	})
+
+	t.Run("Run via Docker with pip", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: true,
+		}
+		pythonPip := &config.PythonConfig{Django: true, DjangoService: "backend", PackageManager: "pip"}
+		taskPip := NewDjangoMigrate(svc, pythonPip)
+
+		err := taskPip.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		expectedArgs := []string{"compose", "run", "--rm", "backend", "python", "manage.py", "migrate", "--noinput"}
+		actualArgs := mock.commands[0].args
+		if len(actualArgs) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(actualArgs))
+		}
+		for i, v := range expectedArgs {
+			if actualArgs[i] != v {
+				t.Errorf("arg %d: expected %q, got %q", i, v, actualArgs[i])
 			}
 		}
 	})

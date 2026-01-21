@@ -60,6 +60,7 @@ type CommandItem struct {
 type visibleItem struct {
 	item  *CommandItem
 	level int
+	path  string
 }
 
 // editorFinishedMsg is sent when the editor process exits
@@ -221,20 +222,24 @@ func (m *model) updateVisibleItems() {
 	m.visibleItems = []visibleItem{}
 	if m.filterText != "" {
 		for i := range m.tree {
-			m.flattenFiltered(&m.tree[i], 0)
+			m.flattenFiltered(&m.tree[i], 0, "")
 		}
 	} else {
 		for i := range m.tree {
-			m.flatten(&m.tree[i], 0)
+			m.flatten(&m.tree[i], 0, "")
 		}
 	}
 }
 
-func (m *model) flatten(item *CommandItem, level int) {
-	m.visibleItems = append(m.visibleItems, visibleItem{item: item, level: level})
+func (m *model) flatten(item *CommandItem, level int, parentPath string) {
+	path := item.Label
+	if parentPath != "" {
+		path = parentPath + "." + item.Label
+	}
+	m.visibleItems = append(m.visibleItems, visibleItem{item: item, level: level, path: path})
 	if item.Expanded && len(item.Children) > 0 {
 		for i := range item.Children {
-			m.flatten(&item.Children[i], level+1)
+			m.flatten(&item.Children[i], level+1, path)
 		}
 	}
 }
@@ -257,16 +262,21 @@ func anyDescendantMatches(item *CommandItem, text string) bool {
 	return false
 }
 
-func (m *model) flattenFiltered(item *CommandItem, level int) {
+func (m *model) flattenFiltered(item *CommandItem, level int, parentPath string) {
+	path := item.Label
+	if parentPath != "" {
+		path = parentPath + "." + item.Label
+	}
+
 	selfMatches := matches(item, m.filterText)
 	descendantMatches := anyDescendantMatches(item, m.filterText)
 
 	if selfMatches || descendantMatches {
-		m.visibleItems = append(m.visibleItems, visibleItem{item: item, level: level})
+		m.visibleItems = append(m.visibleItems, visibleItem{item: item, level: level, path: path})
 		for i := range item.Children {
 			child := &item.Children[i]
 			if selfMatches || matches(child, m.filterText) || anyDescendantMatches(child, m.filterText) {
-				m.flattenFiltered(child, level+1)
+				m.flattenFiltered(child, level+1, path)
 			}
 		}
 	}
@@ -792,6 +802,9 @@ func (m model) buildConfigLines() []string {
 				if mod.Python.DjangoService != "" {
 					configLines = append(configLines, fmt.Sprintf("     django_service: %s", mod.Python.DjangoService))
 				}
+				if mod.Python.PackageManager != "" {
+					configLines = append(configLines, fmt.Sprintf("     package_manager: %s", mod.Python.PackageManager))
+				}
 			}
 			if mod.Npm != nil && len(mod.Npm.Scripts) > 0 {
 				configLines = append(configLines, "   npm:")
@@ -1037,9 +1050,9 @@ func (m model) View() string {
 
 	taskTitle := "Tasks to run"
 	if len(m.visibleItems) > 0 {
-		item := m.visibleItems[m.cursor]
-		if item.item.Command != "" {
-			taskTitle = fmt.Sprintf("Tasks for %s", strings.TrimSpace(item.item.Label))
+		vItem := m.visibleItems[m.cursor]
+		if vItem.item.Command != "" {
+			taskTitle = fmt.Sprintf("Tasks for %s", strings.TrimSpace(vItem.path))
 		}
 	}
 	taskBox := drawBox(taskLines, paneWidth, taskPaneHeight, comment, taskTitle)

@@ -16,8 +16,9 @@ type NpmConfig struct {
 }
 
 type PythonConfig struct {
-	Django        bool   `yaml:"django"`
-	DjangoService string `yaml:"django_service"`
+	Django         bool   `yaml:"django"`
+	DjangoService  string `yaml:"django_service"`
+	PackageManager string `yaml:"package_manager"`
 }
 
 type GCPConfig struct {
@@ -172,6 +173,9 @@ func LoadConfig(path string) (*Config, error) {
 			if mod.Python != nil {
 				if mod.Python.DjangoService == "" {
 					mod.Python.DjangoService = "backend"
+				}
+				if mod.Python.PackageManager == "" {
+					mod.Python.PackageManager = "uv"
 				}
 			}
 
