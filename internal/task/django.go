@@ -221,6 +221,60 @@ func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
 	return [][]string{cmd}
 }
 
+// DjangoMakeMigrations runs Django's makemigrations command
+type DjangoMakeMigrations struct {
+	BaseTask
+	Service *config.ServiceConfig
+	Python  *config.PythonConfig
+}
+
+func NewDjangoMakeMigrations(svc *config.ServiceConfig, python *config.PythonConfig) *DjangoMakeMigrations {
+	name := "django:makemigrations"
+	if svc != nil && svc.Name != "default" {
+		name = fmt.Sprintf("django:makemigrations:%s", svc.Name)
+	}
+	return &DjangoMakeMigrations{
+		BaseTask: BaseTask{
+			TaskName:        name,
+			TaskDescription: "Create new migrations based on model changes",
+			TaskDeps:        []string{"docker:build"},
+		},
+		Service: svc,
+		Python:  python,
+	}
+}
+
+func (t *DjangoMakeMigrations) ShouldRun(cfg *config.Config) bool {
+	return t.Service != nil && t.Python != nil && t.Python.Django
+}
+
+func (t *DjangoMakeMigrations) Run(cfg *config.Config, exec executor.Executor) error {
+	fmt.Printf("==> Running Django makemigrations for service '%s'\n", t.Service.Name)
+
+	if cfg.Docker {
+		fmt.Printf("--> Running makemigrations via Docker (%s service)\n", t.Python.DjangoService)
+	} else {
+		fmt.Println("--> Running makemigrations locally")
+	}
+
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DjangoMakeMigrations) Commands(cfg *config.Config) [][]string {
+	if cfg.Docker {
+		cmd := []string{"docker", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd = append(cmd, pythonCommand(t.Python)...)
+		cmd = append(cmd, "manage.py", "makemigrations")
+		return [][]string{cmd}
+	}
+
+	managePy := findManagePy(t.Service.Dir)
+	cmd := pythonCommand(t.Python)
+	cmd = append(cmd, managePy, "makemigrations")
+	return [][]string{cmd}
+}
+
 // DjangoGenRandomSecretKey generates a random Django secret key
 type DjangoGenRandomSecretKey struct {
 	BaseTask

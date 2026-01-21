@@ -620,6 +620,7 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 					djangoChildren = append(djangoChildren, CommandItem{Label: "create-user-dev", Command: fmt.Sprintf("django create-user-dev:%s", svc.Name)})
 				}
 				djangoChildren = append(djangoChildren, CommandItem{Label: "collectstatic", Command: fmt.Sprintf("django collectstatic:%s", svc.Name)})
+				djangoChildren = append(djangoChildren, CommandItem{Label: "makemigrations", Command: fmt.Sprintf("django makemigrations:%s", svc.Name)})
 				djangoChildren = append(djangoChildren, CommandItem{Label: "migrate", Command: fmt.Sprintf("django migrate:%s", svc.Name)})
 				djangoChildren = append(djangoChildren, CommandItem{Label: "gen-random-secret-key", Command: fmt.Sprintf("django gen-random-secret-key:%s", svc.Name)})
 

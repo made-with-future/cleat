@@ -287,6 +287,7 @@ func TestCommandTreeNesting(t *testing.T) {
 		{"django", 1},
 		{"create-user-dev", 2},
 		{"collectstatic", 2},
+		{"makemigrations", 2},
 		{"migrate", 2},
 		{"gen-random-secret-key", 2},
 	}
@@ -768,10 +769,11 @@ func TestNestedCommandPathTitle(t *testing.T) {
 	// 7:   django
 	// 8:     create-user-dev (because Docker is true)
 	// 9:     collectstatic
-	// 10:    migrate
-	// 11:    gen-random-secret-key
+	// 10:    makemigrations
+	// 11:    migrate
+	// 12:    gen-random-secret-key
 
-	m.cursor = 10
+	m.cursor = 11
 	m.updateTaskPreview()
 	view = m.View()
 	if !strings.Contains(view, "Tasks for api.django.migrate") {

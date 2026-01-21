@@ -9,6 +9,7 @@ func init() {
 	Register("django create-user-dev", NewDjangoCreateUserDevStrategyGlobal)
 	Register("django collectstatic", NewDjangoCollectStaticStrategyGlobal)
 	Register("django migrate", NewDjangoMigrateStrategyGlobal)
+	Register("django makemigrations", NewDjangoMakeMigrationsStrategyGlobal)
 	Register("django gen-random-secret-key", NewDjangoGenRandomSecretKeyStrategyGlobal)
 }
 
@@ -87,6 +88,31 @@ func NewDjangoMigrateStrategy(svc *config.ServiceConfig) Strategy {
 		}
 	}
 	return NewBaseStrategy("django migrate", tasks)
+}
+
+func NewDjangoMakeMigrationsStrategyGlobal(cfg *config.Config) Strategy {
+	var tasks []task.Task
+	for i := range cfg.Services {
+		svc := &cfg.Services[i]
+		for j := range svc.Modules {
+			mod := &svc.Modules[j]
+			if mod.Python != nil {
+				tasks = append(tasks, task.NewDjangoMakeMigrations(svc, mod.Python))
+			}
+		}
+	}
+	return NewBaseStrategy("django makemigrations", tasks)
+}
+
+func NewDjangoMakeMigrationsStrategy(svc *config.ServiceConfig) Strategy {
+	var tasks []task.Task
+	for i := range svc.Modules {
+		mod := &svc.Modules[i]
+		if mod.Python != nil {
+			tasks = append(tasks, task.NewDjangoMakeMigrations(svc, mod.Python))
+		}
+	}
+	return NewBaseStrategy("django makemigrations", tasks)
 }
 
 func NewDjangoGenRandomSecretKeyStrategyGlobal(cfg *config.Config) Strategy {
