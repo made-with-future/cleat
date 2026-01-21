@@ -735,6 +735,68 @@ func TestGCPInit(t *testing.T) {
 	}
 }
 
+func TestTerraformTask(t *testing.T) {
+	cfg := &config.Config{
+		Terraform: &config.TerraformConfig{},
+		Envs:      []string{"production"},
+	}
+
+	t.Run("init", func(t *testing.T) {
+		task := NewTerraformTask("production", "init", nil)
+		if !task.ShouldRun(cfg) {
+			t.Error("Expected ShouldRun to be true")
+		}
+
+		mock := &mockExecutor{}
+		if err := task.Run(cfg, mock); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("Expected 1 call, got %d", len(mock.commands))
+		}
+
+		expected := "op run --env-file=./.envs/production.env -- terraform -chdir=.iac/production init"
+		actual := mock.commands[0].name
+		for _, arg := range mock.commands[0].args {
+			actual += " " + arg
+		}
+		if actual != expected {
+			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		}
+	})
+
+	t.Run("init-upgrade", func(t *testing.T) {
+		task := NewTerraformTask("production", "init", []string{"-upgrade"})
+		mock := &mockExecutor{}
+		task.Run(cfg, mock)
+
+		expected := "op run --env-file=./.envs/production.env -- terraform -chdir=.iac/production init -upgrade"
+		actual := mock.commands[0].name
+		for _, arg := range mock.commands[0].args {
+			actual += " " + arg
+		}
+		if actual != expected {
+			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		}
+	})
+
+	t.Run("apply-refresh", func(t *testing.T) {
+		task := NewTerraformTask("production", "apply", []string{"-refresh-only"})
+		mock := &mockExecutor{}
+		task.Run(cfg, mock)
+
+		expected := "op run --env-file=./.envs/production.env -- terraform -chdir=.iac/production apply -refresh-only"
+		actual := mock.commands[0].name
+		for _, arg := range mock.commands[0].args {
+			actual += " " + arg
+		}
+		if actual != expected {
+			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		}
+	})
+}
+
 func TestGCPADCLogin(t *testing.T) {
 	cfg := &config.Config{
 		GoogleCloudPlatform: &config.GCPConfig{

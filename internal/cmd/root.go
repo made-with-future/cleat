@@ -58,8 +58,15 @@ func run(args []string) {
 				cmdArgs = []string{"docker", "down"}
 			} else if selected == "docker rebuild" {
 				cmdArgs = []string{"docker", "rebuild"}
-			} else if strings.HasPrefix(selected, "gcp ") {
+			} else if strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
 				cmdArgs = strings.Fields(selected)
+				if strings.Contains(selected, ":") {
+					parts := strings.Split(selected, ":")
+					cmdArgs = strings.Fields(parts[0])
+					if len(parts) == 2 {
+						cmdArgs = append(cmdArgs, parts[1])
+					}
+				}
 			} else if strings.HasPrefix(selected, "django ") {
 				parts := strings.Split(selected, ":")
 				cmdPart := parts[0]
