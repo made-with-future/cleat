@@ -2,6 +2,9 @@ package task
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
@@ -56,12 +59,14 @@ func (t *TerraformTask) Commands(cfg *config.Config) [][]string {
 		return [][]string{}
 	}
 
-	envFile := fmt.Sprintf("./.envs/%s.env", t.Env)
-	chdir := fmt.Sprintf(".iac/%s", t.Env)
+	chdir := ".iac"
+	if cfg.Terraform.UseFolders && t.Env != "" {
+		chdir = filepath.Join(".iac", t.Env)
+	}
 
 	// If Env is empty, we might not want to use environment-specific paths
 	// but the requirements said we have a list of envs.
-	if t.Env == "" {
+	if t.Env == "" && cfg.Terraform.UseFolders {
 		// Fallback or error? For now follow the pattern.
 		return [][]string{}
 	}
@@ -69,9 +74,23 @@ func (t *TerraformTask) Commands(cfg *config.Config) [][]string {
 	tfArgs := []string{fmt.Sprintf("-chdir=%s", chdir), t.Action}
 	tfArgs = append(tfArgs, t.Args...)
 
-	cmd := []string{
-		"op", "run", "--env-file=" + envFile, "--",
-		"terraform",
+	var cmd []string
+	useOp := false
+	if t.Env != "" {
+		envFile := filepath.Join(".envs", t.Env+".env")
+		if _, err := os.Stat(envFile); err == nil {
+			if _, err := exec.LookPath("op"); err == nil {
+				useOp = true
+				cmd = []string{
+					"op", "run", "--env-file=" + envFile, "--",
+					"terraform",
+				}
+			}
+		}
+	}
+
+	if !useOp {
+		cmd = []string{"terraform"}
 	}
 	cmd = append(cmd, tfArgs...)
 

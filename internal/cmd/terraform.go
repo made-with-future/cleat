@@ -19,7 +19,7 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 	return &cobra.Command{
 		Use:   fmt.Sprintf("%s [env]", action),
 		Short: short,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.LoadConfig("cleat.yaml")
 			if err != nil {
@@ -33,16 +33,43 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 				return fmt.Errorf("terraform is not configured in cleat.yaml")
 			}
 
-			env := args[0]
-			validEnv := false
-			for _, e := range cfg.Envs {
-				if e == env {
-					validEnv = true
-					break
+			var env string
+			if len(args) > 0 {
+				env = args[0]
+			}
+
+			if env == "" {
+				if cfg.Terraform.UseFolders {
+					if len(cfg.Terraform.Envs) == 1 {
+						env = cfg.Terraform.Envs[0]
+					} else if len(cfg.Terraform.Envs) > 1 {
+						return fmt.Errorf("environment is required, must be one of: %v", cfg.Terraform.Envs)
+					} else {
+						return fmt.Errorf("environment is required when using terraform folders")
+					}
+				} else {
+					if len(cfg.Envs) == 1 {
+						env = cfg.Envs[0]
+					}
 				}
 			}
-			if !validEnv {
-				return fmt.Errorf("invalid environment '%s', must be one of: %v", env, cfg.Envs)
+
+			if env != "" {
+				validEnv := false
+				validEnvs := cfg.Envs
+				if cfg.Terraform.UseFolders {
+					validEnvs = cfg.Terraform.Envs
+				}
+
+				for _, e := range validEnvs {
+					if e == env {
+						validEnv = true
+						break
+					}
+				}
+				if !validEnv {
+					return fmt.Errorf("invalid environment '%s', must be one of: %v", env, validEnvs)
+				}
 			}
 
 			s := strategy.NewTerraformStrategy(env, tfAction, tfArgs)

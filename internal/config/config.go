@@ -28,6 +28,8 @@ type GCPConfig struct {
 }
 
 type TerraformConfig struct {
+	UseFolders bool     `yaml:"use_folders"`
+	Envs       []string `yaml:"envs,omitempty"`
 }
 
 type ModuleConfig struct {
@@ -94,6 +96,60 @@ func LoadConfig(path string) (*Config, error) {
 					envName := strings.TrimSuffix(entry.Name(), ".env")
 					cfg.Envs = append(cfg.Envs, envName)
 				}
+			}
+		}
+	}
+
+	// Auto-detect Terraform
+	iacDir := filepath.Join(baseDir, ".iac")
+	if info, err := os.Stat(iacDir); err == nil && info.IsDir() {
+		if cfg.Terraform == nil {
+			cfg.Terraform = &TerraformConfig{}
+		}
+
+		// Check for subdirectories (multiple envs) or .tf files (single env)
+		entries, err := os.ReadDir(iacDir)
+		if err == nil {
+			useFolders := false
+			detectedEnvs := []string{}
+			hasTfFiles := false
+
+			for _, entry := range entries {
+				if entry.IsDir() {
+					// Check if subdirectory contains .tf files
+					subDir := filepath.Join(iacDir, entry.Name())
+					subEntries, _ := os.ReadDir(subDir)
+					for _, subEntry := range subEntries {
+						if !subEntry.IsDir() && strings.HasSuffix(subEntry.Name(), ".tf") {
+							useFolders = true
+							detectedEnvs = append(detectedEnvs, entry.Name())
+							break
+						}
+					}
+				} else if strings.HasSuffix(entry.Name(), ".tf") {
+					hasTfFiles = true
+				}
+			}
+
+			if useFolders {
+				cfg.Terraform.UseFolders = true
+				if cfg.Terraform.Envs == nil {
+					cfg.Terraform.Envs = detectedEnvs
+				}
+				for _, env := range detectedEnvs {
+					found := false
+					for _, existing := range cfg.Envs {
+						if existing == env {
+							found = true
+							break
+						}
+					}
+					if !found {
+						cfg.Envs = append(cfg.Envs, env)
+					}
+				}
+			} else if hasTfFiles {
+				cfg.Terraform.UseFolders = false
 			}
 		}
 	}
