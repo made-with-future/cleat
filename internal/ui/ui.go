@@ -566,26 +566,40 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 		})
 	}
 
-	if cfg.Terraform != nil && len(cfg.Envs) > 0 {
-		var tfChildren []CommandItem
-		for _, env := range cfg.Envs {
-			tfChildren = append(tfChildren, CommandItem{
-				Label: env,
+	if cfg.Terraform != nil {
+		if cfg.Terraform.UseFolders && len(cfg.Terraform.Envs) > 0 {
+			var tfChildren []CommandItem
+			for _, env := range cfg.Terraform.Envs {
+				tfChildren = append(tfChildren, CommandItem{
+					Label: env,
+					Children: []CommandItem{
+						{Label: "init", Command: "terraform init:" + env},
+						{Label: "init-upgrade", Command: "terraform init-upgrade:" + env},
+						{Label: "plan", Command: "terraform plan:" + env},
+						{Label: "apply", Command: "terraform apply:" + env},
+						{Label: "apply-refresh", Command: "terraform apply-refresh:" + env},
+					},
+					Expanded: true,
+				})
+			}
+			tree = append(tree, CommandItem{
+				Label:    "terraform",
+				Children: tfChildren,
+				Expanded: true,
+			})
+		} else {
+			tree = append(tree, CommandItem{
+				Label: "terraform",
 				Children: []CommandItem{
-					{Label: "init", Command: "terraform init:" + env},
-					{Label: "init-upgrade", Command: "terraform init-upgrade:" + env},
-					{Label: "plan", Command: "terraform plan:" + env},
-					{Label: "apply", Command: "terraform apply:" + env},
-					{Label: "apply-refresh", Command: "terraform apply-refresh:" + env},
+					{Label: "init", Command: "terraform init"},
+					{Label: "init-upgrade", Command: "terraform init-upgrade"},
+					{Label: "plan", Command: "terraform plan"},
+					{Label: "apply", Command: "terraform apply"},
+					{Label: "apply-refresh", Command: "terraform apply-refresh"},
 				},
 				Expanded: true,
 			})
 		}
-		tree = append(tree, CommandItem{
-			Label:    "terraform",
-			Children: tfChildren,
-			Expanded: true,
-		})
 	}
 
 	for i := range cfg.Services {
@@ -818,6 +832,17 @@ func (m model) buildConfigLines() []string {
 
 	if m.cfg.Terraform != nil {
 		configLines = append(configLines, " terraform:")
+		if m.cfg.Terraform.UseFolders {
+			configLines = append(configLines, "   use_folders: true")
+			if len(m.cfg.Terraform.Envs) > 0 {
+				configLines = append(configLines, "   envs:")
+				for _, env := range m.cfg.Terraform.Envs {
+					configLines = append(configLines, fmt.Sprintf("     - %s", env))
+				}
+			}
+		} else {
+			configLines = append(configLines, "   use_folders: false")
+		}
 	}
 
 	for i := range m.cfg.Services {

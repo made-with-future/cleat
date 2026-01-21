@@ -130,7 +130,7 @@ func TestConfigPreview(t *testing.T) {
 	}
 
 	// Test with Terraform
-	cfg.Terraform = &config.TerraformConfig{}
+	cfg.Terraform = &config.TerraformConfig{UseFolders: true, Envs: []string{"production", "staging"}}
 	m2 := InitialModel(cfg, true)
 	m2.width = 100
 	m2.height = 40
