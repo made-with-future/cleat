@@ -8,6 +8,7 @@ import (
 func init() {
 	Register("docker down", NewDockerDownStrategy)
 	Register("docker rebuild", NewDockerRebuildStrategy)
+	Register("docker remove-orphans", NewDockerRemoveOrphansStrategy)
 }
 
 func NewDockerDownStrategy(cfg *config.Config) Strategy {
@@ -22,6 +23,20 @@ func NewDockerDownStrategy(cfg *config.Config) Strategy {
 		}
 	}
 	return NewBaseStrategy("docker down", tasks)
+}
+
+func NewDockerRemoveOrphansStrategy(cfg *config.Config) Strategy {
+	var tasks []task.Task
+	tasks = append(tasks, task.NewDockerRemoveOrphans(nil))
+	if cfg != nil {
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
+			if svc.Docker {
+				tasks = append(tasks, task.NewDockerRemoveOrphans(svc))
+			}
+		}
+	}
+	return NewBaseStrategy("docker remove-orphans", tasks)
 }
 
 func NewDockerRebuildStrategy(cfg *config.Config) Strategy {

@@ -65,6 +65,19 @@ func SetTransientInputs(inputs map[string]string) {
 	}
 }
 
+// LoadDefaultConfig loads cleat.yaml from the current directory.
+// If the file is not found, it returns a descriptive error.
+func LoadDefaultConfig() (*Config, error) {
+	cfg, err := LoadConfig("cleat.yaml")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("no cleat.yaml found in current directory")
+		}
+		return nil, fmt.Errorf("error loading config: %w", err)
+	}
+	return cfg, nil
+}
+
 func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

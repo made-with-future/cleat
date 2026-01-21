@@ -111,7 +111,7 @@ func TestDockerBuild(t *testing.T) {
 		if mock.commands[0].name != "docker" {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
-		expectedArgs := []string{"compose", "build"}
+		expectedArgs := []string{"compose", "--profile", "*", "build"}
 		for i, arg := range expectedArgs {
 			if mock.commands[0].args[i] != arg {
 				t.Errorf("expected arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
@@ -194,6 +194,48 @@ func TestDockerDown(t *testing.T) {
 	})
 
 	t.Run("Run executes docker compose down with all profiles", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{Docker: true}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+
+		expectedArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans"}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		for i, arg := range expectedArgs {
+			if mock.commands[0].args[i] != arg {
+				t.Errorf("expected arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
+			}
+		}
+	})
+}
+
+func TestDockerRemoveOrphans(t *testing.T) {
+	task := NewDockerRemoveOrphans(nil)
+
+	if task.Name() != "docker:remove-orphans" {
+		t.Errorf("expected name 'docker:remove-orphans', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
+		cfg := &config.Config{Docker: true}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when Docker is enabled")
+		}
+	})
+
+	t.Run("Run executes docker compose down --remove-orphans with all profiles", func(t *testing.T) {
 		mock := &mockExecutor{}
 		cfg := &config.Config{Docker: true}
 
