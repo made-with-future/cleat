@@ -316,6 +316,8 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 				switch baseCmd {
 				case "django migrate":
 					return NewDjangoMigrateStrategy(targetSvc)
+				case "django makemigrations":
+					return NewDjangoMakeMigrationsStrategy(targetSvc)
 				case "django collectstatic":
 					return NewDjangoCollectStaticStrategy(targetSvc)
 				case "django create-user-dev":
