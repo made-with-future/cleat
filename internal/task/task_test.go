@@ -708,6 +708,115 @@ func TestDjangoMigrate(t *testing.T) {
 	})
 }
 
+func TestDjangoGenRandomSecretKey(t *testing.T) {
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
+	python := &config.PythonConfig{Django: true, DjangoService: "backend"}
+	task := NewDjangoGenRandomSecretKey(svc, python)
+
+	if task.Name() != "django:gen-random-secret-key" {
+		t.Errorf("expected name 'django:gen-random-secret-key', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
+		cfg := &config.Config{}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when Django is enabled")
+		}
+	})
+
+	t.Run("Run via Docker", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: true,
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+
+		pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+		expectedArgs := []string{"compose", "run", "--rm", "backend", "uv", "run", "python", "-c", pyCmd}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		for i, v := range expectedArgs {
+			if mock.commands[0].args[i] != v {
+				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
+			}
+		}
+	})
+
+	t.Run("Run locally with uv", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: false,
+		}
+
+		err := task.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "uv" {
+			t.Errorf("expected command 'uv', got %q", mock.commands[0].name)
+		}
+
+		pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+		expectedArgs := []string{"run", "python", "-c", pyCmd}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		for i, v := range expectedArgs {
+			if mock.commands[0].args[i] != v {
+				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
+			}
+		}
+	})
+
+	t.Run("Run locally with pip", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: false,
+		}
+		pythonPip := &config.PythonConfig{Django: true, DjangoService: "backend", PackageManager: "pip"}
+		taskPip := NewDjangoGenRandomSecretKey(svc, pythonPip)
+
+		err := taskPip.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "python" {
+			t.Errorf("expected command 'python', got %q", mock.commands[0].name)
+		}
+
+		pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+		expectedArgs := []string{"-c", pyCmd}
+		if len(mock.commands[0].args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
+		}
+		for i, v := range expectedArgs {
+			if mock.commands[0].args[i] != v {
+				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
+			}
+		}
+	})
+}
+
 func TestGCPActivate(t *testing.T) {
 	cfg := &config.Config{
 		GoogleCloudPlatform: &config.GCPConfig{

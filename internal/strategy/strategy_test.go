@@ -499,6 +499,9 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"django create-user-dev", []string{"django:create-user-dev"}},
 		{"django collectstatic", []string{"django:collectstatic"}},
 		{"django migrate", []string{"django:migrate"}},
+		{"django gen-random-secret-key", []string{"django:gen-random-secret-key"}},
+		{"django migrate:default", []string{"django:migrate"}},
+		{"django gen-random-secret-key:default", []string{"django:gen-random-secret-key"}},
 		{"npm run build", []string{"npm:run:build"}},
 		{"terraform plan:production", []string{"terraform:plan:production"}},
 	}

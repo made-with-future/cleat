@@ -220,3 +220,58 @@ func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
 	cmd = append(cmd, managePy, "migrate", "--noinput")
 	return [][]string{cmd}
 }
+
+// DjangoGenRandomSecretKey generates a random Django secret key
+type DjangoGenRandomSecretKey struct {
+	BaseTask
+	Service *config.ServiceConfig
+	Python  *config.PythonConfig
+}
+
+func NewDjangoGenRandomSecretKey(svc *config.ServiceConfig, python *config.PythonConfig) *DjangoGenRandomSecretKey {
+	name := "django:gen-random-secret-key"
+	if svc != nil && svc.Name != "default" {
+		name = fmt.Sprintf("django:gen-random-secret-key:%s", svc.Name)
+	}
+	return &DjangoGenRandomSecretKey{
+		BaseTask: BaseTask{
+			TaskName:        name,
+			TaskDescription: "Generate a random Django secret key",
+			TaskDeps:        nil,
+		},
+		Service: svc,
+		Python:  python,
+	}
+}
+
+func (t *DjangoGenRandomSecretKey) ShouldRun(cfg *config.Config) bool {
+	return t.Service != nil && t.Python != nil && t.Python.Django
+}
+
+func (t *DjangoGenRandomSecretKey) Run(cfg *config.Config, exec executor.Executor) error {
+	fmt.Printf("==> Generating random Django secret key for service '%s'\n", t.Service.Name)
+
+	if cfg.Docker {
+		fmt.Printf("--> Running via Docker (%s service)\n", t.Python.DjangoService)
+	} else {
+		fmt.Println("--> Running locally")
+	}
+
+	cmds := t.Commands(cfg)
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DjangoGenRandomSecretKey) Commands(cfg *config.Config) [][]string {
+	pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
+	if cfg.Docker {
+		cmd := []string{"docker", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd = append(cmd, pythonCommand(t.Python)...)
+		cmd = append(cmd, "-c", pyCmd)
+		return [][]string{cmd}
+	}
+
+	cmd := pythonCommand(t.Python)
+	cmd = append(cmd, "-c", pyCmd)
+	return [][]string{cmd}
+}

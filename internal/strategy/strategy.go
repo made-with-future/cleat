@@ -320,6 +320,8 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 					return NewDjangoCollectStaticStrategy(targetSvc)
 				case "django create-user-dev":
 					return NewDjangoCreateUserDevStrategy(targetSvc)
+				case "django gen-random-secret-key":
+					return NewDjangoGenRandomSecretKeyStrategy(targetSvc)
 				}
 			}
 		}

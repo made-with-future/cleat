@@ -206,6 +206,46 @@ func TestSmallDimensions(t *testing.T) {
 	}
 }
 
+func TestTaskPreviewAllCommands(t *testing.T) {
+	cfg := &config.Config{
+		Docker: true,
+		GoogleCloudPlatform: &config.GCPConfig{
+			ProjectName: "test-project",
+		},
+		Terraform: &config.TerraformConfig{
+			UseFolders: true,
+			Envs:       []string{"dev"},
+		},
+		Services: []config.ServiceConfig{
+			{
+				Name: "backend",
+				Modules: []config.ModuleConfig{
+					{Python: &config.PythonConfig{Django: true}},
+					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
+				},
+			},
+		},
+	}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 40
+
+	for i, item := range m.visibleItems {
+		m.cursor = i
+		m.updateTaskPreview()
+		view := m.View()
+
+		if item.item.Command != "" {
+			if strings.Contains(view, "unknown command") {
+				t.Errorf("Item %d (%s: %s) has 'unknown command' in preview", i, item.item.Label, item.item.Command)
+			}
+			if strings.Contains(view, "Error:") {
+				t.Errorf("Item %d (%s: %s) has 'Error:' in preview", i, item.item.Label, item.item.Command)
+			}
+		}
+	}
+}
+
 func TestCommandTreeNesting(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
@@ -231,6 +271,7 @@ func TestCommandTreeNesting(t *testing.T) {
 	//     create-user-dev (level 2)
 	//     collectstatic (level 2)
 	//     migrate (level 2)
+	//     gen-random-secret-key (level 2)
 
 	expected := []struct {
 		label string
@@ -241,11 +282,13 @@ func TestCommandTreeNesting(t *testing.T) {
 		{"docker", 0},
 		{"down", 1},
 		{"rebuild", 1},
+		{"remove-orphans", 1},
 		{"backend", 0},
 		{"django", 1},
 		{"create-user-dev", 2},
 		{"collectstatic", 2},
 		{"migrate", 2},
+		{"gen-random-secret-key", 2},
 	}
 
 	if len(m.visibleItems) != len(expected) {
@@ -711,6 +754,7 @@ func TestNestedCommandPathTitle(t *testing.T) {
 	// 2: docker
 	// 3:   down
 	// 4:   rebuild
+	// 5:   remove-orphans
 
 	m.cursor = 3 // docker.down
 	m.updateTaskPreview()
@@ -720,13 +764,14 @@ func TestNestedCommandPathTitle(t *testing.T) {
 	}
 
 	// Move to api > django > migrate
-	// 5: api
-	// 6:   django
-	// 7:     create-user-dev (because Docker is true)
-	// 8:     collectstatic
-	// 9:     migrate
+	// 6: api
+	// 7:   django
+	// 8:     create-user-dev (because Docker is true)
+	// 9:     collectstatic
+	// 10:    migrate
+	// 11:    gen-random-secret-key
 
-	m.cursor = 9
+	m.cursor = 10
 	m.updateTaskPreview()
 	view = m.View()
 	if !strings.Contains(view, "Tasks for api.django.migrate") {
