@@ -648,3 +648,89 @@ func TestInputCollectionModal(t *testing.T) {
 		t.Errorf("expected gcp:account to be 'test@example.com', got %q", m.collectedInputs["gcp:account"])
 	}
 }
+
+func TestNestedCommandPathTitle(t *testing.T) {
+	cfg := &config.Config{
+		Docker: true,
+		Services: []config.ServiceConfig{
+			{
+				Name: "api",
+				Modules: []config.ModuleConfig{
+					{Python: &config.PythonConfig{Django: true, DjangoService: "backend"}},
+				},
+			},
+		},
+	}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 40
+
+	// Initial selection is "build"
+	view := m.View()
+	if !strings.Contains(view, "Tasks for build") {
+		t.Errorf("expected 'Tasks for build', got something else")
+	}
+
+	// Move to docker > down
+	// Tree: build, run, docker (down, rebuild), api (django (collectstatic, migrate))
+	// In InitialModel, tree is built.
+	// docker is at index 2 (0: build, 1: run, 2: docker)
+	// it's expanded by default.
+	// visible items:
+	// 0: build
+	// 1: run
+	// 2: docker
+	// 3:   down
+	// 4:   rebuild
+
+	m.cursor = 3 // docker.down
+	m.updateTaskPreview()
+	view = m.View()
+	if !strings.Contains(view, "Tasks for docker.down") {
+		t.Errorf("expected title 'Tasks for docker.down', view content:\n%s", view)
+	}
+
+	// Move to api > django > migrate
+	// 5: api
+	// 6:   django
+	// 7:     create-user-dev (because Docker is true)
+	// 8:     collectstatic
+	// 9:     migrate
+
+	m.cursor = 9
+	m.updateTaskPreview()
+	view = m.View()
+	if !strings.Contains(view, "Tasks for api.django.migrate") {
+		t.Errorf("expected title 'Tasks for api.django.migrate', view content:\n%s", view)
+	}
+
+	// Test with filtering
+	m.filterText = "migrate"
+	m.updateVisibleItems()
+	m.cursor = 0 // api (because it's a parent of a match)
+	// Actually api matches too because of anyDescendantMatches?
+	// api -> django -> migrate.
+	// if filter is "migrate":
+	// api: anyDescendantMatches = true -> visible
+	//   django: anyDescendantMatches = true -> visible
+	//     migrate: matches = true -> visible
+
+	// Let's find migrate in visible items
+	found := false
+	for i, v := range m.visibleItems {
+		if v.path == "api.django.migrate" {
+			m.cursor = i
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("could not find api.django.migrate in visible items after filtering")
+	}
+
+	m.updateTaskPreview()
+	view = m.View()
+	if !strings.Contains(view, "Tasks for api.django.migrate") {
+		t.Errorf("expected title 'Tasks for api.django.migrate' with filter, view content:\n%s", view)
+	}
+}

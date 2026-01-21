@@ -142,6 +142,59 @@ docker: true
 	}
 }
 
+func TestLoadConfigPackageManager(t *testing.T) {
+	t.Run("Default to uv", func(t *testing.T) {
+		content := `
+services:
+  - name: backend
+    python:
+      django: true
+`
+		tmpfile, err := os.CreateTemp("", "cleat_pm_default.yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		os.WriteFile(tmpfile.Name(), []byte(content), 0644)
+
+		cfg, err := LoadConfig(tmpfile.Name())
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		pm := cfg.Services[0].Modules[0].Python.PackageManager
+		if pm != "uv" {
+			t.Errorf("Expected default package manager 'uv', got '%s'", pm)
+		}
+	})
+
+	t.Run("Explicit pip", func(t *testing.T) {
+		content := `
+services:
+  - name: backend
+    python:
+      django: true
+      package_manager: pip
+`
+		tmpfile, err := os.CreateTemp("", "cleat_pm_pip.yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		os.WriteFile(tmpfile.Name(), []byte(content), 0644)
+
+		cfg, err := LoadConfig(tmpfile.Name())
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		pm := cfg.Services[0].Modules[0].Python.PackageManager
+		if pm != "pip" {
+			t.Errorf("Expected package manager 'pip', got '%s'", pm)
+		}
+	})
+}
+
 func TestLoadConfigInvalidVersion(t *testing.T) {
 	content := `
 version: 99

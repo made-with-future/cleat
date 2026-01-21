@@ -51,12 +51,16 @@ func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) er
 
 func (t *DjangoCollectStatic) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		return [][]string{{"docker", "compose", "run", "--rm", t.Python.DjangoService,
-			"uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}}
+		cmd := []string{"docker", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd = append(cmd, pythonCommand(t.Python)...)
+		cmd = append(cmd, "manage.py", "collectstatic", "--noinput", "--clear")
+		return [][]string{cmd}
 	}
 
 	managePy := findManagePy(t.Service.Dir)
-	return [][]string{{"uv", "run", "python", managePy, "collectstatic", "--noinput", "--clear"}}
+	cmd := pythonCommand(t.Python)
+	cmd = append(cmd, managePy, "collectstatic", "--noinput", "--clear")
+	return [][]string{cmd}
 }
 
 // DjangoRunServer runs Django's development server
@@ -94,7 +98,16 @@ func (t *DjangoRunServer) Run(cfg *config.Config, exec executor.Executor) error 
 
 func (t *DjangoRunServer) Commands(cfg *config.Config) [][]string {
 	managePy := findManagePy(t.Service.Dir)
-	return [][]string{{"uv", "run", "python", managePy, "runserver"}}
+	cmd := pythonCommand(t.Python)
+	cmd = append(cmd, managePy, "runserver")
+	return [][]string{cmd}
+}
+
+func pythonCommand(p *config.PythonConfig) []string {
+	if p != nil && p.PackageManager == "pip" {
+		return []string{"python"}
+	}
+	return []string{"uv", "run", "python"}
 }
 
 func findManagePy(dir string) string {
@@ -138,16 +151,20 @@ func (t *DjangoCreateUserDev) Run(cfg *config.Config, exec executor.Executor) er
 }
 
 func (t *DjangoCreateUserDev) Commands(cfg *config.Config) [][]string {
-	return [][]string{{
+	cmd := []string{
 		"docker", "compose", "run",
 		"-e", "DJANGO_SUPERUSER_USERNAME=dev",
 		"-e", "DJANGO_SUPERUSER_PASSWORD=dev",
 		"--rm",
 		t.Python.DjangoService,
-		"uv", "run", "python", "manage.py", "createsuperuser",
+	}
+	cmd = append(cmd, pythonCommand(t.Python)...)
+	cmd = append(cmd,
+		"manage.py", "createsuperuser",
 		"--email", "dev@madewithfuture.com",
 		"--noinput",
-	}}
+	)
+	return [][]string{cmd}
 }
 
 // DjangoMigrate runs Django migrations
@@ -192,10 +209,14 @@ func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		return [][]string{{"docker", "compose", "run", "--rm", t.Python.DjangoService,
-			"uv", "run", "python", "manage.py", "migrate", "--noinput"}}
+		cmd := []string{"docker", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd = append(cmd, pythonCommand(t.Python)...)
+		cmd = append(cmd, "manage.py", "migrate", "--noinput")
+		return [][]string{cmd}
 	}
 
 	managePy := findManagePy(t.Service.Dir)
-	return [][]string{{"uv", "run", "python", managePy, "migrate", "--noinput"}}
+	cmd := pythonCommand(t.Python)
+	cmd = append(cmd, managePy, "migrate", "--noinput")
+	return [][]string{cmd}
 }
