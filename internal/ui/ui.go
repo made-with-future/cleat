@@ -20,20 +20,22 @@ const configPath = "cleat.yaml"
 const defaultConfigTemplate = `# Cleat configuration
 # See https://github.com/madewithfuture/cleat for documentation
 
-version: 2
+version: 1
 docker: true
 services:
   - name: backend
     dir: .
-    python:
-      django: true
-      django_service: backend
+    modules:
+      - python:
+          django: true
+          django_service: backend
   - name: frontend
     dir: ./frontend
-    npm:
-      service: backend-node
-      scripts:
-        - build
+    modules:
+      - npm:
+          service: backend-node
+          scripts:
+            - build
 `
 
 type focus int
@@ -564,6 +566,28 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 		})
 	}
 
+	if cfg.Terraform != nil && len(cfg.Envs) > 0 {
+		var tfChildren []CommandItem
+		for _, env := range cfg.Envs {
+			tfChildren = append(tfChildren, CommandItem{
+				Label: env,
+				Children: []CommandItem{
+					{Label: "init", Command: "terraform init:" + env},
+					{Label: "init-upgrade", Command: "terraform init-upgrade:" + env},
+					{Label: "plan", Command: "terraform plan:" + env},
+					{Label: "apply", Command: "terraform apply:" + env},
+					{Label: "apply-refresh", Command: "terraform apply-refresh:" + env},
+				},
+				Expanded: true,
+			})
+		}
+		tree = append(tree, CommandItem{
+			Label:    "terraform",
+			Children: tfChildren,
+			Expanded: true,
+		})
+	}
+
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
 		svcItem := CommandItem{
@@ -778,11 +802,22 @@ func (m model) buildConfigLines() []string {
 	configLines = append(configLines, fmt.Sprintf(" version: %d", m.cfg.Version))
 	configLines = append(configLines, fmt.Sprintf(" docker: %v", m.cfg.Docker))
 
+	if len(m.cfg.Envs) > 0 {
+		configLines = append(configLines, " envs:")
+		for _, env := range m.cfg.Envs {
+			configLines = append(configLines, fmt.Sprintf("   - %s", env))
+		}
+	}
+
 	if m.cfg.GoogleCloudPlatform != nil {
 		configLines = append(configLines, " google_cloud_platform:")
 		if m.cfg.GoogleCloudPlatform.ProjectName != "" {
 			configLines = append(configLines, fmt.Sprintf("   project_name: %s", m.cfg.GoogleCloudPlatform.ProjectName))
 		}
+	}
+
+	if m.cfg.Terraform != nil {
+		configLines = append(configLines, " terraform:")
 	}
 
 	for i := range m.cfg.Services {

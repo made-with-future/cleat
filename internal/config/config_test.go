@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -9,9 +10,13 @@ func TestLoadConfig(t *testing.T) {
 	content := `
 version: 1
 docker: true
-python:
-  django: true
-  django_service: custom-backend
+services:
+  - name: backend
+    dir: ./backend
+    modules:
+      - python:
+          django: true
+          django_service: custom-backend
 `
 	tmpfile, err := os.CreateTemp("", "cleat.yaml")
 	if err != nil {
@@ -38,44 +43,41 @@ python:
 		t.Error("Expected Docker to be true")
 	}
 
-	// Root level fields should be migrated and cleared
-	if cfg.Python != nil {
-		t.Error("Expected root Python to be migrated and cleared")
-	}
-
-	// Check if it was migrated to Services
+	// Check Services
 	if len(cfg.Services) != 1 {
-		t.Fatalf("Expected 1 migrated service, got %d", len(cfg.Services))
+		t.Fatalf("Expected 1 service, got %d", len(cfg.Services))
 	}
 	svc := cfg.Services[0]
-	if svc.Name != "default" {
-		t.Errorf("Expected migrated service name 'default', got '%s'", svc.Name)
+	if svc.Name != "backend" {
+		t.Errorf("Expected service name 'backend', got '%s'", svc.Name)
 	}
 	if len(svc.Modules) == 0 || svc.Modules[0].Python == nil || !svc.Modules[0].Python.Django {
-		t.Error("Expected Django enabled in migrated module")
+		t.Error("Expected Django enabled in module")
 	}
 	if svc.Modules[0].Python.DjangoService != "custom-backend" {
 		t.Errorf("Expected DjangoService to be 'custom-backend', got '%s'", svc.Modules[0].Python.DjangoService)
 	}
 }
 
-func TestLoadConfigV2(t *testing.T) {
+func TestLoadConfigMultiService(t *testing.T) {
 	content := `
-version: 2
+version: 1
 docker: true
 services:
   - name: backend
     dir: ./backend
-    python:
-      django: true
-      django_service: web
+    modules:
+      - python:
+          django: true
+          django_service: web
   - name: frontend
     dir: ./frontend
-    npm:
-      scripts:
-        - build
+    modules:
+      - npm:
+          scripts:
+            - build
 `
-	tmpfile, err := os.CreateTemp("", "cleat_v2.yaml")
+	tmpfile, err := os.CreateTemp("", "cleat_multi.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,8 +93,8 @@ services:
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	if cfg.Version != 2 {
-		t.Errorf("Expected version 2, got %d", cfg.Version)
+	if cfg.Version != 1 {
+		t.Errorf("Expected version 1, got %d", cfg.Version)
 	}
 	if len(cfg.Services) != 2 {
 		t.Fatalf("Expected 2 services, got %d", len(cfg.Services))
@@ -142,13 +144,118 @@ docker: true
 	}
 }
 
+func TestLoadConfigEnvs(t *testing.T) {
+	t.Run("Valid envs", func(t *testing.T) {
+		content := `
+version: 1
+envs:
+  - production
+  - staging
+`
+		tmpfile, err := os.CreateTemp("", "cleat_envs.yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		os.WriteFile(tmpfile.Name(), []byte(content), 0644)
+
+		cfg, err := LoadConfig(tmpfile.Name())
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		if len(cfg.Envs) != 2 {
+			t.Errorf("Expected 2 envs, got %d", len(cfg.Envs))
+		}
+		if cfg.Envs[0] != "production" || cfg.Envs[1] != "staging" {
+			t.Errorf("Unexpected envs: %v", cfg.Envs)
+		}
+	})
+
+	t.Run("Invalid empty envs", func(t *testing.T) {
+		content := `
+version: 1
+envs: []
+`
+		tmpfile, err := os.CreateTemp("", "cleat_envs_empty.yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		os.WriteFile(tmpfile.Name(), []byte(content), 0644)
+
+		_, err = LoadConfig(tmpfile.Name())
+		if err == nil {
+			t.Error("Expected error for empty envs, got nil")
+		} else if err.Error() != "envs must have at least one item if provided" {
+			t.Errorf("Unexpected error message: %v", err)
+		}
+	})
+
+	t.Run("Omitted envs is valid", func(t *testing.T) {
+		content := `
+version: 1
+`
+		tmpfile, err := os.CreateTemp("", "cleat_envs_omitted.yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+		os.WriteFile(tmpfile.Name(), []byte(content), 0644)
+
+		cfg, err := LoadConfig(tmpfile.Name())
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		if cfg.Envs != nil {
+			t.Errorf("Expected Envs to be nil when omitted, got %v", cfg.Envs)
+		}
+	})
+
+	t.Run("Auto-detect envs", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "cleat_test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		envsDir := filepath.Join(tempDir, ".envs")
+		if err := os.Mkdir(envsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		os.WriteFile(filepath.Join(envsDir, "production.env"), []byte(""), 0644)
+		os.WriteFile(filepath.Join(envsDir, "staging.env"), []byte(""), 0644)
+		os.WriteFile(filepath.Join(envsDir, "README.md"), []byte(""), 0644) // Should be ignored
+
+		configPath := filepath.Join(tempDir, "cleat.yaml")
+		os.WriteFile(configPath, []byte("version: 1"), 0644)
+
+		cfg, err := LoadConfig(configPath)
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		if len(cfg.Envs) != 2 {
+			t.Errorf("Expected 2 auto-detected envs, got %d: %v", len(cfg.Envs), cfg.Envs)
+		}
+
+		// Order should be alphabetical due to os.ReadDir
+		if cfg.Envs[0] != "production" || cfg.Envs[1] != "staging" {
+			t.Errorf("Unexpected auto-detected envs: %v", cfg.Envs)
+		}
+	})
+}
+
 func TestLoadConfigPackageManager(t *testing.T) {
 	t.Run("Default to uv", func(t *testing.T) {
 		content := `
 services:
   - name: backend
-    python:
-      django: true
+    modules:
+      - python:
+          django: true
 `
 		tmpfile, err := os.CreateTemp("", "cleat_pm_default.yaml")
 		if err != nil {
@@ -172,9 +279,10 @@ services:
 		content := `
 services:
   - name: backend
-    python:
-      django: true
-      package_manager: pip
+    modules:
+      - python:
+          django: true
+          package_manager: pip
 `
 		tmpfile, err := os.CreateTemp("", "cleat_pm_pip.yaml")
 		if err != nil {
@@ -221,8 +329,11 @@ docker: true
 
 func TestLoadConfigDefaultService(t *testing.T) {
 	content := `
-python:
-  django: true
+services:
+  - name: default
+    modules:
+      - python:
+          django: true
 `
 	tmpfile, err := os.CreateTemp("", "cleat.yaml")
 	if err != nil {
@@ -266,7 +377,7 @@ func TestLoadConfigAutoDocker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile("cleat.yaml", []byte("python:\n  django: true"), 0644)
+	err = os.WriteFile("cleat.yaml", []byte("services:\n  - name: default\n    modules:\n      - python:\n          django: true"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +409,7 @@ func TestLoadConfigAutoNpm(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile("cleat.yaml", []byte("python:\n  django: true"), 0644)
+	err = os.WriteFile("cleat.yaml", []byte("services:\n  - name: default\n    modules:\n      - python:\n          django: true"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +433,7 @@ func TestLoadConfigAutoNpm(t *testing.T) {
 
 func TestLoadConfigGCP(t *testing.T) {
 	content := `
-version: 2
+version: 1
 google_cloud_platform:
   project_name: test-project
 `

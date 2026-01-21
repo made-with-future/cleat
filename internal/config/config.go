@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-const LatestVersion = 2
+const LatestVersion = 1
 
 type NpmConfig struct {
 	Service string   `yaml:"service"`
@@ -26,6 +27,9 @@ type GCPConfig struct {
 	Account     string `yaml:"account,omitempty"`
 }
 
+type TerraformConfig struct {
+}
+
 type ModuleConfig struct {
 	Python *PythonConfig `yaml:"python,omitempty"`
 	Npm    *NpmConfig    `yaml:"npm,omitempty"`
@@ -36,24 +40,18 @@ type ServiceConfig struct {
 	Dir     string         `yaml:"dir"`
 	Docker  bool           `yaml:"docker"`
 	Modules []ModuleConfig `yaml:"modules"`
-
-	// Legacy fields for migration
-	Python *PythonConfig `yaml:"python,omitempty"`
-	Npm    *NpmConfig    `yaml:"npm,omitempty"`
 }
 
 type Config struct {
-	Version             int             `yaml:"version"`
-	Docker              bool            `yaml:"docker"`
-	GoogleCloudPlatform *GCPConfig      `yaml:"google_cloud_platform,omitempty"`
-	Services            []ServiceConfig `yaml:"services"`
+	Version             int              `yaml:"version"`
+	Docker              bool             `yaml:"docker"`
+	GoogleCloudPlatform *GCPConfig       `yaml:"google_cloud_platform,omitempty"`
+	Terraform           *TerraformConfig `yaml:"terraform,omitempty"`
+	Envs                []string         `yaml:"envs,omitempty"`
+	Services            []ServiceConfig  `yaml:"services"`
 
 	// Inputs stores transient values collected during execution
 	Inputs map[string]string `yaml:"-"`
-
-	// Legacy fields for V1
-	Python *PythonConfig `yaml:"python,omitempty"`
-	Npm    *NpmConfig    `yaml:"npm,omitempty"`
 }
 
 var transientInputs = make(map[string]string)
@@ -87,38 +85,26 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("unrecognized configuration version: %d", cfg.Version)
 	}
 
+	if cfg.Envs == nil {
+		// Auto-detect envs from .envs/*.env
+		envsDir := filepath.Join(baseDir, ".envs")
+		if entries, err := os.ReadDir(envsDir); err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".env") {
+					envName := strings.TrimSuffix(entry.Name(), ".env")
+					cfg.Envs = append(cfg.Envs, envName)
+				}
+			}
+		}
+	}
+
+	if cfg.Envs != nil && len(cfg.Envs) == 0 {
+		return nil, fmt.Errorf("envs must have at least one item if provided")
+	}
+
 	cfg.Inputs = make(map[string]string)
 	for k, v := range transientInputs {
 		cfg.Inputs[k] = v
-	}
-
-	// Migrate root-level Python/Npm to Services structure
-	if cfg.Python != nil || cfg.Npm != nil {
-		svc := ServiceConfig{
-			Name: "default",
-		}
-		if cfg.Python != nil {
-			svc.Python = cfg.Python
-			cfg.Python = nil
-		}
-		if cfg.Npm != nil {
-			svc.Npm = cfg.Npm
-			cfg.Npm = nil
-		}
-		cfg.Services = append(cfg.Services, svc)
-	}
-
-	// Migrate Service-level Python/Npm to Modules
-	for i := range cfg.Services {
-		svc := &cfg.Services[i]
-		if svc.Python != nil {
-			svc.Modules = append(svc.Modules, ModuleConfig{Python: svc.Python})
-			svc.Python = nil
-		}
-		if svc.Npm != nil {
-			svc.Modules = append(svc.Modules, ModuleConfig{Npm: svc.Npm})
-			svc.Npm = nil
-		}
 	}
 
 	// Apply defaults and auto-detection for each service and its modules

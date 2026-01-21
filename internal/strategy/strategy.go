@@ -325,6 +325,25 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 		}
 	}
 
+	if strings.HasPrefix(command, "terraform ") {
+		parts := strings.Split(command, ":")
+		if len(parts) == 2 {
+			baseCmd := parts[0]
+			env := parts[1]
+			action := strings.TrimPrefix(baseCmd, "terraform ")
+			var args []string
+			switch action {
+			case "init-upgrade":
+				action = "init"
+				args = []string{"-upgrade"}
+			case "apply-refresh":
+				action = "apply"
+				args = []string{"-refresh-only"}
+			}
+			return NewTerraformStrategy(env, action, args)
+		}
+	}
+
 	s, ok := Get(command, cfg)
 	if !ok {
 		return nil

@@ -320,6 +320,24 @@ func TestGetStrategyForCommand(t *testing.T) {
 		t.Error("expected gcp init strategy to have ReturnToUI = true")
 	}
 
+	// terraform strategy
+	cfg.Terraform = &config.TerraformConfig{}
+	cfg.Envs = []string{"production"}
+	s = GetStrategyForCommand("terraform plan:production", cfg)
+	if s == nil {
+		t.Fatal("expected to get terraform strategy")
+	}
+	if s.Name() != "terraform:plan:production" {
+		t.Errorf("expected name 'terraform:plan:production', got %q", s.Name())
+	}
+	tasks := s.Tasks()
+	if len(tasks) != 1 {
+		t.Errorf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].Name() != "terraform:plan:production" {
+		t.Errorf("expected task name 'terraform:plan:production', got %q", tasks[0].Name())
+	}
+
 	// npm run should work
 	s = GetStrategyForCommand("npm run build", cfg)
 	if s == nil {
@@ -457,7 +475,8 @@ var _ task.Task = &mockTask{}
 
 func TestResolveCommandTasks(t *testing.T) {
 	cfg := &config.Config{
-		Docker: true,
+		Docker:    true,
+		Terraform: &config.TerraformConfig{},
 		Services: []config.ServiceConfig{
 			{
 				Name: "default",
@@ -481,6 +500,7 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"django collectstatic", []string{"django:collectstatic"}},
 		{"django migrate", []string{"django:migrate"}},
 		{"npm run build", []string{"npm:run:build"}},
+		{"terraform plan:production", []string{"terraform:plan:production"}},
 	}
 
 	for _, tt := range tests {

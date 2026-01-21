@@ -71,6 +71,7 @@ func TestConfigPreview(t *testing.T) {
 	cfg := &config.Config{
 		Version: 1,
 		Docker:  true,
+		Envs:    []string{"production", "staging"},
 		Services: []config.ServiceConfig{
 			{
 				Name: "default",
@@ -103,6 +104,12 @@ func TestConfigPreview(t *testing.T) {
 	if !strings.Contains(view, "docker: true") {
 		t.Error("expected view to contain 'docker: true'")
 	}
+	if !strings.Contains(view, "envs:") {
+		t.Error("expected view to contain 'envs:' block")
+	}
+	if !strings.Contains(view, "- production") {
+		t.Error("expected view to contain '- production' under envs")
+	}
 	if !strings.Contains(view, "python:") {
 		t.Error("expected view to contain 'python:' block")
 	}
@@ -120,6 +127,28 @@ func TestConfigPreview(t *testing.T) {
 	}
 	if !strings.Contains(view, "service: node") {
 		t.Error("expected view to contain 'service: node'")
+	}
+
+	// Test with Terraform
+	cfg.Terraform = &config.TerraformConfig{}
+	m2 := InitialModel(cfg, true)
+	m2.width = 100
+	m2.height = 40
+	view2 := m2.View()
+	if !strings.Contains(view2, "terraform:") {
+		t.Error("expected view to contain 'terraform:' section")
+	}
+
+	// Test that terraform commands are in the tree
+	found := false
+	for _, item := range m2.visibleItems {
+		if strings.Contains(item.path, "terraform.production.plan") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected to find terraform.production.plan in command tree")
 	}
 }
 
