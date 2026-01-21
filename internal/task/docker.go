@@ -39,6 +39,16 @@ func (t *DockerBuild) ShouldRun(cfg *config.Config) bool {
 
 func (t *DockerBuild) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Println("==> Building Docker containers")
+
+	// 1Password integration
+	searchDir := "."
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
+	}
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+		fmt.Println("--> Detected .envs/dev.env, using 1Password CLI (op)")
+	}
+
 	cmds := t.Commands(cfg)
 	dir := ""
 	if t.Service != nil {
@@ -48,9 +58,26 @@ func (t *DockerBuild) Run(cfg *config.Config, exec executor.Executor) error {
 }
 
 func (t *DockerBuild) Commands(cfg *config.Config) [][]string {
-	cmd := []string{"docker", "compose"}
-	cmd = append(cmd, "build")
-	return [][]string{cmd}
+	cmdName := "docker"
+	args := []string{"compose"}
+	if t.Service == nil {
+		args = append(args, "--profile", "*")
+	}
+	args = append(args, "build")
+
+	// 1Password integration
+	searchDir := "."
+	envFile := "./.envs/dev.env"
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
+		envFile = ".envs/dev.env"
+	}
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+		args = append([]string{"run", "--env-file", envFile, "--", "docker"}, args...)
+		cmdName = "op"
+	}
+
+	return [][]string{append([]string{cmdName}, args...)}
 }
 
 // DockerUp starts Docker containers
@@ -266,10 +293,10 @@ func (t *DockerRebuild) Commands(cfg *config.Config) [][]string {
 	}
 
 	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
-		downArgs = append([]string{"run", "--env-file", envFile, "--", "docker"}, downArgs[1:]...)
+		downArgs = append([]string{"run", "--env-file", envFile, "--", "docker"}, downArgs...)
 		downCmd = "op"
 
-		buildArgs = append([]string{"run", "--env-file", envFile, "--", "docker"}, buildArgs[1:]...)
+		buildArgs = append([]string{"run", "--env-file", envFile, "--", "docker"}, buildArgs...)
 		buildCmd = "op"
 	}
 
@@ -277,4 +304,72 @@ func (t *DockerRebuild) Commands(cfg *config.Config) [][]string {
 		append([]string{downCmd}, downArgs...),
 		append([]string{buildCmd}, buildArgs...),
 	}
+}
+
+// DockerRemoveOrphans removes orphan Docker containers
+type DockerRemoveOrphans struct {
+	BaseTask
+	Service *config.ServiceConfig
+}
+
+func NewDockerRemoveOrphans(svc *config.ServiceConfig) *DockerRemoveOrphans {
+	name := "docker:remove-orphans"
+	if svc != nil {
+		name = fmt.Sprintf("docker:remove-orphans:%s", svc.Name)
+	}
+	return &DockerRemoveOrphans{
+		BaseTask: BaseTask{
+			TaskName:        name,
+			TaskDescription: "Remove orphan Docker containers (all profiles)",
+			TaskDeps:        nil,
+		},
+		Service: svc,
+	}
+}
+
+func (t *DockerRemoveOrphans) ShouldRun(cfg *config.Config) bool {
+	if t.Service != nil {
+		return t.Service.Docker
+	}
+	return cfg.Docker
+}
+
+func (t *DockerRemoveOrphans) Run(cfg *config.Config, exec executor.Executor) error {
+	fmt.Println("==> Removing orphan Docker containers (all profiles)")
+
+	// 1Password integration
+	searchDir := "."
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
+	}
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+		fmt.Println("--> Detected .envs/dev.env, using 1Password CLI (op)")
+	}
+
+	cmds := t.Commands(cfg)
+	dir := ""
+	if t.Service != nil {
+		dir = t.Service.Dir
+	}
+	return exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *DockerRemoveOrphans) Commands(cfg *config.Config) [][]string {
+	cmdName := "docker"
+	args := []string{"compose"}
+	args = append(args, "--profile", "*", "down", "--remove-orphans")
+
+	// 1Password integration
+	searchDir := "."
+	envFile := "./.envs/dev.env"
+	if t.Service != nil && t.Service.Dir != "" {
+		searchDir = t.Service.Dir
+		envFile = ".envs/dev.env"
+	}
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+		args = append([]string{"run", "--env-file", envFile, "--", "docker"}, args...)
+		cmdName = "op"
+	}
+
+	return [][]string{append([]string{cmdName}, args...)}
 }

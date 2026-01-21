@@ -462,3 +462,31 @@ google_cloud_platform:
 		t.Errorf("Expected project_name to be 'test-project', got '%s'", cfg.GoogleCloudPlatform.ProjectName)
 	}
 }
+
+func TestLoadDefaultConfig_NotFound(t *testing.T) {
+	// Create a temp directory and change to it to ensure cleat.yaml is not found
+	tmpDir, err := os.MkdirTemp("", "cleat-test-no-config")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldWd)
+
+	cfg, err := LoadDefaultConfig()
+	if cfg != nil {
+		t.Error("Expected nil config when cleat.yaml is not found")
+	}
+	if err == nil {
+		t.Fatal("Expected error when cleat.yaml is not found")
+	}
+
+	expectedErr := "no cleat.yaml found in current directory"
+	if err.Error() != expectedErr {
+		t.Errorf("Expected error %q, got %q", expectedErr, err.Error())
+	}
+}

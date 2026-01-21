@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
@@ -19,12 +18,9 @@ var gcpActivateCmd = &cobra.Command{
 	Use:   "activate",
 	Short: "Activate GCP project",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.LoadConfig("cleat.yaml")
+		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("no cleat.yaml found in current directory")
-			}
-			return fmt.Errorf("error loading config: %w", err)
+			return err
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -40,12 +36,9 @@ var gcpInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize GCP project configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.LoadConfig("cleat.yaml")
+		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("no cleat.yaml found in current directory")
-			}
-			return fmt.Errorf("error loading config: %w", err)
+			return err
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -61,12 +54,9 @@ var gcpSetConfigCmd = &cobra.Command{
 	Use:   "set-config",
 	Short: "Set GCP project configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.LoadConfig("cleat.yaml")
+		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("no cleat.yaml found in current directory")
-			}
-			return fmt.Errorf("error loading config: %w", err)
+			return err
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -82,12 +72,9 @@ var gcpADCLoginCmd = &cobra.Command{
 	Use:   "adc-login",
 	Short: "Login to GCP and set application default credentials",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.LoadConfig("cleat.yaml")
+		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("no cleat.yaml found in current directory")
-			}
-			return fmt.Errorf("error loading config: %w", err)
+			return err
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
