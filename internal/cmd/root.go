@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"strings"
+
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/ui"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 var (
@@ -26,7 +27,6 @@ func Execute() {
 	run(os.Args)
 }
 
-// ... existing code ...
 func run(args []string) {
 	tuiMode := len(args) == 1
 	for {
@@ -58,6 +58,8 @@ func run(args []string) {
 				cmdArgs = []string{"docker", "down"}
 			} else if selected == "docker rebuild" {
 				cmdArgs = []string{"docker", "rebuild"}
+			} else if selected == "docker remove-orphans" {
+				cmdArgs = []string{"docker", "remove-orphans"}
 			} else if strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
 				cmdArgs = strings.Fields(selected)
 				if strings.Contains(selected, ":") {
@@ -112,8 +114,6 @@ func run(args []string) {
 		break
 	}
 }
-
-// ... existing code ...
 
 func init() {
 	// Add flags or subcommands here

@@ -548,6 +548,7 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 			Children: []CommandItem{
 				{Label: "down", Command: "docker down"},
 				{Label: "rebuild", Command: "docker rebuild"},
+				{Label: "remove-orphans", Command: "docker remove-orphans"},
 			},
 			Expanded: true,
 		})
@@ -620,6 +621,7 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 				}
 				djangoChildren = append(djangoChildren, CommandItem{Label: "collectstatic", Command: fmt.Sprintf("django collectstatic:%s", svc.Name)})
 				djangoChildren = append(djangoChildren, CommandItem{Label: "migrate", Command: fmt.Sprintf("django migrate:%s", svc.Name)})
+				djangoChildren = append(djangoChildren, CommandItem{Label: "gen-random-secret-key", Command: fmt.Sprintf("django gen-random-secret-key:%s", svc.Name)})
 
 				svcItem.Children = append(svcItem.Children, CommandItem{
 					Label:    "django",
