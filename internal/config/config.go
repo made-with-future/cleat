@@ -40,8 +40,19 @@ type ModuleConfig struct {
 type ServiceConfig struct {
 	Name    string         `yaml:"name"`
 	Dir     string         `yaml:"dir"`
-	Docker  bool           `yaml:"docker"`
+	Docker  *bool          `yaml:"docker,omitempty"`
 	Modules []ModuleConfig `yaml:"modules"`
+}
+
+func (s *ServiceConfig) IsDocker() bool {
+	if s == nil {
+		return false
+	}
+	return s.Docker != nil && *s.Docker
+}
+
+func ptrBool(b bool) *bool {
+	return &b
 }
 
 type Config struct {
@@ -176,6 +187,67 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.Inputs[k] = v
 	}
 
+	// Auto-detect Docker and Services from docker-compose
+	dockerComposeFile := ""
+	if _, err := os.Stat(filepath.Join(baseDir, "docker-compose.yaml")); err == nil {
+		dockerComposeFile = "docker-compose.yaml"
+	} else if _, err := os.Stat(filepath.Join(baseDir, "docker-compose.yml")); err == nil {
+		dockerComposeFile = "docker-compose.yml"
+	}
+
+	imageOnlyServices := make(map[string]bool)
+	if dockerComposeFile != "" {
+		cfg.Docker = true
+		dcPath := filepath.Join(baseDir, dockerComposeFile)
+		if dcData, err := os.ReadFile(dcPath); err == nil {
+			type dcService struct {
+				Build interface{} `yaml:"build"`
+			}
+			var dc struct {
+				Services map[string]dcService `yaml:"services"`
+			}
+			if err := yaml.Unmarshal(dcData, &dc); err == nil {
+				for name, s := range dc.Services {
+					buildContext := ""
+					if s.Build != nil {
+						if b, ok := s.Build.(string); ok {
+							buildContext = b
+						} else if b, ok := s.Build.(map[string]interface{}); ok {
+							if context, ok := b["context"].(string); ok {
+								buildContext = context
+							}
+						}
+					}
+
+					if buildContext == "" {
+						imageOnlyServices[name] = true
+					}
+
+					found := false
+					for i := range cfg.Services {
+						if cfg.Services[i].Name == name {
+							if cfg.Services[i].Docker == nil {
+								cfg.Services[i].Docker = ptrBool(true)
+							}
+							if cfg.Services[i].Dir == "" && buildContext != "" {
+								cfg.Services[i].Dir = buildContext
+							}
+							found = true
+							break
+						}
+					}
+					if !found {
+						cfg.Services = append(cfg.Services, ServiceConfig{
+							Name:   name,
+							Docker: ptrBool(true),
+							Dir:    buildContext,
+						})
+					}
+				}
+			}
+		}
+	}
+
 	// Apply defaults and auto-detection for each service and its modules
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
@@ -195,30 +267,38 @@ func LoadConfig(path string) (*Config, error) {
 		searchDir := baseDir
 		if svc.Dir != "" {
 			searchDir = filepath.Join(baseDir, svc.Dir)
+		} else if imageOnlyServices[svc.Name] {
+			searchDir = ""
 		}
 
-		if !hasPython {
-			// Check for Django
-			if _, err := os.Stat(filepath.Join(searchDir, "manage.py")); err == nil {
-				svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
-			} else if _, err := os.Stat(filepath.Join(searchDir, "backend/manage.py")); err == nil {
-				svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
+		if searchDir != "" && svc.Modules == nil {
+			if !hasPython {
+				// Check for Django
+				if _, err := os.Stat(filepath.Join(searchDir, "manage.py")); err == nil {
+					svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
+				} else if _, err := os.Stat(filepath.Join(searchDir, "backend/manage.py")); err == nil {
+					svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
+				}
+			}
+
+			if !hasNpm {
+				// Check for NPM
+				if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
+					svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
+				} else if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
+					svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
+				}
 			}
 		}
 
-		if !hasNpm {
-			// Check for NPM
-			if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
-				svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
-			} else if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
-				svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
-			}
-		}
-
-		// Auto-detect Docker for service
-		if !svc.Docker {
-			if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yaml")); err == nil {
-				svc.Docker = true
+		if searchDir != "" {
+			// Auto-detect Docker for service
+			if svc.Docker == nil {
+				if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yaml")); err == nil {
+					svc.Docker = ptrBool(true)
+				} else if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yml")); err == nil {
+					svc.Docker = ptrBool(true)
+				}
 			}
 		}
 
@@ -227,7 +307,11 @@ func LoadConfig(path string) (*Config, error) {
 
 			if mod.Python != nil {
 				if mod.Python.DjangoService == "" {
-					mod.Python.DjangoService = "backend"
+					if svc.Name == "default" || svc.Name == "" {
+						mod.Python.DjangoService = "backend"
+					} else {
+						mod.Python.DjangoService = svc.Name
+					}
 				}
 				if mod.Python.PackageManager == "" {
 					mod.Python.PackageManager = "uv"
@@ -235,11 +319,7 @@ func LoadConfig(path string) (*Config, error) {
 			}
 
 			if mod.Npm != nil {
-				if len(mod.Npm.Scripts) == 0 {
-					searchDir := baseDir
-					if svc.Dir != "" {
-						searchDir = filepath.Join(baseDir, svc.Dir)
-					}
+				if len(mod.Npm.Scripts) == 0 && searchDir != "" {
 					if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
 						mod.Npm.Scripts = []string{"build"}
 					} else if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
@@ -249,17 +329,14 @@ func LoadConfig(path string) (*Config, error) {
 
 				if mod.Npm.Service == "" {
 					if cfg.Docker {
-						mod.Npm.Service = "backend-node"
+						if svc.Name == "default" || svc.Name == "" {
+							mod.Npm.Service = "backend-node"
+						} else {
+							mod.Npm.Service = svc.Name
+						}
 					}
 				}
 			}
-		}
-	}
-
-	// Global auto-detection
-	if !cfg.Docker {
-		if _, err := os.Stat(filepath.Join(baseDir, "docker-compose.yaml")); err == nil {
-			cfg.Docker = true
 		}
 	}
 

@@ -359,9 +359,6 @@ services:
 }
 
 func TestLoadConfigAutoDocker(t *testing.T) {
-	// Create a dummy docker-compose.yaml in the current directory or a temp one
-	// Since LoadConfig takes a path to cleat.yaml, we should probably run it in a temp dir
-
 	tmpDir, err := os.MkdirTemp("", "cleat-test-*")
 	if err != nil {
 		t.Fatal(err)
@@ -377,7 +374,7 @@ func TestLoadConfigAutoDocker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile("cleat.yaml", []byte("services:\n  - name: default\n    modules:\n      - python:\n          django: true"), 0644)
+	err = os.WriteFile("cleat.yaml", []byte("services:\n  - name: default"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +406,7 @@ func TestLoadConfigAutoNpm(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile("cleat.yaml", []byte("services:\n  - name: default\n    modules:\n      - python:\n          django: true"), 0644)
+	err = os.WriteFile("cleat.yaml", []byte("services:\n  - name: default"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +461,6 @@ google_cloud_platform:
 }
 
 func TestLoadDefaultConfig_NotFound(t *testing.T) {
-	// Create a temp directory and change to it to ensure cleat.yaml is not found
 	tmpDir, err := os.MkdirTemp("", "cleat-test-no-config")
 	if err != nil {
 		t.Fatal(err)
@@ -488,5 +484,216 @@ func TestLoadDefaultConfig_NotFound(t *testing.T) {
 	expectedErr := "no cleat.yaml found in current directory"
 	if err.Error() != expectedErr {
 		t.Errorf("Expected error %q, got %q", expectedErr, err.Error())
+	}
+}
+
+func TestLoadConfig_DockerComposeServices(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-docker-compose-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	dockerComposeContent := `
+version: '3'
+services:
+  backend:
+    build: .
+  worker:
+    image: redis
+`
+	err = os.WriteFile("docker-compose.yml", []byte(dockerComposeContent), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cleatYamlContent := `
+version: 1
+services:
+  - name: frontend
+    dir: frontend
+`
+	err = os.WriteFile("cleat.yaml", []byte(cleatYamlContent), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile("manage.py", []byte(""), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig("cleat.yaml")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if !cfg.Docker {
+		t.Error("Expected Docker to be true")
+	}
+
+	expectedServices := map[string]bool{
+		"frontend": true,
+		"backend":  true,
+		"worker":   true,
+	}
+
+	if len(cfg.Services) != 3 {
+		t.Errorf("Expected 3 services, got %d", len(cfg.Services))
+	}
+
+	for _, svc := range cfg.Services {
+		if !expectedServices[svc.Name] {
+			t.Errorf("Unexpected service: %s", svc.Name)
+		}
+		if svc.Name == "backend" {
+			foundPython := false
+			for _, mod := range svc.Modules {
+				if mod.Python != nil && mod.Python.Django {
+					foundPython = true
+					break
+				}
+			}
+			if !foundPython {
+				t.Errorf("Expected service %s to have Python module (Django)", svc.Name)
+			}
+		}
+	}
+}
+
+func TestLoadConfig_MultiServiceDockerCompose(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-multi-service-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	dockerComposeContent := `
+version: '3'
+services:
+  backend:
+    build: ./backend
+  backend-wo-db:
+    build: ./backend
+  frontend:
+    build: ./frontend
+`
+	err = os.WriteFile("docker-compose.yml", []byte(dockerComposeContent), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	os.Mkdir("backend", 0755)
+	os.WriteFile("backend/manage.py", []byte(""), 0644)
+	os.Mkdir("frontend", 0755)
+	os.WriteFile("frontend/package.json", []byte("{}"), 0644)
+
+	cleatYamlContent := "version: 1\n"
+	err = os.WriteFile("cleat.yaml", []byte(cleatYamlContent), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig("cleat.yaml")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if len(cfg.Services) != 3 {
+		t.Fatalf("Expected 3 services, got %d", len(cfg.Services))
+	}
+
+	for _, svc := range cfg.Services {
+		if svc.Name == "backend" || svc.Name == "backend-wo-db" {
+			found := false
+			for _, mod := range svc.Modules {
+				if mod.Python != nil && mod.Python.Django {
+					found = true
+					if mod.Python.DjangoService != svc.Name {
+						t.Errorf("Expected DjangoService for %s to be %s, got %s", svc.Name, svc.Name, mod.Python.DjangoService)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("Expected service %s to have Django module", svc.Name)
+			}
+		}
+	}
+}
+
+func TestLoadConfig_ServicePrecedence(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-precedence-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// 1. Setup docker-compose.yml
+	dockerComposeContent := `
+services:
+  backend:
+    build: .
+  worker:
+    build: ./worker
+`
+	os.WriteFile("docker-compose.yml", []byte(dockerComposeContent), 0644)
+
+	// 2. Setup files for auto-detection
+	os.WriteFile("manage.py", []byte(""), 0644)
+	os.WriteFile("package.json", []byte("{}"), 0644)
+
+	// 3. Setup cleat.yaml that should override
+	cleatYamlContent := `
+services:
+  - name: backend
+    docker: false
+    modules:
+      - python:
+          django: true
+`
+	os.WriteFile("cleat.yaml", []byte(cleatYamlContent), 0644)
+
+	cfg, err := LoadConfig("cleat.yaml")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	var backendSvc *ServiceConfig
+	for i := range cfg.Services {
+		if cfg.Services[i].Name == "backend" {
+			backendSvc = &cfg.Services[i]
+		}
+	}
+
+	if backendSvc == nil {
+		t.Fatal("backend service not found")
+	}
+
+	// TEST 1: docker flag should be false because it was explicitly set in cleat.yaml
+	if backendSvc.IsDocker() {
+		t.Errorf("Expected backend.docker to be false (from cleat.yaml), but it was overridden to true by docker-compose.yml")
+	}
+
+	// TEST 2: Modules should ONLY contain Python, NOT NPM, because modules were explicitly defined in cleat.yaml
+	foundNpm := false
+	for _, mod := range backendSvc.Modules {
+		if mod.Npm != nil {
+			foundNpm = true
+		}
+	}
+	if foundNpm {
+		t.Errorf("Expected backend NOT to have NPM module because modules were explicitly defined in cleat.yaml")
 	}
 }

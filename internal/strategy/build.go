@@ -17,7 +17,7 @@ func NewBuildStrategy(cfg *config.Config) Strategy {
 	if cfg != nil {
 		for i := range cfg.Services {
 			svc := &cfg.Services[i]
-			if svc.Docker {
+			if svc.IsDocker() {
 				tasks = append(tasks, task.NewDockerBuild(svc))
 			}
 			for j := range svc.Modules {
