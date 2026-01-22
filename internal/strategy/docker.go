@@ -17,7 +17,7 @@ func NewDockerDownStrategy(cfg *config.Config) Strategy {
 	if cfg != nil {
 		for i := range cfg.Services {
 			svc := &cfg.Services[i]
-			if svc.Docker {
+			if svc.IsDocker() {
 				tasks = append(tasks, task.NewDockerDown(svc))
 			}
 		}
@@ -31,7 +31,7 @@ func NewDockerRemoveOrphansStrategy(cfg *config.Config) Strategy {
 	if cfg != nil {
 		for i := range cfg.Services {
 			svc := &cfg.Services[i]
-			if svc.Docker {
+			if svc.IsDocker() {
 				tasks = append(tasks, task.NewDockerRemoveOrphans(svc))
 			}
 		}
@@ -45,7 +45,7 @@ func NewDockerRebuildStrategy(cfg *config.Config) Strategy {
 	if cfg != nil {
 		for i := range cfg.Services {
 			svc := &cfg.Services[i]
-			if svc.Docker {
+			if svc.IsDocker() {
 				tasks = append(tasks, task.NewDockerRebuild(svc))
 			}
 		}

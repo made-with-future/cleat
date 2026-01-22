@@ -854,8 +854,8 @@ func (m model) buildConfigLines() []string {
 		if svc.Dir != "" {
 			configLines = append(configLines, fmt.Sprintf("   dir: %s", svc.Dir))
 		}
-		if svc.Docker {
-			configLines = append(configLines, fmt.Sprintf("   docker: %v", svc.Docker))
+		if svc.IsDocker() {
+			configLines = append(configLines, fmt.Sprintf("   docker: %v", svc.IsDocker()))
 		}
 		for j := range svc.Modules {
 			mod := &svc.Modules[j]

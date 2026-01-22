@@ -32,7 +32,7 @@ func NewDockerBuild(svc *config.ServiceConfig) *DockerBuild {
 
 func (t *DockerBuild) ShouldRun(cfg *config.Config) bool {
 	if t.Service != nil {
-		return t.Service.Docker
+		return t.Service.IsDocker()
 	}
 	return cfg.Docker
 }
@@ -103,7 +103,7 @@ func NewDockerUp(svc *config.ServiceConfig) *DockerUp {
 
 func (t *DockerUp) ShouldRun(cfg *config.Config) bool {
 	if t.Service != nil {
-		return t.Service.Docker
+		return t.Service.IsDocker()
 	}
 	return cfg.Docker
 }
@@ -171,7 +171,7 @@ func NewDockerDown(svc *config.ServiceConfig) *DockerDown {
 
 func (t *DockerDown) ShouldRun(cfg *config.Config) bool {
 	if t.Service != nil {
-		return t.Service.Docker
+		return t.Service.IsDocker()
 	}
 	return cfg.Docker
 }
@@ -239,7 +239,7 @@ func NewDockerRebuild(svc *config.ServiceConfig) *DockerRebuild {
 
 func (t *DockerRebuild) ShouldRun(cfg *config.Config) bool {
 	if t.Service != nil {
-		return t.Service.Docker
+		return t.Service.IsDocker()
 	}
 	return cfg.Docker
 }
@@ -329,7 +329,7 @@ func NewDockerRemoveOrphans(svc *config.ServiceConfig) *DockerRemoveOrphans {
 
 func (t *DockerRemoveOrphans) ShouldRun(cfg *config.Config) bool {
 	if t.Service != nil {
-		return t.Service.Docker
+		return t.Service.IsDocker()
 	}
 	return cfg.Docker
 }

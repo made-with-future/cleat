@@ -7,6 +7,10 @@ import (
 	"github.com/madewithfuture/cleat/internal/executor"
 )
 
+func ptrBool(b bool) *bool {
+	return &b
+}
+
 // mockExecutor records commands for verification
 type mockExecutor struct {
 	commands []struct {
@@ -88,7 +92,7 @@ func TestDockerBuild(t *testing.T) {
 	})
 
 	t.Run("ShouldRun with Service Docker", func(t *testing.T) {
-		svc := &config.ServiceConfig{Name: "svc", Docker: true}
+		svc := &config.ServiceConfig{Name: "svc", Docker: ptrBool(true)}
 		svcTask := NewDockerBuild(svc)
 		cfg := &config.Config{Docker: false}
 		if !svcTask.ShouldRun(cfg) {
