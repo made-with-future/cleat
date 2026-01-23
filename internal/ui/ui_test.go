@@ -497,15 +497,25 @@ func TestCursorDimmedWhenUnfocused(t *testing.T) {
 	m.width = 100
 	m.height = 40
 
-	// When commands pane is focused, cursor should be purple (#bd93f9)
+	// When commands pane is focused, cursor should be cyan (#8be9fd)
 	view1 := m.View()
-	// TrueColor ANSI for #bd93f9 is 189;147;249
-	if !strings.Contains(view1, "189;147;249") {
-		t.Error("expected purple cursor color when commands pane is focused")
+	// TrueColor ANSI for #8be9fd is 139;233;253
+	if !strings.Contains(view1, "139;233;253") {
+		t.Error("expected cyan cursor color when commands pane is focused")
+	}
+
+	// Tab to history pane
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updatedModel.(model)
+
+	// When history pane is focused, its cursor should be cyan
+	viewHistory := m.View()
+	if !strings.Contains(viewHistory, "139;233;253") {
+		t.Error("expected cyan cursor color when history pane is focused")
 	}
 
 	// Tab to config pane
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
 
 	// When config pane is focused, cursor should be dimmed (comment color #6272a4)
@@ -880,6 +890,100 @@ func TestHistoryNavigationWithJK(t *testing.T) {
 	m = updatedModel.(model)
 	if m.historyCursor != 4 {
 		t.Errorf("expected historyCursor 4 after 'k', got %d", m.historyCursor)
+	}
+}
+
+func TestGGKeybinding(t *testing.T) {
+	cfg := &config.Config{}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 40
+
+	// 1. Test Commands panel
+	// Move down a few times
+	for i := 0; i < 5; i++ {
+		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updatedModel.(model)
+	}
+	if m.cursor == 0 {
+		t.Fatal("expected cursor to be > 0 after moving down")
+	}
+
+	// Press 'g' then 'g'
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+	if !m.pendingG {
+		t.Error("expected pendingG to be true after first 'g'")
+	}
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+	if m.pendingG {
+		t.Error("expected pendingG to be false after second 'g'")
+	}
+	if m.cursor != 0 {
+		t.Errorf("expected cursor 0 after 'gg', got %d", m.cursor)
+	}
+
+	// 2. Test History panel
+	m.history = []history.HistoryEntry{
+		{Timestamp: time.Now(), Command: "cmd1"},
+		{Timestamp: time.Now(), Command: "cmd2"},
+		{Timestamp: time.Now(), Command: "cmd3"},
+	}
+	m.focus = focusHistory
+	m.historyCursor = 2
+
+	// Press 'g' then 'g'
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+
+	if m.historyCursor != 0 {
+		t.Errorf("expected historyCursor 0 after 'gg', got %d", m.historyCursor)
+	}
+
+	// 3. Test Config panel
+	m.focus = focusConfig
+	m.configScrollOffset = 5
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+	if m.configScrollOffset != 0 {
+		t.Errorf("expected configScrollOffset 0 after 'gg', got %d", m.configScrollOffset)
+	}
+
+	// 4. Test reset of pendingG on other keys
+	m.focus = focusHistory
+	m.historyCursor = 0
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+	if !m.pendingG {
+		t.Error("expected pendingG to be true")
+	}
+	// Press 'j' instead of 'g'
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = updatedModel.(model)
+	if m.pendingG {
+		t.Error("expected pendingG to be false after 'j'")
+	}
+	// History cursor was 0, focus is history, 'j' should make it 1
+	if m.historyCursor != 1 {
+		t.Errorf("expected historyCursor 1 after 'j', got %d", m.historyCursor)
+	}
+
+	// 4. Test reset of pendingG on non-rune keys
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+	if !m.pendingG {
+		t.Error("expected pendingG to be true")
+	}
+	// Press KeyUp
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updatedModel.(model)
+	if m.pendingG {
+		t.Error("expected pendingG to be false after KeyUp")
 	}
 }
 

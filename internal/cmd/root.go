@@ -9,7 +9,6 @@ import (
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/history"
-	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -113,11 +112,7 @@ func run(args []string) {
 		}
 
 		if tuiMode {
-			cfg, _ := config.LoadConfig("cleat.yaml")
-			s := strategy.GetStrategyForCommand(selected, cfg)
-			if s != nil && s.ReturnToUI() {
-				continue
-			}
+			continue
 		}
 		break
 	}

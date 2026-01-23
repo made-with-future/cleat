@@ -32,7 +32,7 @@ func NewRunStrategy(cfg *config.Config) Strategy {
 		}
 	}
 
-	return NewBaseStrategy("run", tasks).SetReturnToUI(true)
+	return NewBaseStrategy("run", tasks)
 }
 
 // NewNpmScriptStrategy creates a strategy for running a single npm script

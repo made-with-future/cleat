@@ -30,8 +30,13 @@ func TestRun(t *testing.T) {
 	}
 
 	t.Run("No args, TUI returns build", func(t *testing.T) {
+		calls := 0
 		UIStart = func() (string, map[string]string, error) {
-			return "build", nil, nil
+			calls++
+			if calls == 1 {
+				return "build", nil, nil
+			}
+			return "", nil, nil
 		}
 		// We need to prevent actual task execution if possible, or just check if buildCmd was triggered
 		// Since we don't have a clean way to mock the command implementation without more refactoring,
@@ -66,8 +71,13 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("No args, TUI returns npm run", func(t *testing.T) {
+		calls := 0
 		UIStart = func() (string, map[string]string, error) {
-			return "npm run test", nil, nil
+			calls++
+			if calls == 1 {
+				return "npm run test", nil, nil
+			}
+			return "", nil, nil
 		}
 		// Should set args to [npm-run test]
 		run([]string{"cleat"})
@@ -101,7 +111,7 @@ func TestRunLoop(t *testing.T) {
 
 	Exit = func(code int) {}
 
-	t.Run("Loop for returnToUI command", func(t *testing.T) {
+	t.Run("Loop for run command", func(t *testing.T) {
 		calls := 0
 		UIStart = func() (string, map[string]string, error) {
 			calls++
@@ -112,7 +122,7 @@ func TestRunLoop(t *testing.T) {
 		}
 
 		// Mocking execute is hard, but we can verify calls to UIStart
-		// We expect UIStart to be called twice because "run" strategy has ReturnToUI = true
+		// We expect UIStart to be called twice because we always loop back in TUI mode
 		run([]string{"cleat"})
 
 		if calls != 2 {
@@ -137,7 +147,7 @@ func TestRunLoop(t *testing.T) {
 		}
 	})
 
-	t.Run("No loop for non-returnToUI command", func(t *testing.T) {
+	t.Run("Loop for build command", func(t *testing.T) {
 		calls := 0
 		UIStart = func() (string, map[string]string, error) {
 			calls++
@@ -149,8 +159,8 @@ func TestRunLoop(t *testing.T) {
 
 		run([]string{"cleat"})
 
-		if calls != 1 {
-			t.Errorf("expected UIStart to be called 1 time, got %d", calls)
+		if calls != 2 {
+			t.Errorf("expected UIStart to be called 2 times, got %d", calls)
 		}
 	})
 }

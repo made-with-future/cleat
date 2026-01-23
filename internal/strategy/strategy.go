@@ -22,9 +22,6 @@ type Strategy interface {
 
 	// ResolveTasks returns the list of tasks to be executed in order
 	ResolveTasks(cfg *config.Config) ([]task.Task, error)
-
-	// ReturnToUI returns true if the TUI should be restored after execution
-	ReturnToUI() bool
 }
 
 // ExecutionMode determines how tasks are run
@@ -39,29 +36,21 @@ const (
 
 // BaseStrategy provides common execution logic
 type BaseStrategy struct {
-	name       string
-	tasks      []task.Task
-	mode       ExecutionMode
-	returnToUI bool
+	name  string
+	tasks []task.Task
+	mode  ExecutionMode
 }
 
 func NewBaseStrategy(name string, tasks []task.Task) *BaseStrategy {
 	return &BaseStrategy{
-		name:       name,
-		tasks:      tasks,
-		mode:       Serial,
-		returnToUI: false,
+		name:  name,
+		tasks: tasks,
+		mode:  Serial,
 	}
 }
 
 func (s *BaseStrategy) Name() string       { return s.name }
 func (s *BaseStrategy) Tasks() []task.Task { return s.tasks }
-func (s *BaseStrategy) ReturnToUI() bool   { return s.returnToUI }
-
-func (s *BaseStrategy) SetReturnToUI(v bool) *BaseStrategy {
-	s.returnToUI = v
-	return s
-}
 
 func (s *BaseStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
 	return s.buildExecutionPlan(cfg)

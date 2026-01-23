@@ -47,7 +47,6 @@ func NewGCPInitStrategy() *GCPInitStrategy {
 			task.NewGCPSetConfig(),
 		}),
 	}
-	s.SetReturnToUI(true)
 	return s
 }
 
