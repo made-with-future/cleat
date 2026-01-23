@@ -1131,3 +1131,37 @@ services:
 		}
 	}
 }
+
+func TestLoadDefaultConfig_UpwardsSearch(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-upwards-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	projectRoot := tmpDir
+	subDir := filepath.Join(projectRoot, "a", "b", "c")
+	os.MkdirAll(subDir, 0755)
+
+	cleatYaml := "version: 1\ndocker: false"
+	os.WriteFile(filepath.Join(projectRoot, "cleat.yaml"), []byte(cleatYaml), 0644)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(subDir)
+	defer os.Chdir(oldWd)
+
+	cfg, err := LoadDefaultConfig()
+	if err != nil {
+		t.Fatalf("LoadDefaultConfig failed: %v", err)
+	}
+
+	if cfg.Docker != false {
+		t.Error("Expected Docker to be false (from upwards found cleat.yaml)")
+	}
+
+	absRoot, _ := filepath.Abs(projectRoot)
+	expectedSourcePath := filepath.Join(absRoot, "cleat.yaml")
+	if cfg.SourcePath != expectedSourcePath {
+		t.Errorf("Expected SourcePath '%s', got '%s'", expectedSourcePath, cfg.SourcePath)
+	}
+}

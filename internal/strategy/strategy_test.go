@@ -269,18 +269,6 @@ func (t *orderTrackingTask) Run(cfg *config.Config, exec executor.Executor) erro
 	return nil
 }
 
-func TestReturnToUI(t *testing.T) {
-	s := NewBaseStrategy("test", nil)
-	if s.ReturnToUI() {
-		t.Error("expected ReturnToUI to be false by default")
-	}
-
-	s.SetReturnToUI(true)
-	if !s.ReturnToUI() {
-		t.Error("expected ReturnToUI to be true after SetReturnToUI(true)")
-	}
-}
-
 func TestGetStrategyForCommand(t *testing.T) {
 	cfg := &config.Config{
 		Services: []config.ServiceConfig{
@@ -293,40 +281,28 @@ func TestGetStrategyForCommand(t *testing.T) {
 		},
 	}
 
-	// run strategy should have ReturnToUI = true
+	// run strategy
 	s := GetStrategyForCommand("run", cfg)
 	if s == nil {
 		t.Fatal("expected to get run strategy")
 	}
-	if !s.ReturnToUI() {
-		t.Error("expected run strategy to have ReturnToUI = true")
-	}
 
-	// build strategy should have ReturnToUI = false
+	// build strategy
 	s = GetStrategyForCommand("build", cfg)
 	if s == nil {
 		t.Fatal("expected to get build strategy")
 	}
-	if s.ReturnToUI() {
-		t.Error("expected build strategy to have ReturnToUI = false")
-	}
 
-	// gcp init strategy should have ReturnToUI = true
+	// gcp init strategy
 	s = GetStrategyForCommand("gcp init", cfg)
 	if s == nil {
 		t.Fatal("expected to get gcp init strategy")
 	}
-	if !s.ReturnToUI() {
-		t.Error("expected gcp init strategy to have ReturnToUI = true")
-	}
 
-	// docker remove-orphans strategy should have ReturnToUI = true
+	// docker remove-orphans strategy
 	s = GetStrategyForCommand("docker remove-orphans", cfg)
 	if s == nil {
 		t.Fatal("expected to get docker remove-orphans strategy")
-	}
-	if !s.ReturnToUI() {
-		t.Error("expected docker remove-orphans strategy to have ReturnToUI = true")
 	}
 
 	// terraform strategy

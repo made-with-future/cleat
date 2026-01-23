@@ -81,6 +81,9 @@ type Config struct {
 
 	// Inputs stores transient values collected during execution
 	Inputs map[string]string `yaml:"-"`
+
+	// SourcePath is the absolute path to the loaded config file
+	SourcePath string `yaml:"-"`
 }
 
 var transientInputs = make(map[string]string)
@@ -92,14 +95,52 @@ func SetTransientInputs(inputs map[string]string) {
 	}
 }
 
-// LoadDefaultConfig loads cleat.yaml from the current directory.
+// FindProjectRoot searches upwards from the current directory for a cleat.yaml file or a .git directory.
+func FindProjectRoot() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "."
+	}
+
+	curr := cwd
+	for {
+		// Check for cleat.yaml
+		if _, err := os.Stat(filepath.Join(curr, "cleat.yaml")); err == nil {
+			return curr
+		}
+		// Check for .git
+		if _, err := os.Stat(filepath.Join(curr, ".git")); err == nil {
+			return curr
+		}
+
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			break
+		}
+		curr = parent
+	}
+
+	return cwd
+}
+
+// LoadDefaultConfig searches upwards for cleat.yaml and loads it.
 // If the file is not found, it returns a default config with auto-detection enabled.
 func LoadDefaultConfig() (*Config, error) {
-	cfg, err := LoadConfig("cleat.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("error loading config: %w", err)
+	cwd, _ := os.Getwd()
+	curr := cwd
+	for {
+		path := filepath.Join(curr, "cleat.yaml")
+		if _, err := os.Stat(path); err == nil {
+			return LoadConfig(path)
+		}
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			break
+		}
+		curr = parent
 	}
-	return cfg, nil
+
+	return LoadConfig("cleat.yaml")
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -115,6 +156,7 @@ func LoadConfig(path string) (*Config, error) {
 	baseDir := filepath.Dir(path)
 
 	var cfg Config
+	cfg.SourcePath, _ = filepath.Abs(path)
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		return nil, err

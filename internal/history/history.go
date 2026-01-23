@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/madewithfuture/cleat/internal/config"
 )
 
 type HistoryEntry struct {
@@ -27,18 +29,15 @@ func getHistoryFilePath() (string, error) {
 		return "", err
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	absCwd, err := filepath.Abs(cwd)
+	root := config.FindProjectRoot()
+	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return "", err
 	}
 
-	hash := sha256.Sum256([]byte(absCwd))
+	hash := sha256.Sum256([]byte(absRoot))
 	// Use project directory name + short hash for better recognizability
-	projectDirName := filepath.Base(absCwd)
+	projectDirName := filepath.Base(absRoot)
 	if projectDirName == "/" || projectDirName == "." || projectDirName == "" {
 		projectDirName = "root"
 	}

@@ -16,8 +16,6 @@ import (
 	"github.com/madewithfuture/cleat/internal/task"
 )
 
-const configPath = "cleat.yaml"
-
 const defaultConfigTemplate = `# Cleat configuration
 # See https://github.com/madewithfuture/cleat for documentation
 
@@ -95,6 +93,7 @@ type model struct {
 	requirements       []task.InputRequirement
 	requirementIdx     int
 	textInput          textinput.Model
+	pendingG           bool
 }
 
 func InitialModel(cfg *config.Config, cfgFound bool) model {
@@ -355,7 +354,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case editorFinishedMsg:
 		// Reload config after editor closes
-		cfg, err := config.LoadConfig(configPath)
+		cfg, err := config.LoadConfig(m.cfg.SourcePath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				m.cfg = &config.Config{}
@@ -374,6 +373,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		if msg.Type != tea.KeyRunes || string(msg.Runes) != "g" {
+			m.pendingG = false
+		}
 		if m.filtering {
 			switch msg.Type {
 			case tea.KeyEsc:
@@ -539,6 +541,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "?":
 				m.showHelp = true
+			case "g":
+				if m.pendingG {
+					if m.focus == focusCommands {
+						m.cursor = 0
+						m.scrollOffset = 0
+					} else if m.focus == focusHistory {
+						m.historyCursor = 0
+						m.historyOffset = 0
+					} else if m.focus == focusConfig {
+						m.configScrollOffset = 0
+					}
+					m.updateTaskPreview()
+					m.pendingG = false
+				} else {
+					m.pendingG = true
+				}
 			case "k":
 				if m.focus == focusCommands && m.cursor > 0 {
 					m.cursor--
@@ -591,7 +609,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) openEditor() tea.Cmd {
 	// Create default config if it doesn't exist
 	if !m.cfgFound {
-		if err := os.WriteFile(configPath, []byte(defaultConfigTemplate), 0644); err != nil {
+		if err := os.WriteFile(m.cfg.SourcePath, []byte(defaultConfigTemplate), 0644); err != nil {
 			// If we can't write, just try to open anyway
 			_ = err
 		}
@@ -602,7 +620,7 @@ func (m model) openEditor() tea.Cmd {
 		editor = "vi" // Fallback
 	}
 
-	c := exec.Command(editor, configPath)
+	c := exec.Command(editor, m.cfg.SourcePath)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return editorFinishedMsg{err}
 	})
@@ -1042,6 +1060,7 @@ func (m model) View() string {
 
 	// Dracula colors
 	purple := lipgloss.Color("#bd93f9")
+	cyan := lipgloss.Color("#8be9fd")
 	comment := lipgloss.Color("#6272a4")
 
 	// Build title bar
@@ -1133,7 +1152,7 @@ func (m model) View() string {
 		label = indent + label
 
 		if i == m.cursor {
-			cursorColor := purple
+			cursorColor := cyan
 			if m.focus != focusCommands {
 				cursorColor = comment // Dim when not focused
 			}
@@ -1233,7 +1252,7 @@ func (m model) View() string {
 		}
 
 		if i == m.historyCursor {
-			cursorColor := purple
+			cursorColor := cyan
 			if m.focus != focusHistory {
 				cursorColor = comment
 			}
