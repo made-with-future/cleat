@@ -5,8 +5,10 @@ import (
 	"os"
 
 	"strings"
+	"time"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/history"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/ui"
 	"github.com/spf13/cobra"
@@ -89,6 +91,12 @@ func run(args []string) {
 
 			if len(cmdArgs) > 0 {
 				rootCmd.SetArgs(cmdArgs)
+				// Save to history
+				history.Save(history.HistoryEntry{
+					Timestamp: time.Now(),
+					Command:   selected,
+					Inputs:    inputs,
+				})
 			} else {
 				return
 			}

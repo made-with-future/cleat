@@ -36,7 +36,7 @@ func NewDockerRemoveOrphansStrategy(cfg *config.Config) Strategy {
 			}
 		}
 	}
-	return NewBaseStrategy("docker remove-orphans", tasks)
+	return NewBaseStrategy("docker remove-orphans", tasks).SetReturnToUI(true)
 }
 
 func NewDockerRebuildStrategy(cfg *config.Config) Strategy {

@@ -320,6 +320,15 @@ func TestGetStrategyForCommand(t *testing.T) {
 		t.Error("expected gcp init strategy to have ReturnToUI = true")
 	}
 
+	// docker remove-orphans strategy should have ReturnToUI = true
+	s = GetStrategyForCommand("docker remove-orphans", cfg)
+	if s == nil {
+		t.Fatal("expected to get docker remove-orphans strategy")
+	}
+	if !s.ReturnToUI() {
+		t.Error("expected docker remove-orphans strategy to have ReturnToUI = true")
+	}
+
 	// terraform strategy
 	cfg.Terraform = &config.TerraformConfig{}
 	cfg.Envs = []string{"production"}
