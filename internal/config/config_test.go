@@ -473,17 +473,43 @@ func TestLoadDefaultConfig_NotFound(t *testing.T) {
 	}
 	defer os.Chdir(oldWd)
 
-	cfg, err := LoadDefaultConfig()
-	if cfg != nil {
-		t.Error("Expected nil config when cleat.yaml is not found")
-	}
-	if err == nil {
-		t.Fatal("Expected error when cleat.yaml is not found")
+	// Create some files to trigger auto-detection
+	dockerComposeContent := `
+version: '3'
+services:
+  backend:
+    build: .
+`
+	err = os.WriteFile("docker-compose.yml", []byte(dockerComposeContent), 0644)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	expectedErr := "no cleat.yaml found in current directory"
-	if err.Error() != expectedErr {
-		t.Errorf("Expected error %q, got %q", expectedErr, err.Error())
+	cfg, err := LoadDefaultConfig()
+	if err != nil {
+		t.Fatalf("Expected no error when cleat.yaml is not found, got %v", err)
+	}
+	if cfg == nil {
+		t.Fatal("Expected non-nil config when cleat.yaml is not found")
+	}
+
+	if cfg.Version != LatestVersion {
+		t.Errorf("Expected version %d, got %d", LatestVersion, cfg.Version)
+	}
+
+	if !cfg.Docker {
+		t.Error("Expected Docker to be true via auto-detection")
+	}
+
+	foundBackend := false
+	for _, svc := range cfg.Services {
+		if svc.Name == "backend" {
+			foundBackend = true
+			break
+		}
+	}
+	if !foundBackend {
+		t.Error("Expected backend service to be auto-detected")
 	}
 }
 
@@ -654,7 +680,7 @@ services:
 	os.WriteFile("manage.py", []byte(""), 0644)
 	os.WriteFile("package.json", []byte("{}"), 0644)
 
-	// 3. Setup cleat.yaml that should override
+	// 3. Setup cleat.yaml that should override Python but allow NPM auto-detect
 	cleatYamlContent := `
 services:
   - name: backend
@@ -674,26 +700,434 @@ services:
 	for i := range cfg.Services {
 		if cfg.Services[i].Name == "backend" {
 			backendSvc = &cfg.Services[i]
+			break
 		}
 	}
 
 	if backendSvc == nil {
-		t.Fatal("backend service not found")
+		t.Fatal("Expected to find backend service")
 	}
 
-	// TEST 1: docker flag should be false because it was explicitly set in cleat.yaml
+	// Backend should have docker=false from cleat.yaml override
 	if backendSvc.IsDocker() {
-		t.Errorf("Expected backend.docker to be false (from cleat.yaml), but it was overridden to true by docker-compose.yml")
+		t.Error("Expected backend to have docker=false from cleat.yaml override")
 	}
 
-	// TEST 2: Modules should ONLY contain Python, NOT NPM, because modules were explicitly defined in cleat.yaml
-	foundNpm := false
+	// Check modules
+	var pythonMod *PythonConfig
+	var npmMod *NpmConfig
 	for _, mod := range backendSvc.Modules {
+		if mod.Python != nil {
+			pythonMod = mod.Python
+		}
 		if mod.Npm != nil {
-			foundNpm = true
+			npmMod = mod.Npm
 		}
 	}
-	if foundNpm {
-		t.Errorf("Expected backend NOT to have NPM module because modules were explicitly defined in cleat.yaml")
+
+	// Python should come from explicit config
+	if pythonMod == nil {
+		t.Fatal("Expected Python module from explicit config")
+	}
+	if !pythonMod.Django {
+		t.Error("Expected Python module to have django=true from explicit config")
+	}
+
+	// NPM should be auto-detected since it wasn't explicitly configured
+	// (This is the NEW behavior - independent auto-detection per module type)
+	if npmMod == nil {
+		t.Error("Expected NPM module to be auto-detected since it wasn't explicitly configured")
+	}
+}
+
+func TestLoadConfig_ServicePrecedence_DisableNpm(t *testing.T) {
+	// This test verifies that you CAN disable NPM if you don't want it auto-detected
+	tmpDir, err := os.MkdirTemp("", "cleat-test-precedence-disable-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// Setup files for auto-detection
+	os.WriteFile("manage.py", []byte(""), 0644)
+	os.WriteFile("package.json", []byte("{}"), 0644)
+
+	// cleat.yaml that explicitly disables NPM
+	cleatYamlContent := `
+services:
+  - name: backend
+    modules:
+      - python:
+          django: true
+      - npm:
+          enabled: false
+`
+	os.WriteFile("cleat.yaml", []byte(cleatYamlContent), 0644)
+
+	cfg, err := LoadConfig("cleat.yaml")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	svc := cfg.Services[0]
+
+	var pythonMod *PythonConfig
+	var npmMod *NpmConfig
+	for _, mod := range svc.Modules {
+		if mod.Python != nil {
+			pythonMod = mod.Python
+		}
+		if mod.Npm != nil {
+			npmMod = mod.Npm
+		}
+	}
+
+	if pythonMod == nil || !pythonMod.IsEnabled() {
+		t.Error("Expected Python module to be enabled")
+	}
+
+	if npmMod == nil {
+		t.Fatal("Expected NPM module config to exist")
+	}
+	if npmMod.IsEnabled() {
+		t.Error("Expected NPM module to be disabled via explicit enabled: false")
+	}
+}
+
+func TestPythonConfig_IsEnabled(t *testing.T) {
+	t.Run("nil config returns false", func(t *testing.T) {
+		var p *PythonConfig
+		if p.IsEnabled() {
+			t.Error("Expected nil PythonConfig to return false")
+		}
+	})
+
+	t.Run("nil Enabled field defaults to true", func(t *testing.T) {
+		p := &PythonConfig{Django: true}
+		if !p.IsEnabled() {
+			t.Error("Expected PythonConfig with nil Enabled to return true")
+		}
+	})
+
+	t.Run("explicit true returns true", func(t *testing.T) {
+		enabled := true
+		p := &PythonConfig{Enabled: &enabled}
+		if !p.IsEnabled() {
+			t.Error("Expected PythonConfig with Enabled=true to return true")
+		}
+	})
+
+	t.Run("explicit false returns false", func(t *testing.T) {
+		enabled := false
+		p := &PythonConfig{Enabled: &enabled}
+		if p.IsEnabled() {
+			t.Error("Expected PythonConfig with Enabled=false to return false")
+		}
+	})
+}
+
+func TestNpmConfig_IsEnabled(t *testing.T) {
+	t.Run("nil config returns false", func(t *testing.T) {
+		var n *NpmConfig
+		if n.IsEnabled() {
+			t.Error("Expected nil NpmConfig to return false")
+		}
+	})
+
+	t.Run("nil Enabled field defaults to true", func(t *testing.T) {
+		n := &NpmConfig{Scripts: []string{"build"}}
+		if !n.IsEnabled() {
+			t.Error("Expected NpmConfig with nil Enabled to return true")
+		}
+	})
+
+	t.Run("explicit true returns true", func(t *testing.T) {
+		enabled := true
+		n := &NpmConfig{Enabled: &enabled}
+		if !n.IsEnabled() {
+			t.Error("Expected NpmConfig with Enabled=true to return true")
+		}
+	})
+
+	t.Run("explicit false returns false", func(t *testing.T) {
+		enabled := false
+		n := &NpmConfig{Enabled: &enabled}
+		if n.IsEnabled() {
+			t.Error("Expected NpmConfig with Enabled=false to return false")
+		}
+	})
+}
+
+func TestLoadConfig_ModuleAutoDetectWithExplicitOverride(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-module-override-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// Setup files that would trigger auto-detection for both Python and NPM
+	os.WriteFile("manage.py", []byte(""), 0644)
+	os.WriteFile("package.json", []byte("{}"), 0644)
+
+	t.Run("explicit Python overrides auto-detect, NPM still auto-detected", func(t *testing.T) {
+		cleatYaml := `
+services:
+  - name: backend
+    modules:
+      - python:
+          django: true
+          package_manager: poetry
+`
+		os.WriteFile("cleat.yaml", []byte(cleatYaml), 0644)
+
+		cfg, err := LoadConfig("cleat.yaml")
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		svc := cfg.Services[0]
+
+		// Should have both Python and NPM modules
+		var pythonMod *PythonConfig
+		var npmMod *NpmConfig
+		for _, mod := range svc.Modules {
+			if mod.Python != nil {
+				pythonMod = mod.Python
+			}
+			if mod.Npm != nil {
+				npmMod = mod.Npm
+			}
+		}
+
+		if pythonMod == nil {
+			t.Fatal("Expected Python module to exist")
+		}
+		if pythonMod.PackageManager != "poetry" {
+			t.Errorf("Expected package_manager 'poetry' from explicit config, got '%s'", pythonMod.PackageManager)
+		}
+
+		if npmMod == nil {
+			t.Error("Expected NPM module to be auto-detected since it wasn't explicitly configured")
+		}
+	})
+
+	t.Run("explicit NPM overrides auto-detect, Python still auto-detected", func(t *testing.T) {
+		cleatYaml := `
+services:
+  - name: backend
+    modules:
+      - npm:
+          scripts: [lint, test]
+`
+		os.WriteFile("cleat.yaml", []byte(cleatYaml), 0644)
+
+		cfg, err := LoadConfig("cleat.yaml")
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		svc := cfg.Services[0]
+
+		var pythonMod *PythonConfig
+		var npmMod *NpmConfig
+		for _, mod := range svc.Modules {
+			if mod.Python != nil {
+				pythonMod = mod.Python
+			}
+			if mod.Npm != nil {
+				npmMod = mod.Npm
+			}
+		}
+
+		if pythonMod == nil {
+			t.Error("Expected Python module to be auto-detected since it wasn't explicitly configured")
+		}
+
+		if npmMod == nil {
+			t.Fatal("Expected NPM module to exist")
+		}
+		if len(npmMod.Scripts) != 2 || npmMod.Scripts[0] != "lint" || npmMod.Scripts[1] != "test" {
+			t.Errorf("Expected scripts [lint, test] from explicit config, got %v", npmMod.Scripts)
+		}
+	})
+}
+
+func TestLoadConfig_DisableModule(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-disable-module-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// Setup files that would trigger auto-detection
+	os.WriteFile("manage.py", []byte(""), 0644)
+	os.WriteFile("package.json", []byte("{}"), 0644)
+
+	t.Run("disable Python auto-detection", func(t *testing.T) {
+		cleatYaml := `
+services:
+  - name: backend
+    modules:
+      - python:
+          enabled: false
+`
+		os.WriteFile("cleat.yaml", []byte(cleatYaml), 0644)
+
+		cfg, err := LoadConfig("cleat.yaml")
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		svc := cfg.Services[0]
+
+		var pythonMod *PythonConfig
+		var npmMod *NpmConfig
+		for _, mod := range svc.Modules {
+			if mod.Python != nil {
+				pythonMod = mod.Python
+			}
+			if mod.Npm != nil {
+				npmMod = mod.Npm
+			}
+		}
+
+		// Python should exist but be disabled
+		if pythonMod == nil {
+			t.Fatal("Expected Python module config to exist")
+		}
+		if pythonMod.IsEnabled() {
+			t.Error("Expected Python module to be disabled")
+		}
+
+		// NPM should still be auto-detected
+		if npmMod == nil {
+			t.Error("Expected NPM module to be auto-detected")
+		}
+	})
+
+	t.Run("disable NPM auto-detection", func(t *testing.T) {
+		cleatYaml := `
+services:
+  - name: backend
+    modules:
+      - npm:
+          enabled: false
+`
+		os.WriteFile("cleat.yaml", []byte(cleatYaml), 0644)
+
+		cfg, err := LoadConfig("cleat.yaml")
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		svc := cfg.Services[0]
+
+		var pythonMod *PythonConfig
+		var npmMod *NpmConfig
+		for _, mod := range svc.Modules {
+			if mod.Python != nil {
+				pythonMod = mod.Python
+			}
+			if mod.Npm != nil {
+				npmMod = mod.Npm
+			}
+		}
+
+		// Python should be auto-detected
+		if pythonMod == nil {
+			t.Error("Expected Python module to be auto-detected")
+		}
+
+		// NPM should exist but be disabled
+		if npmMod == nil {
+			t.Fatal("Expected NPM module config to exist")
+		}
+		if npmMod.IsEnabled() {
+			t.Error("Expected NPM module to be disabled")
+		}
+	})
+
+	t.Run("disable both modules", func(t *testing.T) {
+		cleatYaml := `
+services:
+  - name: backend
+    modules:
+      - python:
+          enabled: false
+      - npm:
+          enabled: false
+`
+		os.WriteFile("cleat.yaml", []byte(cleatYaml), 0644)
+
+		cfg, err := LoadConfig("cleat.yaml")
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		svc := cfg.Services[0]
+
+		for _, mod := range svc.Modules {
+			if mod.Python != nil && mod.Python.IsEnabled() {
+				t.Error("Expected Python module to be disabled")
+			}
+			if mod.Npm != nil && mod.Npm.IsEnabled() {
+				t.Error("Expected NPM module to be disabled")
+			}
+		}
+	})
+}
+
+func TestLoadConfig_DisabledModuleSkipsDefaults(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-disabled-defaults-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	os.WriteFile("package.json", []byte("{}"), 0644)
+
+	cleatYaml := `
+services:
+  - name: backend
+    modules:
+      - python:
+          enabled: false
+          django: true
+`
+	os.WriteFile("cleat.yaml", []byte(cleatYaml), 0644)
+
+	cfg, err := LoadConfig("cleat.yaml")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	svc := cfg.Services[0]
+
+	for _, mod := range svc.Modules {
+		if mod.Python != nil {
+			// Disabled modules should NOT have defaults applied
+			if mod.Python.PackageManager != "" {
+				t.Errorf("Expected disabled Python module to NOT have package_manager default applied, got '%s'", mod.Python.PackageManager)
+			}
+			if mod.Python.DjangoService != "" {
+				t.Errorf("Expected disabled Python module to NOT have django_service default applied, got '%s'", mod.Python.DjangoService)
+			}
+		}
 	}
 }

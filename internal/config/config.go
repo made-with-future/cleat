@@ -12,11 +12,13 @@ import (
 const LatestVersion = 1
 
 type NpmConfig struct {
+	Enabled *bool    `yaml:"enabled,omitempty"`
 	Service string   `yaml:"service"`
 	Scripts []string `yaml:"scripts"`
 }
 
 type PythonConfig struct {
+	Enabled        *bool  `yaml:"enabled,omitempty"`
 	Django         bool   `yaml:"django"`
 	DjangoService  string `yaml:"django_service"`
 	PackageManager string `yaml:"package_manager"`
@@ -51,6 +53,20 @@ func (s *ServiceConfig) IsDocker() bool {
 	return s.Docker != nil && *s.Docker
 }
 
+func (p *PythonConfig) IsEnabled() bool {
+	if p == nil {
+		return false
+	}
+	return p.Enabled == nil || *p.Enabled
+}
+
+func (n *NpmConfig) IsEnabled() bool {
+	if n == nil {
+		return false
+	}
+	return n.Enabled == nil || *n.Enabled
+}
+
 func ptrBool(b bool) *bool {
 	return &b
 }
@@ -77,13 +93,10 @@ func SetTransientInputs(inputs map[string]string) {
 }
 
 // LoadDefaultConfig loads cleat.yaml from the current directory.
-// If the file is not found, it returns a descriptive error.
+// If the file is not found, it returns a default config with auto-detection enabled.
 func LoadDefaultConfig() (*Config, error) {
 	cfg, err := LoadConfig("cleat.yaml")
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no cleat.yaml found in current directory")
-		}
 		return nil, fmt.Errorf("error loading config: %w", err)
 	}
 	return cfg, nil
@@ -92,7 +105,11 @@ func LoadDefaultConfig() (*Config, error) {
 func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			data = []byte{}
+		} else {
+			return nil, err
+		}
 	}
 
 	baseDir := filepath.Dir(path)
@@ -252,15 +269,15 @@ func LoadConfig(path string) (*Config, error) {
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
 
-		// Auto-detect modules
-		hasPython := false
-		hasNpm := false
+		// Track which modules are explicitly configured
+		var explicitPython *PythonConfig
+		var explicitNpm *NpmConfig
 		for _, m := range svc.Modules {
 			if m.Python != nil {
-				hasPython = true
+				explicitPython = m.Python
 			}
 			if m.Npm != nil {
-				hasNpm = true
+				explicitNpm = m.Npm
 			}
 		}
 
@@ -271,9 +288,10 @@ func LoadConfig(path string) (*Config, error) {
 			searchDir = ""
 		}
 
-		if searchDir != "" && svc.Modules == nil {
-			if !hasPython {
-				// Check for Django
+		// Auto-detect modules only if not explicitly configured
+		if searchDir != "" {
+			// Auto-detect Python/Django if not explicitly configured
+			if explicitPython == nil {
 				if _, err := os.Stat(filepath.Join(searchDir, "manage.py")); err == nil {
 					svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
 				} else if _, err := os.Stat(filepath.Join(searchDir, "backend/manage.py")); err == nil {
@@ -281,17 +299,15 @@ func LoadConfig(path string) (*Config, error) {
 				}
 			}
 
-			if !hasNpm {
-				// Check for NPM
+			// Auto-detect NPM if not explicitly configured
+			if explicitNpm == nil {
 				if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
 					svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
 				} else if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
 					svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
 				}
 			}
-		}
 
-		if searchDir != "" {
 			// Auto-detect Docker for service
 			if svc.Docker == nil {
 				if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yaml")); err == nil {
@@ -302,10 +318,11 @@ func LoadConfig(path string) (*Config, error) {
 			}
 		}
 
+		// Apply defaults to modules (skip disabled ones)
 		for j := range svc.Modules {
 			mod := &svc.Modules[j]
 
-			if mod.Python != nil {
+			if mod.Python != nil && mod.Python.IsEnabled() {
 				if mod.Python.DjangoService == "" {
 					if svc.Name == "default" || svc.Name == "" {
 						mod.Python.DjangoService = "backend"
@@ -318,7 +335,7 @@ func LoadConfig(path string) (*Config, error) {
 				}
 			}
 
-			if mod.Npm != nil {
+			if mod.Npm != nil && mod.Npm.IsEnabled() {
 				if len(mod.Npm.Scripts) == 0 && searchDir != "" {
 					if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
 						mod.Npm.Scripts = []string{"build"}
