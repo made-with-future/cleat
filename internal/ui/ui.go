@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/history"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/task"
 )
@@ -42,6 +43,7 @@ type focus int
 
 const (
 	focusCommands focus = iota
+	focusHistory
 	focusConfig
 )
 
@@ -83,6 +85,9 @@ type model struct {
 	selectedCommand    string
 	collectedInputs    map[string]string
 	taskPreview        []string
+	history            []history.HistoryEntry
+	historyCursor      int
+	historyOffset      int
 	showHelp           bool
 	filtering          bool
 	filterText         string
@@ -105,24 +110,54 @@ func InitialModel(cfg *config.Config, cfgFound bool) model {
 		collectedInputs: make(map[string]string),
 		textInput:       ti,
 	}
+	m.history, _ = history.Load()
 	m.updateVisibleItems()
 	m.updateTaskPreview()
 	return m
 }
 
 func (m *model) updateTaskPreview() {
-	if len(m.visibleItems) == 0 {
-		m.taskPreview = nil
-		return
+	var command string
+	var inputs map[string]string
+
+	if m.focus == focusHistory {
+		if len(m.history) == 0 {
+			m.taskPreview = nil
+			return
+		}
+		entry := m.history[m.historyCursor]
+		command = entry.Command
+		inputs = entry.Inputs
+	} else {
+		if len(m.visibleItems) == 0 {
+			m.taskPreview = nil
+			return
+		}
+
+		item := m.visibleItems[m.cursor]
+		if item.item.Command == "" {
+			m.taskPreview = []string{"(expand to see commands)"}
+			return
+		}
+		command = item.item.Command
 	}
 
-	item := m.visibleItems[m.cursor]
-	if item.item.Command == "" {
-		m.taskPreview = []string{"(expand to see commands)"}
-		return
+	// Use saved inputs for history items if available
+	cfg := m.cfg
+	if len(inputs) > 0 {
+		// Create a temporary config with the saved inputs merged in
+		tempCfg := *m.cfg
+		tempCfg.Inputs = make(map[string]string)
+		for k, v := range m.cfg.Inputs {
+			tempCfg.Inputs[k] = v
+		}
+		for k, v := range inputs {
+			tempCfg.Inputs[k] = v
+		}
+		cfg = &tempCfg
 	}
 
-	tasks, err := strategy.ResolveCommandTasks(item.item.Command, m.cfg)
+	tasks, err := strategy.ResolveCommandTasks(command, cfg)
 	if err != nil {
 		m.taskPreview = []string{fmt.Sprintf("Error: %v", err)}
 		return
@@ -141,7 +176,7 @@ func (m *model) updateTaskPreview() {
 	if m.width > 0 {
 		gap := 2
 		paneWidth := (m.width - gap) / 2
-		availableWidth = paneWidth - 3
+		availableWidth = paneWidth - 3 - 2 // -3 for borders/padding, -2 for right padding
 	}
 
 	for _, t := range tasks {
@@ -156,7 +191,7 @@ func (m *model) updateTaskPreview() {
 		}
 
 		// Commands
-		for _, cmd := range t.Commands(m.cfg) {
+		for _, cmd := range t.Commands(cfg) {
 			cmdLines := wrapLines(cmd, availableWidth, "    $ ", "        ", commentStyle)
 			preview = append(preview, cmdLines...)
 		}
@@ -387,14 +422,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		case tea.KeyTab:
-			m.focus = (m.focus + 1) % 2
+			m.focus = (m.focus + 1) % 3
+			m.updateTaskPreview()
 		case tea.KeyShiftTab:
-			m.focus = (m.focus - 1 + 2) % 2
+			m.focus = (m.focus - 1 + 3) % 3
+			m.updateTaskPreview()
 		case tea.KeyUp:
 			if m.focus == focusCommands && m.cursor > 0 {
 				m.cursor--
 				if m.cursor < m.scrollOffset {
 					m.scrollOffset = m.cursor
+				}
+				m.updateTaskPreview()
+			} else if m.focus == focusHistory && m.historyCursor > 0 {
+				m.historyCursor--
+				if m.historyCursor < m.historyOffset {
+					m.historyOffset = m.historyCursor
 				}
 				m.updateTaskPreview()
 			} else if m.focus == focusConfig && m.configScrollOffset > 0 {
@@ -406,6 +449,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				visibleCount := m.visibleCommandCount()
 				if m.cursor >= m.scrollOffset+visibleCount {
 					m.scrollOffset = m.cursor - visibleCount + 1
+				}
+				m.updateTaskPreview()
+			} else if m.focus == focusHistory && m.historyCursor < len(m.history)-1 {
+				m.historyCursor++
+				visibleCount := m.visibleHistoryCount()
+				if m.historyCursor >= m.historyOffset+visibleCount {
+					m.historyOffset = m.historyCursor - visibleCount + 1
 				}
 				m.updateTaskPreview()
 			} else if m.focus == focusConfig {
@@ -453,6 +503,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.quitting = true
 					return m, tea.Quit
 				}
+			} else if m.focus == focusHistory && len(m.history) > 0 {
+				entry := m.history[m.historyCursor]
+				m.selectedCommand = entry.Command
+				m.collectedInputs = make(map[string]string)
+				for k, v := range entry.Inputs {
+					m.collectedInputs[k] = v
+				}
+				m.quitting = true
+				return m, tea.Quit
 			} else if m.focus == focusConfig {
 				return m, m.openEditor()
 			}
@@ -487,6 +546,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.scrollOffset = m.cursor
 					}
 					m.updateTaskPreview()
+				} else if m.focus == focusHistory && m.historyCursor > 0 {
+					m.historyCursor--
+					if m.historyCursor < m.historyOffset {
+						m.historyOffset = m.historyCursor
+					}
+					m.updateTaskPreview()
 				} else if m.focus == focusConfig && m.configScrollOffset > 0 {
 					m.configScrollOffset--
 				}
@@ -496,6 +561,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					visibleCount := m.visibleCommandCount()
 					if m.cursor >= m.scrollOffset+visibleCount {
 						m.scrollOffset = m.cursor - visibleCount + 1
+					}
+					m.updateTaskPreview()
+				} else if m.focus == focusHistory && m.historyCursor < len(m.history)-1 {
+					m.historyCursor++
+					visibleCount := m.visibleHistoryCount()
+					if m.historyCursor >= m.historyOffset+visibleCount {
+						m.historyOffset = m.historyCursor - visibleCount + 1
 					}
 					m.updateTaskPreview()
 				} else if m.focus == focusConfig {
@@ -662,9 +734,9 @@ func (m model) visibleCommandCount() int {
 	}
 	titleLines := 1
 	helpLines := 2
-	paneHeight := m.height - helpLines - titleLines
-	// Subtract: 2 for borders, 0 for title (now on border), 1 for blank line after title (or filter bar), 1 for potential scroll indicator
-	availableLines := paneHeight - 2 - 0 - 1 - 1
+	paneHeight := (m.height - helpLines - titleLines) / 2
+	// Subtract: 2 for borders, 0 for title (now on border), 0 for blank line (now removed), 1 for potential scroll indicator
+	availableLines := paneHeight - 2 - 0 - 0 - 1
 	if availableLines < 1 {
 		availableLines = 1
 	}
@@ -677,11 +749,10 @@ func (m model) visibleConfigCount() int {
 	}
 	titleLines := 1
 	helpLines := 2
-	paneHeight := m.height - helpLines - titleLines
-	configPaneHeight := paneHeight - (paneHeight / 2)
+	paneHeight := (m.height - helpLines - titleLines) - ((m.height - helpLines - titleLines) / 2)
 
-	// Subtract: 2 for borders, 0 for title (now on border), 1 for blank line, 1 for action hint, 1 for potential scroll indicator
-	availableLines := configPaneHeight - 2 - 0 - 1 - 1 - 1
+	// Subtract: 2 for borders, 0 for title (now on border), 0 for blank line (removed), 1 for action hint, 1 for potential scroll indicator
+	availableLines := paneHeight - 2 - 0 - 0 - 1 - 1
 	if availableLines < 1 {
 		availableLines = 1
 	}
@@ -935,6 +1006,13 @@ func (m model) renderInputModal() string {
 	return result.String()
 }
 
+func (m model) visibleHistoryCount() int {
+	// 2 (top/bottom borders) + 2 (more indicators) = 4
+	// (Search/Padding line removed)
+	// But it's split with Commands pane
+	return (m.height-1-2)/2 - 3
+}
+
 func (m model) View() string {
 	if m.quitting {
 		return ""
@@ -984,12 +1062,17 @@ func (m model) View() string {
 		borderStyle.Render("╮")
 
 	// Determine border colors based on focus
-	leftColor := comment
-	rightColor := comment
-	if m.focus == focusCommands {
-		leftColor = purple
-	} else {
-		rightColor = purple
+	commandsColor := comment
+	historyColor := comment
+	configColor := comment
+
+	switch m.focus {
+	case focusCommands:
+		commandsColor = purple
+	case focusHistory:
+		historyColor = purple
+	case focusConfig:
+		configColor = purple
 	}
 
 	// Calculate dimensions
@@ -998,6 +1081,10 @@ func (m model) View() string {
 	helpLines := 2
 	paneWidth := (m.width - gap) / 2
 	paneHeight := m.height - helpLines - titleLines
+
+	// Left panes height split
+	commandsPaneHeight := paneHeight / 2
+	historyPaneHeight := paneHeight - commandsPaneHeight
 
 	// Right panes height split
 	taskPaneHeight := paneHeight / 2
@@ -1012,8 +1099,6 @@ func (m model) View() string {
 	} else if m.filterText != "" {
 		filterStyle := lipgloss.NewStyle().Foreground(comment)
 		leftLines = append(leftLines, " "+filterStyle.Render("/"+m.filterText))
-	} else {
-		leftLines = append(leftLines, "")
 	}
 
 	visibleCount := m.visibleCommandCount()
@@ -1065,14 +1150,12 @@ func (m model) View() string {
 
 	// Build task preview pane content
 	var taskLines []string
-	taskLines = append(taskLines, "")
 	for _, line := range m.taskPreview {
 		taskLines = append(taskLines, " "+line)
 	}
 
 	// Build right pane content (with padding)
 	var configLines []string
-	configLines = append(configLines, "")
 
 	allConfigLines := m.buildConfigLines()
 	visibleConfigCount := m.visibleConfigCount()
@@ -1108,11 +1191,73 @@ func (m model) View() string {
 		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(purple).Render(actionText))
 	}
 
+	// Build history pane content
+	var historyLines []string
+	visibleHistoryCount := m.visibleHistoryCount()
+	hasMoreHistoryAbove := m.historyOffset > 0
+	hasMoreHistoryBelow := m.historyOffset+visibleHistoryCount < len(m.history)
+
+	if hasMoreHistoryAbove {
+		historyLines = append(historyLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
+	}
+
+	endHistoryIdx := m.historyOffset + visibleHistoryCount
+	if endHistoryIdx > len(m.history) {
+		endHistoryIdx = len(m.history)
+	}
+	for i := m.historyOffset; i < endHistoryIdx; i++ {
+		entry := m.history[i]
+
+		// Format: Command (aligned left) ... Date Time (aligned right)
+		ts := entry.Timestamp.Format("2006-01-02 15:04")
+		contentWidth := paneWidth - 2 - 3 - 2 // -2 for borders, -3 for prefix, -2 for right padding
+		if contentWidth < 0 {
+			contentWidth = 0
+		}
+
+		tsWidth := lipgloss.Width(ts)
+		var label string
+		if contentWidth <= tsWidth {
+			label = ansi.Truncate(ts, contentWidth, "")
+		} else {
+			cmdMaxWidth := contentWidth - tsWidth - 1 // at least one space
+			displayCmd := entry.Command
+			if lipgloss.Width(displayCmd) > cmdMaxWidth {
+				displayCmd = ansi.Truncate(displayCmd, cmdMaxWidth, "…")
+			}
+			spaces := contentWidth - lipgloss.Width(displayCmd) - tsWidth
+			if spaces < 0 {
+				spaces = 0
+			}
+			label = displayCmd + strings.Repeat(" ", spaces) + ts
+		}
+
+		if i == m.historyCursor {
+			cursorColor := purple
+			if m.focus != focusHistory {
+				cursorColor = comment
+			}
+			historyLines = append(historyLines, " "+lipgloss.NewStyle().Foreground(cursorColor).Render("> "+label))
+		} else {
+			historyLines = append(historyLines, "   "+label)
+		}
+	}
+	if hasMoreHistoryBelow {
+		historyLines = append(historyLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
+	}
+
 	// Draw boxes
-	leftBox := drawBox(leftLines, paneWidth, paneHeight, leftColor, "Commands")
+	commandsBox := drawBox(leftLines, paneWidth, commandsPaneHeight, commandsColor, "Commands")
+	historyBox := drawBox(historyLines, paneWidth, historyPaneHeight, historyColor, "Command History")
 
 	taskTitle := "Tasks to run"
-	if len(m.visibleItems) > 0 {
+	if m.focus == focusHistory {
+		if len(m.history) > 0 {
+			entry := m.history[m.historyCursor]
+			// Try to find the path from command tree if possible, otherwise use command string
+			taskTitle = fmt.Sprintf("Tasks for %s", entry.Command)
+		}
+	} else if len(m.visibleItems) > 0 {
 		vItem := m.visibleItems[m.cursor]
 		if vItem.item.Command != "" {
 			taskTitle = fmt.Sprintf("Tasks for %s", strings.TrimSpace(vItem.path))
@@ -1120,10 +1265,13 @@ func (m model) View() string {
 	}
 	taskBox := drawBox(taskLines, paneWidth, taskPaneHeight, comment, taskTitle)
 
-	configBox := drawBox(configLines, paneWidth, configPaneHeight, rightColor, "Configuration")
+	configBox := drawBox(configLines, paneWidth, configPaneHeight, configColor, "Configuration")
 
-	// Join boxes horizontally
-	leftBoxLines := strings.Split(leftBox, "\n")
+	// Join boxes vertically for left and right sides
+	commandsBoxLines := strings.Split(commandsBox, "\n")
+	historyBoxLines := strings.Split(historyBox, "\n")
+	leftBoxLines := append(commandsBoxLines, historyBoxLines...)
+
 	taskBoxLines := strings.Split(taskBox, "\n")
 	configBoxLines := strings.Split(configBox, "\n")
 	rightBoxLines := append(taskBoxLines, configBoxLines...)

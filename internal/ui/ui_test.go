@@ -3,11 +3,13 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/history"
 	"github.com/muesli/termenv"
 )
 
@@ -61,6 +63,9 @@ func TestModelView(t *testing.T) {
 	}
 	if !strings.Contains(view, "Configuration") {
 		t.Error("expected view to contain 'Configuration' section")
+	}
+	if !strings.Contains(view, "Command History") {
+		t.Error("expected view to contain 'Command History' section")
 	}
 	if !strings.Contains(view, "Tasks for build") {
 		t.Error("expected view to contain 'Tasks for build' section")
@@ -361,11 +366,25 @@ func TestTabbing(t *testing.T) {
 		t.Error("expected initial focus to be commands")
 	}
 
-	// Tab -> Config
+	// Tab -> History
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updatedModel.(model)
+	if m.focus != focusHistory {
+		t.Errorf("expected focus to be history after Tab, got %v", m.focus)
+	}
+
+	// Tab -> Config
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
 	if m.focus != focusConfig {
 		t.Errorf("expected focus to be config after Tab, got %v", m.focus)
+	}
+
+	// Shift+Tab -> History
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	m = updatedModel.(model)
+	if m.focus != focusHistory {
+		t.Errorf("expected focus to be history after Shift+Tab, got %v", m.focus)
 	}
 
 	// Shift+Tab -> Commands
@@ -395,9 +414,13 @@ func TestConfigPaneAction(t *testing.T) {
 	m.width = 100
 	m.height = 40
 
-	// Tab to config pane
+	// Tab to history, then to config pane
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	updatedModel, _ = updatedModel.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
+	if m.focus != focusConfig {
+		t.Fatalf("expected focus to be config, got %v", m.focus)
+	}
 
 	view := m.View()
 	if !strings.Contains(view, "Press Enter to create") {
@@ -808,5 +831,118 @@ func TestNestedCommandPathTitle(t *testing.T) {
 	view = m.View()
 	if !strings.Contains(view, "Tasks for api.django.migrate") {
 		t.Errorf("expected title 'Tasks for api.django.migrate' with filter, view content:\n%s", view)
+	}
+}
+
+func TestHistoryNavigationWithJK(t *testing.T) {
+	cfg := &config.Config{}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 20 // visibleHistoryCount will be 5
+
+	// Inject some history entries
+	m.history = []history.HistoryEntry{
+		{Timestamp: time.Now(), Command: "cmd1"},
+		{Timestamp: time.Now(), Command: "cmd2"},
+		{Timestamp: time.Now(), Command: "cmd3"},
+		{Timestamp: time.Now(), Command: "cmd4"},
+		{Timestamp: time.Now(), Command: "cmd5"},
+		{Timestamp: time.Now(), Command: "cmd6"},
+	}
+	m.historyCursor = 0
+
+	// Switch focus to history
+	m.focus = focusHistory
+
+	// 1. Move down with 'j'
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = updatedModel.(model)
+	if m.historyCursor != 1 {
+		t.Errorf("expected historyCursor 1 after 'j', got %d", m.historyCursor)
+	}
+
+	// Move down many times to trigger scroll
+	for i := 0; i < 5; i++ {
+		updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+		m = updatedModel.(model)
+	}
+
+	if m.historyCursor != 5 {
+		t.Errorf("expected historyCursor 5, got %d", m.historyCursor)
+	}
+
+	if m.historyOffset == 0 {
+		t.Error("expected historyOffset > 0 when cursor is at 5 and visibleCount is 5")
+	}
+
+	// 4. Move up with 'k'
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = updatedModel.(model)
+	if m.historyCursor != 4 {
+		t.Errorf("expected historyCursor 4 after 'k', got %d", m.historyCursor)
+	}
+}
+
+func TestHistoryTaskPreview(t *testing.T) {
+	cfg := &config.Config{
+		Docker: true,
+	}
+	m := InitialModel(cfg, true)
+	m.width = 120
+	m.height = 40
+
+	// Inject some history entries
+	m.history = []history.HistoryEntry{
+		{Timestamp: time.Now(), Command: "build"},
+		{Timestamp: time.Now(), Command: "docker down"},
+	}
+	m.historyCursor = 0
+
+	// Initial preview should be for "build" (commands focused)
+	if !strings.Contains(m.View(), "Tasks for build") {
+		t.Error("expected initial preview for 'build'")
+	}
+
+	// Tab to history
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updatedModel.(model)
+	if m.focus != focusHistory {
+		t.Fatalf("expected focus history, got %v", m.focus)
+	}
+
+	// Preview should now be for history item at cursor 0: "build"
+	view := m.View()
+	if !strings.Contains(view, "Tasks for build") {
+		t.Error("expected preview for history 'build'")
+	}
+
+	// Move down to "docker down"
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(model)
+	if m.historyCursor != 1 {
+		t.Fatalf("expected history cursor 1, got %d", m.historyCursor)
+	}
+
+	view = m.View()
+	if !strings.Contains(view, "Tasks for docker down") {
+		t.Errorf("expected preview for history 'docker down', view:\n%s", view)
+	}
+
+	// 3. Test with inputs: gcp set-config with account
+	m.cfg.GoogleCloudPlatform = &config.GCPConfig{ProjectName: "test-project"}
+	m.history = append(m.history, history.HistoryEntry{
+		Timestamp: time.Now(),
+		Command:   "gcp set-config",
+		Inputs:    map[string]string{"gcp:account": "history@example.com"},
+	})
+	m.historyCursor = 2
+
+	m.updateTaskPreview()
+	view = m.View()
+	if !strings.Contains(view, "Tasks for gcp set-config") {
+		t.Errorf("expected preview for 'gcp set-config', view:\n%s", view)
+	}
+	if !strings.Contains(view, "gcloud config set account history@example.com") {
+		t.Errorf("expected preview to contain account from history inputs, view:\n%s", view)
 	}
 }
