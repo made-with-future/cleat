@@ -11,11 +11,13 @@ import (
 	"github.com/madewithfuture/cleat/internal/history"
 	"github.com/madewithfuture/cleat/internal/ui"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
 	UIStart = ui.Start
 	Exit    = os.Exit
+	Wait    = waitForAnyKey
 )
 
 var rootCmd = &cobra.Command{
@@ -112,6 +114,7 @@ func run(args []string) {
 		}
 
 		if tuiMode {
+			Wait()
 			continue
 		}
 		break
@@ -120,4 +123,26 @@ func run(args []string) {
 
 func init() {
 	// Add flags or subcommands here
+}
+
+func waitForAnyKey() {
+	fmt.Print("\nPress any key to return to Cleat...")
+
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		var b [1]byte
+		os.Stdin.Read(b[:])
+		return
+	}
+
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		var b [1]byte
+		os.Stdin.Read(b[:])
+		return
+	}
+	defer term.Restore(fd, oldState)
+
+	var b [1]byte
+	os.Stdin.Read(b[:])
 }
