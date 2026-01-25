@@ -19,14 +19,21 @@ func TestRun(t *testing.T) {
 	// Save original values
 	oldUIStart := UIStart
 	oldExit := Exit
+	oldWait := Wait
 	defer func() {
 		UIStart = oldUIStart
 		Exit = oldExit
+		Wait = oldWait
 	}()
 
 	var exitCode int
 	Exit = func(code int) {
 		exitCode = code
+	}
+
+	var waitCalls int
+	Wait = func() {
+		waitCalls++
 	}
 
 	t.Run("No args, TUI returns build", func(t *testing.T) {
@@ -96,22 +103,34 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("With args, executes subcommand", func(t *testing.T) {
+		waitCalls = 0
 		// version command is safe to run as it just prints
 		run([]string{"cleat", "version"})
+		if waitCalls != 0 {
+			t.Errorf("expected Wait to be called 0 times for CLI mode, got %d", waitCalls)
+		}
 	})
 }
 
 func TestRunLoop(t *testing.T) {
 	oldUIStart := UIStart
 	oldExit := Exit
+	oldWait := Wait
 	defer func() {
 		UIStart = oldUIStart
 		Exit = oldExit
+		Wait = oldWait
 	}()
 
 	Exit = func(code int) {}
 
+	var waitCalls int
+	Wait = func() {
+		waitCalls++
+	}
+
 	t.Run("Loop for run command", func(t *testing.T) {
+		waitCalls = 0
 		calls := 0
 		UIStart = func() (string, map[string]string, error) {
 			calls++
@@ -128,9 +147,13 @@ func TestRunLoop(t *testing.T) {
 		if calls != 2 {
 			t.Errorf("expected UIStart to be called 2 times, got %d", calls)
 		}
+		if waitCalls != 1 {
+			t.Errorf("expected Wait to be called 1 time, got %d", waitCalls)
+		}
 	})
 
 	t.Run("Loop for gcp init command", func(t *testing.T) {
+		waitCalls = 0
 		calls := 0
 		UIStart = func() (string, map[string]string, error) {
 			calls++
@@ -145,9 +168,13 @@ func TestRunLoop(t *testing.T) {
 		if calls != 2 {
 			t.Errorf("expected UIStart to be called 2 times for gcp init, got %d", calls)
 		}
+		if waitCalls != 1 {
+			t.Errorf("expected Wait to be called 1 time, got %d", waitCalls)
+		}
 	})
 
 	t.Run("Loop for build command", func(t *testing.T) {
+		waitCalls = 0
 		calls := 0
 		UIStart = func() (string, map[string]string, error) {
 			calls++
@@ -161,6 +188,9 @@ func TestRunLoop(t *testing.T) {
 
 		if calls != 2 {
 			t.Errorf("expected UIStart to be called 2 times, got %d", calls)
+		}
+		if waitCalls != 1 {
+			t.Errorf("expected Wait to be called 1 time, got %d", waitCalls)
 		}
 	})
 }
