@@ -138,6 +138,8 @@ func TestConfigPreview(t *testing.T) {
 	// Test with Terraform
 	cfg.Terraform = &config.TerraformConfig{UseFolders: true, Envs: []string{"production", "staging"}}
 	m2 := InitialModel(cfg, true)
+	m2.expandAll()
+	m2.updateVisibleItems()
 	m2.width = 100
 	m2.height = 40
 	view2 := m2.View()
@@ -265,6 +267,8 @@ func TestCommandTreeNesting(t *testing.T) {
 		},
 	}
 	m := InitialModel(cfg, true)
+	m.expandAll()
+	m.updateVisibleItems()
 
 	// Expected visible items (all expanded):
 	// build (level 0)
@@ -456,6 +460,8 @@ func TestScrolling(t *testing.T) {
 		},
 	}
 	m := InitialModel(cfg, true)
+	m.expandAll()
+	m.updateVisibleItems()
 	m.width = 80
 	m.height = 15 // Reduced to ensure scrolling
 
@@ -557,6 +563,12 @@ func TestHelpOverlay(t *testing.T) {
 	if !strings.Contains(view, "Keyboard Shortcuts") {
 		t.Error("expected help overlay to contain 'Keyboard Shortcuts'")
 	}
+	if !strings.Contains(view, "e          Expand all") {
+		t.Error("expected help overlay to contain 'e          Expand all'")
+	}
+	if !strings.Contains(view, "c          Collapse all") {
+		t.Error("expected help overlay to contain 'c          Collapse all'")
+	}
 
 	// Press any key to dismiss
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
@@ -586,6 +598,8 @@ func TestTaskPreviewWrapping(t *testing.T) {
 		Docker: true,
 	}
 	m := InitialModel(cfg, true)
+	m.expandAll()
+	m.updateVisibleItems()
 	m.width = 60
 	m.height = 20
 
@@ -663,6 +677,8 @@ func TestConfigScrolling(t *testing.T) {
 		cfg.Services[i] = config.ServiceConfig{Name: "service-" + string(rune('a'+i))}
 	}
 	m := InitialModel(cfg, true)
+	m.expandAll()
+	m.updateVisibleItems()
 	m.width = 100
 	m.height = 20
 	m.focus = focusConfig
@@ -712,6 +728,8 @@ func TestInputCollectionModal(t *testing.T) {
 		},
 	}
 	m := InitialModel(cfg, true)
+	m.expandAll()
+	m.updateVisibleItems()
 
 	// Navigate to gcp set-config
 	found := false
@@ -769,10 +787,10 @@ func TestNestedCommandPathTitle(t *testing.T) {
 		},
 	}
 	m := InitialModel(cfg, true)
+	m.expandAll()
+	m.updateVisibleItems()
 	m.width = 100
 	m.height = 40
-
-	// Initial selection is "build"
 	view := m.View()
 	if !strings.Contains(view, "Tasks for build") {
 		t.Errorf("expected 'Tasks for build', got something else")

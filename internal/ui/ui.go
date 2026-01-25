@@ -320,6 +320,27 @@ func (m *model) flattenFiltered(item *CommandItem, level int, parentPath string)
 	}
 }
 
+func (m *model) expandAll() {
+	for i := range m.tree {
+		m.tree[i].setExpandedRecursive(true)
+	}
+}
+
+func (m *model) collapseAll() {
+	for i := range m.tree {
+		m.tree[i].setExpandedRecursive(false)
+	}
+}
+
+func (item *CommandItem) setExpandedRecursive(expanded bool) {
+	if len(item.Children) > 0 {
+		item.Expanded = expanded
+		for i := range item.Children {
+			item.Children[i].setExpandedRecursive(expanded)
+		}
+	}
+}
+
 func (m model) Init() tea.Cmd {
 	return nil
 }
@@ -571,6 +592,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = stateConfirmClearHistory
 					return m, nil
 				}
+			case "e":
+				if m.focus == focusCommands {
+					m.expandAll()
+					m.updateVisibleItems()
+					m.updateTaskPreview()
+					return m, nil
+				}
+			case "c":
+				if m.focus == focusCommands {
+					m.collapseAll()
+					m.updateVisibleItems()
+					m.cursor = 0
+					m.scrollOffset = 0
+					m.updateTaskPreview()
+					return m, nil
+				}
 			case "g":
 				if m.pendingG {
 					if m.focus == focusCommands {
@@ -670,7 +707,6 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 				{Label: "rebuild", Command: "docker rebuild"},
 				{Label: "remove-orphans", Command: "docker remove-orphans"},
 			},
-			Expanded: true,
 		})
 	}
 
@@ -683,7 +719,6 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 				{Label: "init", Command: "gcp init"},
 				{Label: "set-config", Command: "gcp set-config"},
 			},
-			Expanded: true,
 		})
 	}
 
@@ -700,13 +735,11 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 						{Label: "apply", Command: "terraform apply:" + env},
 						{Label: "apply-refresh", Command: "terraform apply-refresh:" + env},
 					},
-					Expanded: true,
 				})
 			}
 			tree = append(tree, CommandItem{
 				Label:    "terraform",
 				Children: tfChildren,
-				Expanded: true,
 			})
 		} else {
 			tree = append(tree, CommandItem{
@@ -718,7 +751,6 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 					{Label: "apply", Command: "terraform apply"},
 					{Label: "apply-refresh", Command: "terraform apply-refresh"},
 				},
-				Expanded: true,
 			})
 		}
 	}
@@ -726,8 +758,7 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
 		svcItem := CommandItem{
-			Label:    svc.Name,
-			Expanded: true,
+			Label: svc.Name,
 		}
 
 		for j := range svc.Modules {
@@ -747,15 +778,13 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 				svcItem.Children = append(svcItem.Children, CommandItem{
 					Label:    "django",
 					Children: djangoChildren,
-					Expanded: true,
 				})
 			}
 
 			// NPM
 			if mod.Npm != nil && len(mod.Npm.Scripts) > 0 {
 				npmItem := CommandItem{
-					Label:    "npm",
-					Expanded: true,
+					Label: "npm",
 				}
 				for _, script := range mod.Npm.Scripts {
 					npmItem.Children = append(npmItem.Children, CommandItem{
@@ -965,6 +994,8 @@ func (m model) renderHelpOverlay() string {
 		"",
 		"  ↑/k        Move up",
 		"  ↓/j        Move down",
+		"  e          Expand all",
+		"  c          Collapse all",
 		"  /          Filter commands",
 		"  Enter      Select/Toggle / Edit config",
 		"  x          Clear history (history pane)",
