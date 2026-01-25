@@ -239,11 +239,13 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 	}
 
 	if strings.HasPrefix(command, "npm run ") {
-		// Command might be "npm run script" or "npm run service:script"
-		parts := strings.Split(strings.TrimPrefix(command, "npm run "), ":")
-		if len(parts) == 2 {
-			svcName := parts[0]
-			script := parts[1]
+		fullScript := strings.TrimPrefix(command, "npm run ")
+
+		// 1. Try to match as svcName:script first
+		if colonIdx := strings.Index(fullScript, ":"); colonIdx != -1 {
+			svcName := fullScript[:colonIdx]
+			script := fullScript[colonIdx+1:]
+
 			for i := range cfg.Services {
 				if cfg.Services[i].Name == svcName {
 					svc := &cfg.Services[i]
@@ -268,20 +270,29 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 					}
 				}
 			}
-		} else {
-			script := parts[0]
-			// Try to find a service and module that has this script
-			for i := range cfg.Services {
-				svc := &cfg.Services[i]
-				for j := range svc.Modules {
-					mod := &svc.Modules[j]
-					if mod.Npm != nil {
-						for _, s := range mod.Npm.Scripts {
-							if s == script {
-								return NewNpmScriptStrategy(svc, mod.Npm, script)
-							}
+		}
+
+		// 2. No service prefix match, search for the script name in all NPM modules
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
+			for j := range svc.Modules {
+				mod := &svc.Modules[j]
+				if mod.Npm != nil {
+					for _, s := range mod.Npm.Scripts {
+						if s == fullScript {
+							return NewNpmScriptStrategy(svc, mod.Npm, fullScript)
 						}
 					}
+				}
+			}
+		}
+
+		// 3. Last resort: use the first service that has an NPM module
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
+			for j := range svc.Modules {
+				if svc.Modules[j].Npm != nil {
+					return NewNpmScriptStrategy(svc, svc.Modules[j].Npm, fullScript)
 				}
 			}
 		}
@@ -303,6 +314,8 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 
 			if targetSvc != nil {
 				switch baseCmd {
+				case "django runserver":
+					return NewDjangoRunServerStrategy(targetSvc)
 				case "django migrate":
 					return NewDjangoMigrateStrategy(targetSvc)
 				case "django makemigrations":

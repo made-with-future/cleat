@@ -73,15 +73,17 @@ func run(args []string) {
 					}
 				}
 			} else if strings.HasPrefix(selected, "django ") {
-				parts := strings.Split(selected, ":")
-				cmdPart := parts[0]
-				cmdArgs = strings.Fields(cmdPart)
-				if len(parts) == 2 {
-					cmdArgs = append(cmdArgs, parts[1])
+				if colonIdx := strings.LastIndex(selected, ":"); colonIdx != -1 {
+					cmdPart := selected[:colonIdx]
+					svcName := selected[colonIdx+1:]
+					cmdArgs = strings.Fields(cmdPart)
+					cmdArgs = append(cmdArgs, svcName)
+				} else {
+					cmdArgs = strings.Fields(selected)
 				}
 			} else if strings.HasPrefix(selected, "npm run ") {
 				scriptPart := strings.TrimPrefix(selected, "npm run ")
-				parts := strings.Split(scriptPart, ":")
+				parts := strings.SplitN(scriptPart, ":", 2)
 				if len(parts) == 2 {
 					// npm run svc:script -> cleat npm script svc
 					cmdArgs = []string{"npm", parts[1], parts[0]}

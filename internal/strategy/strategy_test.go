@@ -458,13 +458,18 @@ func TestNpmScriptStrategy(t *testing.T) {
 var _ executor.Executor = &mockExecutor{}
 var _ task.Task = &mockTask{}
 
+func ptrBool(b bool) *bool {
+	return &b
+}
+
 func TestResolveCommandTasks(t *testing.T) {
 	cfg := &config.Config{
 		Docker:    true,
 		Terraform: &config.TerraformConfig{},
 		Services: []config.ServiceConfig{
 			{
-				Name: "default",
+				Name:   "default",
+				Docker: ptrBool(true),
 				Modules: []config.ModuleConfig{
 					{Python: &config.PythonConfig{Django: true, DjangoService: "backend"}},
 					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
@@ -479,6 +484,7 @@ func TestResolveCommandTasks(t *testing.T) {
 	}{
 		{"build", []string{"docker:build", "npm:build", "django:collectstatic"}},
 		{"run", []string{"docker:up"}},
+		{"django runserver", []string{"django:runserver"}},
 		{"docker down", []string{"docker:down"}},
 		{"docker rebuild", []string{"docker:rebuild"}},
 		{"django create-user-dev", []string{"django:create-user-dev"}},

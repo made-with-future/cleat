@@ -6,11 +6,37 @@ import (
 )
 
 func init() {
+	Register("django runserver", NewDjangoRunServerStrategyGlobal)
 	Register("django create-user-dev", NewDjangoCreateUserDevStrategyGlobal)
 	Register("django collectstatic", NewDjangoCollectStaticStrategyGlobal)
 	Register("django migrate", NewDjangoMigrateStrategyGlobal)
 	Register("django makemigrations", NewDjangoMakeMigrationsStrategyGlobal)
 	Register("django gen-random-secret-key", NewDjangoGenRandomSecretKeyStrategyGlobal)
+}
+
+func NewDjangoRunServerStrategyGlobal(cfg *config.Config) Strategy {
+	var tasks []task.Task
+	for i := range cfg.Services {
+		svc := &cfg.Services[i]
+		for j := range svc.Modules {
+			mod := &svc.Modules[j]
+			if mod.Python != nil {
+				tasks = append(tasks, task.NewDjangoRunServer(svc, mod.Python))
+			}
+		}
+	}
+	return NewBaseStrategy("django runserver", tasks)
+}
+
+func NewDjangoRunServerStrategy(svc *config.ServiceConfig) Strategy {
+	var tasks []task.Task
+	for i := range svc.Modules {
+		mod := &svc.Modules[i]
+		if mod.Python != nil {
+			tasks = append(tasks, task.NewDjangoRunServer(svc, mod.Python))
+		}
+	}
+	return NewBaseStrategy("django runserver", tasks)
 }
 
 func NewDjangoCreateUserDevStrategyGlobal(cfg *config.Config) Strategy {

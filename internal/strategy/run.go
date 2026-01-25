@@ -30,10 +30,10 @@ func NewRunStrategy(cfg *config.Config) Strategy {
 			}
 			for j := range svc.Modules {
 				mod := &svc.Modules[j]
-				if mod.Python != nil {
+				if mod.Python != nil && !cfg.Docker {
 					tasks = append(tasks, task.NewDjangoRunServer(svc, mod.Python))
 				}
-				if mod.Npm != nil {
+				if mod.Npm != nil && !cfg.Docker {
 					tasks = append(tasks, task.NewNpmStart(svc, mod.Npm))
 				}
 			}
