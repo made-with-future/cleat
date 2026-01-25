@@ -34,8 +34,8 @@ func run(args []string) {
 	tuiMode := len(args) == 1
 	for {
 		var selected string
+		var inputs map[string]string
 		if tuiMode {
-			var inputs map[string]string
 			var err error
 			selected, inputs, err = UIStart()
 			if err != nil {
@@ -92,12 +92,6 @@ func run(args []string) {
 
 			if len(cmdArgs) > 0 {
 				rootCmd.SetArgs(cmdArgs)
-				// Save to history
-				history.Save(history.HistoryEntry{
-					Timestamp: time.Now(),
-					Command:   selected,
-					Inputs:    inputs,
-				})
 			} else {
 				return
 			}
@@ -105,12 +99,23 @@ func run(args []string) {
 			rootCmd.SetArgs(args[1:])
 		}
 
-		if err := rootCmd.Execute(); err != nil {
+		err := rootCmd.Execute()
+		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			if !tuiMode {
 				Exit(1)
 				return
 			}
+		}
+
+		if tuiMode && selected != "" {
+			// Save to history
+			history.Save(history.HistoryEntry{
+				Timestamp: time.Now(),
+				Command:   selected,
+				Inputs:    inputs,
+				Success:   err == nil,
+			})
 		}
 
 		if tuiMode {

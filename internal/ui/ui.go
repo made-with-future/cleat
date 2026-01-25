@@ -1062,6 +1062,8 @@ func (m model) View() string {
 	purple := lipgloss.Color("#bd93f9")
 	cyan := lipgloss.Color("#8be9fd")
 	comment := lipgloss.Color("#6272a4")
+	green := lipgloss.Color("#50fa7b")
+	red := lipgloss.Color("#ff5555")
 
 	// Build title bar
 	title := " Cleat "
@@ -1227,9 +1229,18 @@ func (m model) View() string {
 	for i := m.historyOffset; i < endHistoryIdx; i++ {
 		entry := m.history[i]
 
+		// Icon for success/failure
+		icon := "✓"
+		iconColor := green
+		if !entry.Success {
+			icon = "✘"
+			iconColor = red
+		}
+		renderedIcon := lipgloss.NewStyle().Foreground(iconColor).Render(icon)
+
 		// Format: Command (aligned left) ... Date Time (aligned right)
 		ts := entry.Timestamp.Format("2006-01-02 15:04")
-		contentWidth := paneWidth - 2 - 3 - 2 // -2 for borders, -3 for prefix, -2 for right padding
+		contentWidth := paneWidth - 2 - 3 - 2 - 2 // -2 for borders, -3 for prefix, -2 for right padding, -2 for icon
 		if contentWidth < 0 {
 			contentWidth = 0
 		}
@@ -1237,7 +1248,7 @@ func (m model) View() string {
 		tsWidth := lipgloss.Width(ts)
 		var label string
 		if contentWidth <= tsWidth {
-			label = ansi.Truncate(ts, contentWidth, "")
+			label = renderedIcon + " " + ansi.Truncate(ts, contentWidth, "")
 		} else {
 			cmdMaxWidth := contentWidth - tsWidth - 1 // at least one space
 			displayCmd := entry.Command
@@ -1248,7 +1259,7 @@ func (m model) View() string {
 			if spaces < 0 {
 				spaces = 0
 			}
-			label = displayCmd + strings.Repeat(" ", spaces) + ts
+			label = renderedIcon + " " + displayCmd + strings.Repeat(" ", spaces) + ts
 		}
 
 		if i == m.historyCursor {

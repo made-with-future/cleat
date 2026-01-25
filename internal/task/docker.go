@@ -59,7 +59,7 @@ func (t *DockerBuild) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *DockerBuild) Commands(cfg *config.Config) [][]string {
 	cmdName := "docker"
-	args := []string{"compose"}
+	args := []string{"--log-level", "error", "compose"}
 	if t.Service == nil {
 		args = append(args, "--profile", "*")
 	}
@@ -130,7 +130,7 @@ func (t *DockerUp) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *DockerUp) Commands(cfg *config.Config) [][]string {
 	cmdName := "docker"
-	args := []string{"compose"}
+	args := []string{"--log-level", "error", "compose"}
 	args = append(args, "up", "--remove-orphans")
 
 	// 1Password integration
@@ -198,7 +198,7 @@ func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *DockerDown) Commands(cfg *config.Config) [][]string {
 	cmdName := "docker"
-	args := []string{"compose"}
+	args := []string{"--log-level", "error", "compose"}
 	args = append(args, "--profile", "*", "down", "--remove-orphans")
 
 	// 1Password integration
@@ -276,12 +276,12 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 func (t *DockerRebuild) Commands(cfg *config.Config) [][]string {
 	// 1. Down
 	downCmd := "docker"
-	downArgs := []string{"compose"}
+	downArgs := []string{"--log-level", "error", "compose"}
 	downArgs = append(downArgs, "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes")
 
 	// 2. Build
 	buildCmd := "docker"
-	buildArgs := []string{"compose"}
+	buildArgs := []string{"--log-level", "error", "compose"}
 	buildArgs = append(buildArgs, "--profile", "*", "build", "--no-cache")
 
 	// 1Password integration
@@ -356,7 +356,7 @@ func (t *DockerRemoveOrphans) Run(cfg *config.Config, exec executor.Executor) er
 
 func (t *DockerRemoveOrphans) Commands(cfg *config.Config) [][]string {
 	cmdName := "docker"
-	args := []string{"compose"}
+	args := []string{"--log-level", "error", "compose"}
 	args = append(args, "--profile", "*", "down", "--remove-orphans")
 
 	// 1Password integration
