@@ -400,8 +400,13 @@ func TestLoadConfigAutoNpm(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
 
-	os.Mkdir("frontend", 0755)
-	err = os.WriteFile("frontend/package.json", []byte("{}"), 0644)
+	packageJsonContent := `{
+		"scripts": {
+			"build": "vite build",
+			"test": "vitest"
+		}
+	}`
+	err = os.WriteFile("package.json", []byte(packageJsonContent), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,13 +423,57 @@ func TestLoadConfigAutoNpm(t *testing.T) {
 
 	foundNpm := false
 	for _, mod := range cfg.Services[0].Modules {
-		if mod.Npm != nil && len(mod.Npm.Scripts) == 1 && mod.Npm.Scripts[0] == "build" {
+		if mod.Npm != nil {
 			foundNpm = true
+			if len(mod.Npm.Scripts) != 2 {
+				t.Errorf("Expected 2 Npm scripts, got %d: %v", len(mod.Npm.Scripts), mod.Npm.Scripts)
+			}
+			scriptsMap := make(map[string]bool)
+			for _, s := range mod.Npm.Scripts {
+				scriptsMap[s] = true
+			}
+			if !scriptsMap["build"] || !scriptsMap["test"] {
+				t.Errorf("Expected scripts 'build' and 'test', got %v", mod.Npm.Scripts)
+			}
 			break
 		}
 	}
 	if !foundNpm {
-		t.Errorf("Expected Npm scripts to be ['build'], got %v", cfg.Services[0].Modules)
+		t.Error("Expected Npm module to be auto-detected")
+	}
+}
+
+func TestLoadConfigAutoNpm_NoFrontend(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-npm-no-frontend-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	os.Mkdir("frontend", 0755)
+	err = os.WriteFile("frontend/package.json", []byte(`{"scripts":{"build":"echo"}}`), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile("cleat.yaml", []byte("services:\n  - name: default"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig("cleat.yaml")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	for _, mod := range cfg.Services[0].Modules {
+		if mod.Npm != nil {
+			t.Error("Expected Npm module NOT to be auto-detected in frontend/ directory")
+		}
 	}
 }
 

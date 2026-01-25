@@ -80,7 +80,7 @@ A module is a specific stack within a service (e.g., Python/Django or NPM/Fronte
 | Field | Type | Description | Default / Auto-detection |
 | :--- | :--- | :--- | :--- |
 | `service` | string | Docker Compose service name for NPM scripts. | `backend-node` (if docker enabled) |
-| `scripts` | list | List of NPM scripts to run during build. | `["build"]` if `package.json` found. |
+| `scripts` | list | List of NPM scripts to run during build. | Auto-detected from `package.json` if omitted. |
 
 ##### GCP Configuration
 

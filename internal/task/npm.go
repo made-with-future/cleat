@@ -2,8 +2,6 @@ package task
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
@@ -42,7 +40,13 @@ func (t *NpmBuild) Run(cfg *config.Config, exec executor.Executor) error {
 	for _, script := range t.Npm.Scripts {
 		fmt.Printf("--> Running npm run %s %s\n", script, modeText(cfg, t.Service, t.Npm))
 		cmds := npmScriptCommands(cfg, t.Service, t.Npm, script)
-		if err := exec.Run(cmds[0][0], cmds[0][1:]...); err != nil {
+		var err error
+		if cfg.Docker && t.Service.IsDocker() && t.Npm.Service != "" {
+			err = exec.Run(cmds[0][0], cmds[0][1:]...)
+		} else {
+			err = exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -58,7 +62,7 @@ func (t *NpmBuild) Commands(cfg *config.Config) [][]string {
 }
 
 func modeText(cfg *config.Config, svc *config.ServiceConfig, npm *config.NpmConfig) string {
-	if cfg.Docker && npm != nil && npm.Service != "" {
+	if cfg.Docker && svc.IsDocker() && npm != nil && npm.Service != "" {
 		return fmt.Sprintf("via Docker (%s service)", npm.Service)
 	}
 	return "locally"
@@ -96,7 +100,10 @@ func (t *NpmRun) ShouldRun(cfg *config.Config) bool {
 func (t *NpmRun) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Printf("--> Running npm run %s %s\n", t.Script, modeText(cfg, t.Service, t.Npm))
 	cmds := t.Commands(cfg)
-	return exec.Run(cmds[0][0], cmds[0][1:]...)
+	if cfg.Docker && t.Service.IsDocker() && t.Npm.Service != "" {
+		return exec.Run(cmds[0][0], cmds[0][1:]...)
+	}
+	return exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
 }
 
 func (t *NpmRun) Commands(cfg *config.Config) [][]string {
@@ -130,45 +137,36 @@ func (t *NpmStart) ShouldRun(cfg *config.Config) bool {
 	if t.Service == nil || t.Npm == nil {
 		return false
 	}
-	// Only run if not using docker/django globally (legacy behavior) OR if it's explicitly defined
-	return len(t.Npm.Scripts) > 0 && !cfg.Docker
+	// Run if it's explicitly enabled or we're not using docker globally
+	return len(t.Npm.Scripts) > 0
 }
 
 func (t *NpmStart) Run(cfg *config.Config, exec executor.Executor) error {
-	fmt.Printf("==> Running frontend (NPM) for service '%s' locally\n", t.Service.Name)
+	if cfg.Docker && t.Service.IsDocker() && t.Npm.Service != "" {
+		fmt.Printf("==> Running frontend (NPM) for service '%s' via Docker (%s service)\n", t.Service.Name, t.Npm.Service)
+	} else {
+		fmt.Printf("==> Running frontend (NPM) for service '%s' locally\n", t.Service.Name)
+	}
 	cmds := t.Commands(cfg)
-	return exec.Run(cmds[0][0], cmds[0][1:]...)
+	if cfg.Docker && t.Service.IsDocker() && t.Npm.Service != "" {
+		return exec.Run(cmds[0][0], cmds[0][1:]...)
+	}
+	return exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
 }
 
 func (t *NpmStart) Commands(cfg *config.Config) [][]string {
-	args := []string{"run", "start"} // Default to 'npm run start'
-	// Check for 'frontend' subdir relative to service dir
-	pkgPath := filepath.Join(t.Service.Dir, "package.json")
-	if _, err := os.Stat(filepath.Join(t.Service.Dir, "frontend/package.json")); err == nil {
-		args = append([]string{"--prefix", filepath.Join(t.Service.Dir, "frontend")}, "start")
-	} else if _, err := os.Stat(pkgPath); err == nil {
-		if t.Service.Dir != "" && t.Service.Dir != "." {
-			args = append([]string{"--prefix", t.Service.Dir}, "start")
-		} else {
-			args = []string{"run", "start"}
-		}
+	if cfg.Docker && t.Service.IsDocker() && t.Npm.Service != "" {
+		return [][]string{{"docker", "--log-level", "error", "compose", "run", "--rm", t.Npm.Service, "npm", "run", "start"}}
 	}
-	return [][]string{append([]string{"npm"}, args...)}
+
+	return [][]string{{"npm", "run", "start"}}
 }
 
 // npmScriptCommands is a helper for building npm script commands
 func npmScriptCommands(cfg *config.Config, svc *config.ServiceConfig, npm *config.NpmConfig, script string) [][]string {
-	if cfg.Docker && npm != nil && npm.Service != "" {
+	if cfg.Docker && svc.IsDocker() && npm != nil && npm.Service != "" {
 		return [][]string{{"docker", "--log-level", "error", "compose", "run", "--rm", npm.Service, "npm", "run", script}}
 	}
 
-	args := []string{"run", script}
-	if svc != nil {
-		if _, err := os.Stat(filepath.Join(svc.Dir, "frontend/package.json")); err == nil {
-			args = append([]string{"--prefix", filepath.Join(svc.Dir, "frontend")}, script)
-		} else if svc.Dir != "" && svc.Dir != "." {
-			args = append([]string{"--prefix", svc.Dir}, script)
-		}
-	}
-	return [][]string{append([]string{"npm"}, args...)}
+	return [][]string{{"npm", "run", script}}
 }

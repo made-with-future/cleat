@@ -39,7 +39,7 @@ func (t *DjangoCollectStatic) ShouldRun(cfg *config.Config) bool {
 func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Printf("==> Collecting Django static files for service '%s'\n", t.Service.Name)
 
-	if cfg.Docker {
+	if cfg.Docker && t.Service.IsDocker() {
 		fmt.Printf("--> Running collectstatic via Docker (%s service)\n", t.Python.DjangoService)
 	} else {
 		fmt.Println("--> Running collectstatic locally")
@@ -50,7 +50,7 @@ func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) er
 }
 
 func (t *DjangoCollectStatic) Commands(cfg *config.Config) [][]string {
-	if cfg.Docker {
+	if cfg.Docker && t.Service.IsDocker() {
 		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
 		cmd = append(cmd, pythonCommand(t.Python)...)
 		cmd = append(cmd, "manage.py", "collectstatic", "--noinput", "--clear")
@@ -87,16 +87,27 @@ func NewDjangoRunServer(svc *config.ServiceConfig, python *config.PythonConfig) 
 }
 
 func (t *DjangoRunServer) ShouldRun(cfg *config.Config) bool {
-	return t.Service != nil && t.Python != nil && t.Python.Django && !cfg.Docker
+	return t.Service != nil && t.Python != nil && t.Python.Django
 }
 
 func (t *DjangoRunServer) Run(cfg *config.Config, exec executor.Executor) error {
-	fmt.Printf("==> Running Django project '%s' locally\n", t.Service.Name)
+	if cfg.Docker && t.Service.IsDocker() {
+		fmt.Printf("==> Running Django runserver for service '%s' via Docker (%s service)\n", t.Service.Name, t.Python.DjangoService)
+	} else {
+		fmt.Printf("==> Running Django runserver for service '%s' locally\n", t.Service.Name)
+	}
 	cmds := t.Commands(cfg)
 	return exec.Run(cmds[0][0], cmds[0][1:]...)
 }
 
 func (t *DjangoRunServer) Commands(cfg *config.Config) [][]string {
+	if cfg.Docker && t.Service.IsDocker() {
+		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd = append(cmd, pythonCommand(t.Python)...)
+		cmd = append(cmd, "manage.py", "runserver", "0.0.0.0:8000")
+		return [][]string{cmd}
+	}
+
 	managePy := findManagePy(t.Service.Dir)
 	cmd := pythonCommand(t.Python)
 	cmd = append(cmd, managePy, "runserver")
@@ -141,7 +152,7 @@ func NewDjangoCreateUserDev(svc *config.ServiceConfig, python *config.PythonConf
 }
 
 func (t *DjangoCreateUserDev) ShouldRun(cfg *config.Config) bool {
-	return t.Service != nil && t.Python != nil && t.Python.Django && cfg.Docker
+	return t.Service != nil && t.Python != nil && t.Python.Django && cfg.Docker && t.Service.IsDocker()
 }
 
 func (t *DjangoCreateUserDev) Run(cfg *config.Config, exec executor.Executor) error {
@@ -197,7 +208,7 @@ func (t *DjangoMigrate) ShouldRun(cfg *config.Config) bool {
 func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Printf("==> Running Django migrations for service '%s'\n", t.Service.Name)
 
-	if cfg.Docker {
+	if cfg.Docker && t.Service.IsDocker() {
 		fmt.Printf("--> Running migrate via Docker (%s service)\n", t.Python.DjangoService)
 	} else {
 		fmt.Println("--> Running migrate locally")
@@ -208,7 +219,7 @@ func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
 }
 
 func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
-	if cfg.Docker {
+	if cfg.Docker && t.Service.IsDocker() {
 		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
 		cmd = append(cmd, pythonCommand(t.Python)...)
 		cmd = append(cmd, "manage.py", "migrate", "--noinput")
@@ -251,7 +262,7 @@ func (t *DjangoMakeMigrations) ShouldRun(cfg *config.Config) bool {
 func (t *DjangoMakeMigrations) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Printf("==> Running Django makemigrations for service '%s'\n", t.Service.Name)
 
-	if cfg.Docker {
+	if cfg.Docker && t.Service.IsDocker() {
 		fmt.Printf("--> Running makemigrations via Docker (%s service)\n", t.Python.DjangoService)
 	} else {
 		fmt.Println("--> Running makemigrations locally")
@@ -262,7 +273,7 @@ func (t *DjangoMakeMigrations) Run(cfg *config.Config, exec executor.Executor) e
 }
 
 func (t *DjangoMakeMigrations) Commands(cfg *config.Config) [][]string {
-	if cfg.Docker {
+	if cfg.Docker && t.Service.IsDocker() {
 		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
 		cmd = append(cmd, pythonCommand(t.Python)...)
 		cmd = append(cmd, "manage.py", "makemigrations")
@@ -305,7 +316,7 @@ func (t *DjangoGenRandomSecretKey) ShouldRun(cfg *config.Config) bool {
 func (t *DjangoGenRandomSecretKey) Run(cfg *config.Config, exec executor.Executor) error {
 	fmt.Printf("==> Generating random Django secret key for service '%s'\n", t.Service.Name)
 
-	if cfg.Docker {
+	if cfg.Docker && t.Service.IsDocker() {
 		fmt.Printf("--> Running via Docker (%s service)\n", t.Python.DjangoService)
 	} else {
 		fmt.Println("--> Running locally")
@@ -318,7 +329,7 @@ func (t *DjangoGenRandomSecretKey) Run(cfg *config.Config, exec executor.Executo
 func (t *DjangoGenRandomSecretKey) Commands(cfg *config.Config) [][]string {
 	pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 
-	if cfg.Docker {
+	if cfg.Docker && t.Service.IsDocker() {
 		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
 		cmd = append(cmd, pythonCommand(t.Python)...)
 		cmd = append(cmd, "-c", pyCmd)

@@ -375,11 +375,12 @@ func TestNpmBuild(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
 		npmMod := &config.NpmConfig{
 			Service: "node",
 			Scripts: []string{"build", "test"},
 		}
-		taskDocker := NewNpmBuild(svc, npmMod)
+		taskDocker := NewNpmBuild(svcDocker, npmMod)
 
 		err := taskDocker.Run(cfg, mock)
 		if err != nil {
@@ -440,8 +441,10 @@ func TestNpmRun(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
+		taskDocker := NewNpmRun(svcDocker, npm, "lint")
 
-		err := task.Run(cfg, mock)
+		err := taskDocker.Run(cfg, mock)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -469,12 +472,12 @@ func TestNpmStart(t *testing.T) {
 		}
 	})
 
-	t.Run("ShouldRun false when Docker enabled", func(t *testing.T) {
+	t.Run("ShouldRun true even when Docker enabled", func(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
-		if task.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return false when Docker is enabled")
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true even when Docker is enabled")
 		}
 	})
 }
@@ -525,11 +528,12 @@ func TestDjangoCollectStatic(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
 		pythonMod := &config.PythonConfig{
 			Django:        true,
 			DjangoService: "backend",
 		}
-		taskDocker := NewDjangoCollectStatic(svc, pythonMod)
+		taskDocker := NewDjangoCollectStatic(svcDocker, pythonMod)
 
 		err := taskDocker.Run(cfg, mock)
 		if err != nil {
@@ -602,17 +606,14 @@ func TestDjangoRunServer(t *testing.T) {
 	python := &config.PythonConfig{Django: true}
 	task := NewDjangoRunServer(svc, python)
 
-	t.Run("ShouldRun with Django and no Docker", func(t *testing.T) {
+	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
 		cfg := &config.Config{Docker: false}
 		if !task.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return true")
+			t.Error("expected ShouldRun to return true when Django is enabled")
 		}
-	})
-
-	t.Run("ShouldRun false when Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		if task.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return false when Docker is enabled")
+		cfg.Docker = true
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true even when Docker is enabled")
 		}
 	})
 }
@@ -628,7 +629,9 @@ func TestDjangoCreateUserDev(t *testing.T) {
 
 	t.Run("ShouldRun with Django and Docker enabled", func(t *testing.T) {
 		cfg := &config.Config{Docker: true}
-		if !task.ShouldRun(cfg) {
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
+		taskDocker := NewDjangoCreateUserDev(svcDocker, python)
+		if !taskDocker.ShouldRun(cfg) {
 			t.Error("expected ShouldRun to return true")
 		}
 	})
@@ -662,8 +665,10 @@ func TestDjangoMigrate(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
+		taskDocker := NewDjangoMigrate(svcDocker, python)
 
-		err := task.Run(cfg, mock)
+		err := taskDocker.Run(cfg, mock)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -691,8 +696,9 @@ func TestDjangoMigrate(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
 		pythonPip := &config.PythonConfig{Django: true, DjangoService: "backend", PackageManager: "pip"}
-		taskPip := NewDjangoMigrate(svc, pythonPip)
+		taskPip := NewDjangoMigrate(svcDocker, pythonPip)
 
 		err := taskPip.Run(cfg, mock)
 		if err != nil {
@@ -733,8 +739,10 @@ func TestDjangoMakeMigrations(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
+		taskDocker := NewDjangoMakeMigrations(svcDocker, python)
 
-		err := task.Run(cfg, mock)
+		err := taskDocker.Run(cfg, mock)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -798,8 +806,10 @@ func TestDjangoGenRandomSecretKey(t *testing.T) {
 		cfg := &config.Config{
 			Docker: true,
 		}
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
+		taskDocker := NewDjangoGenRandomSecretKey(svcDocker, python)
 
-		err := task.Run(cfg, mock)
+		err := taskDocker.Run(cfg, mock)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}

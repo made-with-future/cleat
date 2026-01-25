@@ -1,9 +1,11 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -255,6 +257,7 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	imageOnlyServices := make(map[string]bool)
+	dcServices := make(map[string]bool)
 	if dockerComposeFile != "" {
 		cfg.Docker = true
 		dcPath := filepath.Join(baseDir, dockerComposeFile)
@@ -267,6 +270,7 @@ func LoadConfig(path string) (*Config, error) {
 			}
 			if err := yaml.Unmarshal(dcData, &dc); err == nil {
 				for name, s := range dc.Services {
+					dcServices[name] = true
 					buildContext := ""
 					if s.Build != nil {
 						if b, ok := s.Build.(string); ok {
@@ -307,22 +311,107 @@ func LoadConfig(path string) (*Config, error) {
 		}
 	}
 
-	// Apply defaults and auto-detection for each service and its modules
+	// Group services by directory for smarter auto-detection
+	servicesByDir := make(map[string][]*ServiceConfig)
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
+		searchDir := baseDir
+		if svc.Dir != "" {
+			searchDir = filepath.Join(baseDir, svc.Dir)
+		} else if imageOnlyServices[svc.Name] {
+			searchDir = ""
+		}
+		if searchDir != "" {
+			servicesByDir[searchDir] = append(servicesByDir[searchDir], svc)
+		}
+	}
 
-		// Track which modules are explicitly configured
-		var explicitPython *PythonConfig
-		var explicitNpm *NpmConfig
-		for _, m := range svc.Modules {
-			if m.Python != nil {
-				explicitPython = m.Python
+	// Auto-detect modules for each directory
+	for searchDir, svcs := range servicesByDir {
+		hasManagePy := false
+		if _, err := os.Stat(filepath.Join(searchDir, "manage.py")); err == nil {
+			hasManagePy = true
+		} else if _, err := os.Stat(filepath.Join(searchDir, "backend/manage.py")); err == nil {
+			hasManagePy = true
+		}
+
+		hasPackageJson := false
+		if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
+			hasPackageJson = true
+		}
+
+		if hasManagePy {
+			// Find service(s) for Python
+			var matches []*ServiceConfig
+			var others []*ServiceConfig
+			for _, s := range svcs {
+				explicit := false
+				for _, m := range s.Modules {
+					if m.Python != nil {
+						explicit = true
+						break
+					}
+				}
+				if explicit {
+					continue
+				}
+
+				if matchesPython(s.Name) {
+					matches = append(matches, s)
+				} else {
+					others = append(others, s)
+				}
 			}
-			if m.Npm != nil {
-				explicitNpm = m.Npm
+
+			if len(matches) > 0 {
+				for _, s := range matches {
+					s.Modules = append(s.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
+				}
+			} else if len(others) > 0 {
+				for _, s := range others {
+					s.Modules = append(s.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
+				}
 			}
 		}
 
+		if hasPackageJson {
+			// Find service(s) for NPM
+			var matches []*ServiceConfig
+			var others []*ServiceConfig
+			for _, s := range svcs {
+				explicit := false
+				for _, m := range s.Modules {
+					if m.Npm != nil {
+						explicit = true
+						break
+					}
+				}
+				if explicit {
+					continue
+				}
+
+				if matchesNpm(s.Name) {
+					matches = append(matches, s)
+				} else {
+					others = append(others, s)
+				}
+			}
+
+			if len(matches) > 0 {
+				for _, s := range matches {
+					s.Modules = append(s.Modules, ModuleConfig{Npm: &NpmConfig{}})
+				}
+			} else if len(others) > 0 {
+				for _, s := range others {
+					s.Modules = append(s.Modules, ModuleConfig{Npm: &NpmConfig{}})
+				}
+			}
+		}
+	}
+
+	// Apply defaults and other auto-detections (Docker)
+	for i := range cfg.Services {
+		svc := &cfg.Services[i]
 		searchDir := baseDir
 		if svc.Dir != "" {
 			searchDir = filepath.Join(baseDir, svc.Dir)
@@ -330,33 +419,12 @@ func LoadConfig(path string) (*Config, error) {
 			searchDir = ""
 		}
 
-		// Auto-detect modules only if not explicitly configured
-		if searchDir != "" {
-			// Auto-detect Python/Django if not explicitly configured
-			if explicitPython == nil {
-				if _, err := os.Stat(filepath.Join(searchDir, "manage.py")); err == nil {
-					svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
-				} else if _, err := os.Stat(filepath.Join(searchDir, "backend/manage.py")); err == nil {
-					svc.Modules = append(svc.Modules, ModuleConfig{Python: &PythonConfig{Django: true}})
-				}
-			}
-
-			// Auto-detect NPM if not explicitly configured
-			if explicitNpm == nil {
-				if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
-					svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
-				} else if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
-					svc.Modules = append(svc.Modules, ModuleConfig{Npm: &NpmConfig{}})
-				}
-			}
-
-			// Auto-detect Docker for service
-			if svc.Docker == nil {
-				if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yaml")); err == nil {
-					svc.Docker = ptrBool(true)
-				} else if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yml")); err == nil {
-					svc.Docker = ptrBool(true)
-				}
+		// Auto-detect Docker for service
+		if searchDir != "" && svc.Docker == nil {
+			if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yaml")); err == nil {
+				svc.Docker = ptrBool(true)
+			} else if _, err := os.Stat(filepath.Join(searchDir, "docker-compose.yml")); err == nil {
+				svc.Docker = ptrBool(true)
 			}
 		}
 
@@ -367,7 +435,15 @@ func LoadConfig(path string) (*Config, error) {
 			if mod.Python != nil && mod.Python.IsEnabled() {
 				if mod.Python.DjangoService == "" {
 					if svc.Name == "default" || svc.Name == "" {
-						mod.Python.DjangoService = "backend"
+						if cfg.Docker && len(dcServices) > 0 {
+							if _, ok := dcServices["backend"]; ok {
+								mod.Python.DjangoService = "backend"
+							} else {
+								mod.Python.DjangoService = svc.Name
+							}
+						} else {
+							mod.Python.DjangoService = "backend"
+						}
 					} else {
 						mod.Python.DjangoService = svc.Name
 					}
@@ -379,17 +455,22 @@ func LoadConfig(path string) (*Config, error) {
 
 			if mod.Npm != nil && mod.Npm.IsEnabled() {
 				if len(mod.Npm.Scripts) == 0 && searchDir != "" {
-					if _, err := os.Stat(filepath.Join(searchDir, "frontend/package.json")); err == nil {
-						mod.Npm.Scripts = []string{"build"}
-					} else if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
-						mod.Npm.Scripts = []string{"build"}
+					packageJsonPath := filepath.Join(searchDir, "package.json")
+					if _, err := os.Stat(packageJsonPath); err == nil {
+						mod.Npm.Scripts = readNpmScripts(packageJsonPath)
 					}
 				}
 
 				if mod.Npm.Service == "" {
 					if cfg.Docker {
 						if svc.Name == "default" || svc.Name == "" {
-							mod.Npm.Service = "backend-node"
+							if _, ok := dcServices["backend-node"]; ok {
+								mod.Npm.Service = "backend-node"
+							} else if _, ok := dcServices["frontend"]; ok {
+								mod.Npm.Service = "frontend"
+							} else {
+								mod.Npm.Service = "backend-node" // Fallback to legacy default if no matches found
+							}
 						} else {
 							mod.Npm.Service = svc.Name
 						}
@@ -400,4 +481,37 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+type packageJSON struct {
+	Scripts map[string]string `json:"scripts"`
+}
+
+func readNpmScripts(packageJsonPath string) []string {
+	data, err := os.ReadFile(packageJsonPath)
+	if err != nil {
+		return nil
+	}
+
+	var pkg packageJSON
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil
+	}
+
+	scripts := make([]string, 0, len(pkg.Scripts))
+	for s := range pkg.Scripts {
+		scripts = append(scripts, s)
+	}
+	sort.Strings(scripts)
+	return scripts
+}
+
+func matchesPython(name string) bool {
+	name = strings.ToLower(name)
+	return strings.Contains(name, "python") || strings.Contains(name, "django") || strings.Contains(name, "backend") || strings.Contains(name, "api")
+}
+
+func matchesNpm(name string) bool {
+	name = strings.ToLower(name)
+	return strings.Contains(name, "npm") || strings.Contains(name, "node") || strings.Contains(name, "frontend") || strings.Contains(name, "ui") || strings.Contains(name, "vite") || strings.Contains(name, "assets")
 }
