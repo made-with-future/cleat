@@ -115,7 +115,7 @@ func TestDockerBuild(t *testing.T) {
 		if mock.commands[0].name != "docker" {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
-		expectedArgs := []string{"compose", "--profile", "*", "build"}
+		expectedArgs := []string{"--log-level", "error", "compose", "--profile", "*", "build"}
 		for i, arg := range expectedArgs {
 			if mock.commands[0].args[i] != arg {
 				t.Errorf("expected arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
@@ -138,7 +138,7 @@ func TestDockerBuild(t *testing.T) {
 			t.Errorf("expected dir './svc', got %q", mock.commands[0].dir)
 		}
 
-		expected := []string{"compose", "build"}
+		expected := []string{"--log-level", "error", "compose", "build"}
 		args := mock.commands[0].args
 		if len(args) != len(expected) {
 			t.Fatalf("expected %d args, got %d", len(expected), len(args))
@@ -213,7 +213,7 @@ func TestDockerDown(t *testing.T) {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
 
-		expectedArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans"}
+		expectedArgs := []string{"--log-level", "error", "compose", "--profile", "*", "down", "--remove-orphans"}
 		if len(mock.commands[0].args) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
 		}
@@ -255,7 +255,7 @@ func TestDockerRemoveOrphans(t *testing.T) {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
 
-		expectedArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans"}
+		expectedArgs := []string{"--log-level", "error", "compose", "--profile", "*", "down", "--remove-orphans"}
 		if len(mock.commands[0].args) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
 		}
@@ -298,7 +298,7 @@ func TestDockerRebuild(t *testing.T) {
 		if mock.commands[0].name != "docker" {
 			t.Errorf("expected first command 'docker', got %q", mock.commands[0].name)
 		}
-		expectedDownArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes"}
+		expectedDownArgs := []string{"--log-level", "error", "compose", "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes"}
 		for i, arg := range expectedDownArgs {
 			if mock.commands[0].args[i] != arg {
 				t.Errorf("expected down arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
@@ -309,7 +309,7 @@ func TestDockerRebuild(t *testing.T) {
 		if mock.commands[1].name != "docker" {
 			t.Errorf("expected second command 'docker', got %q", mock.commands[1].name)
 		}
-		expectedBuildArgs := []string{"compose", "--profile", "*", "build", "--no-cache"}
+		expectedBuildArgs := []string{"--log-level", "error", "compose", "--profile", "*", "build", "--no-cache"}
 		for i, arg := range expectedBuildArgs {
 			if mock.commands[1].args[i] != arg {
 				t.Errorf("expected build arg %d to be %q, got %q", i, arg, mock.commands[1].args[i])
@@ -323,10 +323,10 @@ func TestDockerRebuild(t *testing.T) {
 		if len(cmds) != 2 {
 			t.Fatalf("expected 2 commands, got %d", len(cmds))
 		}
-		if cmds[0][0] != "docker" || cmds[0][4] != "down" {
+		if cmds[0][0] != "docker" || cmds[0][6] != "down" {
 			t.Errorf("unexpected first command: %v", cmds[0])
 		}
-		if cmds[1][0] != "docker" || cmds[1][4] != "build" {
+		if cmds[1][0] != "docker" || cmds[1][6] != "build" {
 			t.Errorf("unexpected second command: %v", cmds[1])
 		}
 	})
@@ -543,7 +543,7 @@ func TestDjangoCollectStatic(t *testing.T) {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
 
-		expectedArgs := []string{"compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}
+		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}
 		if len(mock.commands[0].args) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
 		}
@@ -675,7 +675,7 @@ func TestDjangoMigrate(t *testing.T) {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
 
-		expectedArgs := []string{"compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "migrate", "--noinput"}
+		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "migrate", "--noinput"}
 		if len(mock.commands[0].args) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
 		}
@@ -699,7 +699,7 @@ func TestDjangoMigrate(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 
-		expectedArgs := []string{"compose", "run", "--rm", "backend", "python", "manage.py", "migrate", "--noinput"}
+		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "python", "manage.py", "migrate", "--noinput"}
 		actualArgs := mock.commands[0].args
 		if len(actualArgs) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(actualArgs))
@@ -746,7 +746,7 @@ func TestDjangoMakeMigrations(t *testing.T) {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
 
-		expectedArgs := []string{"compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "makemigrations"}
+		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "makemigrations"}
 		if len(mock.commands[0].args) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
 		}
@@ -812,7 +812,7 @@ func TestDjangoGenRandomSecretKey(t *testing.T) {
 		}
 
 		pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-		expectedArgs := []string{"compose", "run", "--rm", "backend", "uv", "run", "python", "-c", pyCmd}
+		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "uv", "run", "python", "-c", pyCmd}
 		if len(mock.commands[0].args) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
 		}

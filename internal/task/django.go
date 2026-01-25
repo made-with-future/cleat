@@ -51,7 +51,7 @@ func (t *DjangoCollectStatic) Run(cfg *config.Config, exec executor.Executor) er
 
 func (t *DjangoCollectStatic) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		cmd := []string{"docker", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
 		cmd = append(cmd, pythonCommand(t.Python)...)
 		cmd = append(cmd, "manage.py", "collectstatic", "--noinput", "--clear")
 		return [][]string{cmd}
@@ -152,7 +152,7 @@ func (t *DjangoCreateUserDev) Run(cfg *config.Config, exec executor.Executor) er
 
 func (t *DjangoCreateUserDev) Commands(cfg *config.Config) [][]string {
 	cmd := []string{
-		"docker", "compose", "run",
+		"docker", "--log-level", "error", "compose", "run",
 		"-e", "DJANGO_SUPERUSER_USERNAME=dev",
 		"-e", "DJANGO_SUPERUSER_PASSWORD=dev",
 		"--rm",
@@ -209,7 +209,7 @@ func (t *DjangoMigrate) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *DjangoMigrate) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		cmd := []string{"docker", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
 		cmd = append(cmd, pythonCommand(t.Python)...)
 		cmd = append(cmd, "manage.py", "migrate", "--noinput")
 		return [][]string{cmd}
@@ -263,7 +263,7 @@ func (t *DjangoMakeMigrations) Run(cfg *config.Config, exec executor.Executor) e
 
 func (t *DjangoMakeMigrations) Commands(cfg *config.Config) [][]string {
 	if cfg.Docker {
-		cmd := []string{"docker", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
 		cmd = append(cmd, pythonCommand(t.Python)...)
 		cmd = append(cmd, "manage.py", "makemigrations")
 		return [][]string{cmd}
@@ -319,7 +319,7 @@ func (t *DjangoGenRandomSecretKey) Commands(cfg *config.Config) [][]string {
 	pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 
 	if cfg.Docker {
-		cmd := []string{"docker", "compose", "run", "--rm", t.Python.DjangoService}
+		cmd := []string{"docker", "--log-level", "error", "compose", "run", "--rm", t.Python.DjangoService}
 		cmd = append(cmd, pythonCommand(t.Python)...)
 		cmd = append(cmd, "-c", pyCmd)
 		return [][]string{cmd}

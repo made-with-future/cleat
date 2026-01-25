@@ -15,6 +15,7 @@ type HistoryEntry struct {
 	Timestamp time.Time         `json:"timestamp"`
 	Command   string            `json:"command"`
 	Inputs    map[string]string `json:"inputs,omitempty"`
+	Success   bool              `json:"success"`
 }
 
 var userHomeDir = os.UserHomeDir

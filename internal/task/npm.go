@@ -159,7 +159,7 @@ func (t *NpmStart) Commands(cfg *config.Config) [][]string {
 // npmScriptCommands is a helper for building npm script commands
 func npmScriptCommands(cfg *config.Config, svc *config.ServiceConfig, npm *config.NpmConfig, script string) [][]string {
 	if cfg.Docker && npm != nil && npm.Service != "" {
-		return [][]string{{"docker", "compose", "run", "--rm", npm.Service, "npm", "run", script}}
+		return [][]string{{"docker", "--log-level", "error", "compose", "run", "--rm", npm.Service, "npm", "run", script}}
 	}
 
 	args := []string{"run", script}
