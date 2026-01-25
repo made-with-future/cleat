@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -50,6 +51,7 @@ type uiState int
 const (
 	stateBrowsing uiState = iota
 	stateInputCollection
+	stateConfirmClearHistory
 )
 
 type CommandItem struct {
@@ -323,6 +325,29 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.state == stateConfirmClearHistory {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "y", "enter":
+				history.Clear()
+				m.history, _ = history.Load()
+				m.historyCursor = 0
+				m.historyOffset = 0
+				m.state = stateBrowsing
+				m.updateTaskPreview()
+				return m, nil
+			case "n", "esc":
+				m.state = stateBrowsing
+				return m, nil
+			case "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			}
+		}
+		return m, nil
+	}
+
 	if m.state == stateInputCollection {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
@@ -541,6 +566,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "?":
 				m.showHelp = true
+			case "x":
+				if m.focus == focusHistory && len(m.history) > 0 {
+					m.state = stateConfirmClearHistory
+					return m, nil
+				}
 			case "g":
 				if m.pendingG {
 					if m.focus == focusCommands {
@@ -778,7 +808,7 @@ func (m model) visibleConfigCount() int {
 }
 
 // drawBox draws a box with rounded corners around content, with an optional title in the top border
-func drawBox(lines []string, width, height int, borderColor lipgloss.Color, title string) string {
+func drawBox(lines []string, width, height int, borderColor lipgloss.Color, title string, titleFocused bool) string {
 	colorStyle := lipgloss.NewStyle().Foreground(borderColor)
 
 	innerWidth := width - 2 // Account for left and right borders
@@ -787,18 +817,26 @@ func drawBox(lines []string, width, height int, borderColor lipgloss.Color, titl
 
 	// Top border
 	if title != "" {
-		renderedTitle := " " + title + " "
-		titleWidth := lipgloss.Width(renderedTitle)
+		displayTitle := " " + title + " "
+		titleWidth := lipgloss.Width(displayTitle)
 		if titleWidth > innerWidth-2 {
 			// Truncate if too long
-			renderedTitle = " " + ansi.Truncate(strings.TrimSpace(title), innerWidth-4, "…") + " "
-			titleWidth = lipgloss.Width(renderedTitle)
+			displayTitle = " " + ansi.Truncate(strings.TrimSpace(title), innerWidth-4, "…") + " "
+			titleWidth = lipgloss.Width(displayTitle)
 		}
+
+		var renderedTitle string
+		if titleFocused {
+			renderedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Bold(true).Render(displayTitle)
+		} else {
+			renderedTitle = colorStyle.Render(displayTitle)
+		}
+
 		dashes := innerWidth - titleWidth - 1
 		if dashes < 0 {
 			dashes = 0
 		}
-		result.WriteString(colorStyle.Render("╭─" + renderedTitle + strings.Repeat("─", dashes) + "╮"))
+		result.WriteString(colorStyle.Render("╭─") + renderedTitle + colorStyle.Render(strings.Repeat("─", dashes)+"╮"))
 	} else {
 		result.WriteString(colorStyle.Render("╭" + strings.Repeat("─", innerWidth) + "╮"))
 	}
@@ -834,6 +872,85 @@ func drawBox(lines []string, width, height int, borderColor lipgloss.Color, titl
 	return result.String()
 }
 
+func (m model) overlay(background, foreground string) string {
+	bgLines := strings.Split(background, "\n")
+	fgLines := strings.Split(foreground, "\n")
+
+	fgWidth := lipgloss.Width(foreground)
+	fgHeight := len(fgLines)
+
+	x := (m.width - fgWidth) / 2
+	y := (m.height - fgHeight) / 2
+
+	for i := 0; i < fgHeight; i++ {
+		if y+i >= 0 && y+i < len(bgLines) {
+			bgLines[y+i] = m.overlayLine(bgLines[y+i], fgLines[i], x)
+		}
+	}
+
+	return strings.Join(bgLines, "\n")
+}
+
+func (m model) overlayLine(bg, fg string, x int) string {
+	bgWidth := lipgloss.Width(bg)
+	fgWidth := lipgloss.Width(fg)
+
+	if x < 0 {
+		x = 0
+	}
+	if x >= bgWidth {
+		// If background is shorter than x, pad it with spaces
+		bg = bg + strings.Repeat(" ", x-bgWidth)
+		return bg + fg
+	}
+
+	left := ansi.Truncate(bg, x, "")
+	right := m.visibleTail(bg, x+fgWidth)
+
+	return left + fg + right
+}
+
+func (m model) visibleTail(s string, skipWidth int) string {
+	var currentStyle strings.Builder
+	var result strings.Builder
+	currW := 0
+	i := 0
+	for i < len(s) {
+		if s[i] == '\x1b' {
+			start := i
+			i++
+			if i < len(s) && s[i] == '[' { // CSI
+				i++
+				for i < len(s) && (s[i] >= 0x30 && s[i] <= 0x3f) {
+					i++
+				}
+				for i < len(s) && (s[i] >= 0x20 && s[i] <= 0x2f) {
+					i++
+				}
+				if i < len(s) && (s[i] >= 0x40 && s[i] <= 0x7e) {
+					i++
+				}
+			}
+			style := s[start:i]
+			if currW < skipWidth {
+				currentStyle.WriteString(style)
+			} else {
+				result.WriteString(style)
+			}
+			continue
+		}
+
+		r, width := utf8.DecodeRuneInString(s[i:])
+		rw := lipgloss.Width(string(r))
+		if currW >= skipWidth {
+			result.WriteRune(r)
+		}
+		currW += rw
+		i += width
+	}
+	return currentStyle.String() + result.String()
+}
+
 // renderHelpOverlay renders a centered help modal
 func (m model) renderHelpOverlay() string {
 	purple := lipgloss.Color("#bd93f9")
@@ -850,6 +967,7 @@ func (m model) renderHelpOverlay() string {
 		"  ↓/j        Move down",
 		"  /          Filter commands",
 		"  Enter      Select/Toggle / Edit config",
+		"  x          Clear history (history pane)",
 		"  Tab        Switch pane",
 		"  Shift+Tab  Switch pane (reverse)",
 		"  q/Esc      Quit",
@@ -868,34 +986,7 @@ func (m model) renderHelpOverlay() string {
 		Padding(0, 2)
 
 	box := boxStyle.Render(content)
-
-	// Center the box on screen
-	boxWidth := lipgloss.Width(box)
-	boxHeight := lipgloss.Height(box)
-
-	horizontalPad := (m.width - boxWidth) / 2
-	verticalPad := (m.height - boxHeight) / 2
-
-	if horizontalPad < 0 {
-		horizontalPad = 0
-	}
-	if verticalPad < 0 {
-		verticalPad = 0
-	}
-
-	// Build centered output
-	var result strings.Builder
-	for i := 0; i < verticalPad; i++ {
-		result.WriteString("\n")
-	}
-
-	for _, line := range strings.Split(box, "\n") {
-		result.WriteString(strings.Repeat(" ", horizontalPad))
-		result.WriteString(line)
-		result.WriteString("\n")
-	}
-
-	return result.String()
+	return box
 }
 
 func (m model) buildConfigLines() []string {
@@ -995,33 +1086,32 @@ func (m model) renderInputModal() string {
 		Padding(0, 2)
 
 	box := boxStyle.Render(strings.Join(content, "\n"))
+	return box
+}
 
-	// Center the box on screen
-	boxWidth := lipgloss.Width(box)
-	boxHeight := lipgloss.Height(box)
+func (m model) renderConfirmModal() string {
+	purple := lipgloss.Color("#bd93f9")
+	fg := lipgloss.Color("#f8f8f2")
+	red := lipgloss.Color("#ff5555")
 
-	horizontalPad := (m.width - boxWidth) / 2
-	verticalPad := (m.height - boxHeight) / 2
+	title := lipgloss.NewStyle().Bold(true).Foreground(red).Render("Clear History")
 
-	if horizontalPad < 0 {
-		horizontalPad = 0
-	}
-	if verticalPad < 0 {
-		verticalPad = 0
-	}
-
-	var result strings.Builder
-	for i := 0; i < verticalPad; i++ {
-		result.WriteString("\n")
+	content := []string{
+		title,
+		"",
+		lipgloss.NewStyle().Foreground(fg).Render("Are you sure you want to clear history?"),
+		"",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#6272a4")).Render("  y: confirm • n/Esc: cancel"),
 	}
 
-	for _, line := range strings.Split(box, "\n") {
-		result.WriteString(strings.Repeat(" ", horizontalPad))
-		result.WriteString(line)
-		result.WriteString("\n")
-	}
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(purple).
+		Foreground(fg).
+		Padding(0, 2)
 
-	return result.String()
+	box := boxStyle.Render(strings.Join(content, "\n"))
+	return box
 }
 
 func (m model) visibleHistoryCount() int {
@@ -1040,15 +1130,6 @@ func (m model) View() string {
 		return "Initializing..."
 	}
 
-	if m.state == stateInputCollection {
-		return m.renderInputModal()
-	}
-
-	// Show help overlay if active
-	if m.showHelp {
-		return m.renderHelpOverlay()
-	}
-
 	// Minimum usable dimensions for side-by-side panes
 	const minWidth = 60
 	const minHeight = 20
@@ -1058,6 +1139,25 @@ func (m model) View() string {
 			Render(fmt.Sprintf("Terminal too small (%dx%d). Minimum: %dx%d", m.width, m.height, minWidth, minHeight))
 	}
 
+	base := m.renderMainUI()
+
+	if m.state == stateInputCollection {
+		return m.overlay(base, m.renderInputModal())
+	}
+
+	if m.state == stateConfirmClearHistory {
+		return m.overlay(base, m.renderConfirmModal())
+	}
+
+	// Show help overlay if active
+	if m.showHelp {
+		return m.overlay(base, m.renderHelpOverlay())
+	}
+
+	return base
+}
+
+func (m model) renderMainUI() string {
 	// Dracula colors
 	purple := lipgloss.Color("#bd93f9")
 	cyan := lipgloss.Color("#8be9fd")
@@ -1277,8 +1377,8 @@ func (m model) View() string {
 	}
 
 	// Draw boxes
-	commandsBox := drawBox(leftLines, paneWidth, commandsPaneHeight, commandsColor, "Commands")
-	historyBox := drawBox(historyLines, paneWidth, historyPaneHeight, historyColor, "Command History")
+	commandsBox := drawBox(leftLines, paneWidth, commandsPaneHeight, commandsColor, "Commands", m.focus == focusCommands)
+	historyBox := drawBox(historyLines, paneWidth, historyPaneHeight, historyColor, "Command History", m.focus == focusHistory)
 
 	taskTitle := "Tasks to run"
 	if m.focus == focusHistory {
@@ -1293,9 +1393,9 @@ func (m model) View() string {
 			taskTitle = fmt.Sprintf("Tasks for %s", strings.TrimSpace(vItem.path))
 		}
 	}
-	taskBox := drawBox(taskLines, paneWidth, taskPaneHeight, comment, taskTitle)
+	taskBox := drawBox(taskLines, paneWidth, taskPaneHeight, comment, taskTitle, false)
 
-	configBox := drawBox(configLines, paneWidth, configPaneHeight, configColor, "Configuration")
+	configBox := drawBox(configLines, paneWidth, configPaneHeight, configColor, "Configuration", m.focus == focusConfig)
 
 	// Join boxes vertically for left and right sides
 	commandsBoxLines := strings.Split(commandsBox, "\n")

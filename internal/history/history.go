@@ -18,14 +18,14 @@ type HistoryEntry struct {
 	Success   bool              `json:"success"`
 }
 
-var userHomeDir = os.UserHomeDir
+var UserHomeDir = os.UserHomeDir
 
 const (
 	maxHistorySize = 50
 )
 
 func getHistoryFilePath() (string, error) {
-	home, err := userHomeDir()
+	home, err := UserHomeDir()
 	if err != nil {
 		return "", err
 	}
@@ -74,6 +74,14 @@ func Save(entry HistoryEntry) error {
 	}
 
 	return os.WriteFile(historyFile, data, 0644)
+}
+
+func Clear() error {
+	historyFile, err := getHistoryFilePath()
+	if err != nil {
+		return err
+	}
+	return os.Remove(historyFile)
 }
 
 func Load() ([]HistoryEntry, error) {

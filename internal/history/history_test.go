@@ -16,11 +16,11 @@ func TestHistory(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Mock home directory
-	oldUserHomeDir := userHomeDir
-	userHomeDir = func() (string, error) {
+	oldUserHomeDir := UserHomeDir
+	UserHomeDir = func() (string, error) {
 		return tmpDir, nil
 	}
-	defer func() { userHomeDir = oldUserHomeDir }()
+	defer func() { UserHomeDir = oldUserHomeDir }()
 
 	oldWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
@@ -59,6 +59,20 @@ func TestHistory(t *testing.T) {
 	if len(entries) > maxHistorySize {
 		t.Errorf("Expected max %d entries, got %d", maxHistorySize, len(entries))
 	}
+
+	// Test Clear
+	err = Clear()
+	if err != nil {
+		t.Fatalf("Failed to clear history: %v", err)
+	}
+
+	entries, err = Load()
+	if err == nil {
+		t.Error("Expected error loading cleared history")
+	}
+	if len(entries) != 0 {
+		t.Errorf("Expected 0 entries after clear, got %d", len(entries))
+	}
 }
 
 func TestHistoryProjectRoot(t *testing.T) {
@@ -78,11 +92,11 @@ func TestHistoryProjectRoot(t *testing.T) {
 	os.WriteFile(filepath.Join(projectRoot, "cleat.yaml"), []byte("version: 1"), 0644)
 
 	// Mock home directory
-	oldUserHomeDir := userHomeDir
-	userHomeDir = func() (string, error) {
+	oldUserHomeDir := UserHomeDir
+	UserHomeDir = func() (string, error) {
 		return tmpDir, nil
 	}
-	defer func() { userHomeDir = oldUserHomeDir }()
+	defer func() { UserHomeDir = oldUserHomeDir }()
 
 	oldWd, _ := os.Getwd()
 	defer os.Chdir(oldWd)
@@ -141,11 +155,11 @@ func TestHistoryGitRoot(t *testing.T) {
 	os.MkdirAll(filepath.Join(projectRoot, ".git"), 0755)
 
 	// Mock home directory
-	oldUserHomeDir := userHomeDir
-	userHomeDir = func() (string, error) {
+	oldUserHomeDir := UserHomeDir
+	UserHomeDir = func() (string, error) {
 		return tmpDir, nil
 	}
-	defer func() { userHomeDir = oldUserHomeDir }()
+	defer func() { UserHomeDir = oldUserHomeDir }()
 
 	oldWd, _ := os.Getwd()
 	defer os.Chdir(oldWd)
