@@ -101,30 +101,37 @@ func run(args []string) {
 			rootCmd.SetArgs(args[1:])
 		}
 
-		err := rootCmd.Execute()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			if !tuiMode {
-				Exit(1)
-				return
+		for {
+			err := rootCmd.Execute()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				if !tuiMode {
+					Exit(1)
+					return
+				}
 			}
+
+			if tuiMode && selected != "" {
+				// Save to history
+				history.Save(history.HistoryEntry{
+					Timestamp: time.Now(),
+					Command:   selected,
+					Inputs:    inputs,
+					Success:   err == nil,
+				})
+			}
+
+			if tuiMode {
+				if Wait() {
+					continue
+				}
+			}
+			break
 		}
 
-		if tuiMode && selected != "" {
-			// Save to history
-			history.Save(history.HistoryEntry{
-				Timestamp: time.Now(),
-				Command:   selected,
-				Inputs:    inputs,
-				Success:   err == nil,
-			})
+		if !tuiMode {
+			break
 		}
-
-		if tuiMode {
-			Wait()
-			continue
-		}
-		break
 	}
 }
 
@@ -132,24 +139,28 @@ func init() {
 	// Add flags or subcommands here
 }
 
-func waitForAnyKey() {
-	fmt.Print("\nPress any key to return to Cleat...")
+func waitForAnyKey() bool {
+	fmt.Print("\nPress any key to return to Cleat, or 'r' to re-run...")
 
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
 		var b [1]byte
 		os.Stdin.Read(b[:])
-		return
+		return false
 	}
 
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
 		var b [1]byte
 		os.Stdin.Read(b[:])
-		return
+		return false
 	}
 	defer term.Restore(fd, oldState)
 
 	var b [1]byte
-	os.Stdin.Read(b[:])
+	n, _ := os.Stdin.Read(b[:])
+	if n > 0 && (b[0] == 'r' || b[0] == 'R') {
+		return true
+	}
+	return false
 }
