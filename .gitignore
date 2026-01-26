@@ -11,7 +11,7 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 # Cleat binary
-cleat*
+/cleat*
 
 # Tooling artifacts
 .output.txt
