@@ -32,8 +32,9 @@ func TestRun(t *testing.T) {
 	}
 
 	var waitCalls int
-	Wait = func() {
+	Wait = func() bool {
 		waitCalls++
+		return false
 	}
 
 	t.Run("No args, TUI returns build", func(t *testing.T) {
@@ -125,8 +126,9 @@ func TestRunLoop(t *testing.T) {
 	Exit = func(code int) {}
 
 	var waitCalls int
-	Wait = func() {
+	Wait = func() bool {
 		waitCalls++
+		return false
 	}
 
 	t.Run("Loop for run command", func(t *testing.T) {
@@ -191,6 +193,37 @@ func TestRunLoop(t *testing.T) {
 		}
 		if waitCalls != 1 {
 			t.Errorf("expected Wait to be called 1 time, got %d", waitCalls)
+		}
+	})
+
+	t.Run("Re-run command with 'r'", func(t *testing.T) {
+		waitCalls = 0
+		uiCalls := 0
+		UIStart = func() (string, map[string]string, error) {
+			uiCalls++
+			if uiCalls == 1 {
+				return "build", nil, nil
+			}
+			return "", nil, nil
+		}
+
+		Wait = func() bool {
+			waitCalls++
+			if waitCalls == 1 {
+				return true // Re-run
+			}
+			return false // Back to TUI
+		}
+
+		run([]string{"cleat"})
+
+		// UIStart should be called twice: once for "build", once for "" (to quit)
+		if uiCalls != 2 {
+			t.Errorf("expected UIStart to be called 2 times, got %d", uiCalls)
+		}
+		// Wait should be called twice: once after first run (returned true), once after second run (returned false)
+		if waitCalls != 2 {
+			t.Errorf("expected Wait to be called 2 times, got %d", waitCalls)
 		}
 	})
 }
