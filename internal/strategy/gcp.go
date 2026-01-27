@@ -18,6 +18,9 @@ func init() {
 	Register("gcp adc-login", func(cfg *config.Config) Strategy {
 		return NewGCPADCLoginStrategy()
 	})
+	Register("gcp console", func(cfg *config.Config) Strategy {
+		return NewGCPConsoleStrategy()
+	})
 }
 
 type GCPActivateStrategy struct {
@@ -84,5 +87,38 @@ func NewGCPADCLoginStrategy() *GCPADCLoginStrategy {
 }
 
 func (s *GCPADCLoginStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
+	return s.buildExecutionPlan(cfg)
+}
+
+type GCPAppDeployStrategy struct {
+	BaseStrategy
+}
+
+func NewGCPAppDeployStrategy(appYaml string) *GCPAppDeployStrategy {
+	return &GCPAppDeployStrategy{
+		BaseStrategy: *NewBaseStrategy("gcp:app-deploy", []task.Task{
+			task.NewGCPActivate(),
+			task.NewGCPAppDeploy(appYaml),
+		}),
+	}
+}
+
+func (s *GCPAppDeployStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
+	return s.buildExecutionPlan(cfg)
+}
+
+type GCPConsoleStrategy struct {
+	BaseStrategy
+}
+
+func NewGCPConsoleStrategy() *GCPConsoleStrategy {
+	return &GCPConsoleStrategy{
+		BaseStrategy: *NewBaseStrategy("gcp:console", []task.Task{
+			task.NewGCPConsole(),
+		}),
+	}
+}
+
+func (s *GCPConsoleStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
 	return s.buildExecutionPlan(cfg)
 }

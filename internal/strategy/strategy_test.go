@@ -496,8 +496,17 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"django makemigrations:default", []string{"django:makemigrations"}},
 		{"django gen-random-secret-key:default", []string{"django:gen-random-secret-key"}},
 		{"npm run build", []string{"npm:run:build"}},
+		{"npm install", []string{"npm:install"}},
+		{"npm install:default", []string{"npm:install"}},
 		{"terraform plan:production", []string{"terraform:plan:production"}},
+		{"gcp deploy", []string{"gcp:activate", "gcp:app-deploy"}},
+		{"gcp deploy:default", []string{"gcp:activate", "gcp:app-deploy"}},
+		{"gcp console", []string{"gcp:console"}},
 	}
+
+	cfg.AppYaml = "app.yaml"
+	cfg.Services[0].AppYaml = "default/app.yaml"
+	cfg.GoogleCloudPlatform = &config.GCPConfig{ProjectName: "test-project"}
 
 	for _, tt := range tests {
 		t.Run(tt.command, func(t *testing.T) {

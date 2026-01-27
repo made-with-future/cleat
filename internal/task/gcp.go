@@ -2,6 +2,7 @@ package task
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
@@ -180,5 +181,99 @@ func (t *GCPADCLogin) Commands(cfg *config.Config) [][]string {
 		{"gcloud", "auth", "application-default", "login", "--project", cfg.GoogleCloudPlatform.ProjectName},
 		{"gcloud", "auth", "login", "--project", cfg.GoogleCloudPlatform.ProjectName},
 		{"gcloud", "auth", "application-default", "set-quota-project", cfg.GoogleCloudPlatform.ProjectName},
+	}
+}
+
+type GCPAppDeploy struct {
+	BaseTask
+	AppYaml string
+}
+
+func NewGCPAppDeploy(appYaml string) *GCPAppDeploy {
+	return &GCPAppDeploy{
+		BaseTask: BaseTask{
+			TaskName:        "gcp:app-deploy",
+			TaskDescription: fmt.Sprintf("Deploy to Google App Engine using %s", appYaml),
+		},
+		AppYaml: appYaml,
+	}
+}
+
+func (t *GCPAppDeploy) ShouldRun(cfg *config.Config) bool {
+	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+}
+
+func (t *GCPAppDeploy) Run(cfg *config.Config, exec executor.Executor) error {
+	commands := t.Commands(cfg)
+	for _, cmd := range commands {
+		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *GCPAppDeploy) Requirements(cfg *config.Config) []InputRequirement {
+	return []InputRequirement{
+		{
+			Key:    "gcp:version",
+			Prompt: "Enter version name, or return to skip",
+		},
+	}
+}
+
+func (t *GCPAppDeploy) Commands(cfg *config.Config) [][]string {
+	version := cfg.Inputs["gcp:version"]
+	cmd := []string{"gcloud", "app", "deploy", t.AppYaml}
+	if version != "" {
+		cmd = append(cmd, "--version", version)
+	}
+	return [][]string{cmd}
+}
+
+type GCPConsole struct {
+	BaseTask
+}
+
+func NewGCPConsole() *GCPConsole {
+	return &GCPConsole{
+		BaseTask: BaseTask{
+			TaskName:        "gcp:console",
+			TaskDescription: "Open Google Cloud Console in browser",
+		},
+	}
+}
+
+func (t *GCPConsole) ShouldRun(cfg *config.Config) bool {
+	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+}
+
+func (t *GCPConsole) Run(cfg *config.Config, exec executor.Executor) error {
+	url := fmt.Sprintf("https://console.cloud.google.com/home/dashboard?project=%s", cfg.GoogleCloudPlatform.ProjectName)
+	fmt.Printf("Opening %s\n", url)
+
+	cmds := t.Commands(cfg)
+	if len(cmds) == 0 {
+		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+
+	return exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *GCPConsole) Commands(cfg *config.Config) [][]string {
+	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
+		return nil
+	}
+	url := fmt.Sprintf("https://console.cloud.google.com/home/dashboard?project=%s", cfg.GoogleCloudPlatform.ProjectName)
+
+	switch runtime.GOOS {
+	case "linux":
+		return [][]string{{"xdg-open", url}}
+	case "darwin":
+		return [][]string{{"open", url}}
+	case "windows":
+		return [][]string{{"cmd", "/c", "start", url}}
+	default:
+		return nil
 	}
 }
