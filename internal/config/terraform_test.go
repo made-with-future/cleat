@@ -40,6 +40,8 @@ func TestLoadConfigTerraformAutoDetection(t *testing.T) {
 				"cleat.yaml":           "version: 1",
 				".iac/prod/main.tf":    "",
 				".iac/staging/main.tf": "",
+				".envs/prod.env":       "",
+				".envs/staging.env":    "",
 			},
 			expectedTf:     &TerraformConfig{UseFolders: true, Envs: []string{"prod", "staging"}},
 			expectedEnvs:   []string{"prod", "staging"},
@@ -66,6 +68,29 @@ func TestLoadConfigTerraformAutoDetection(t *testing.T) {
 			},
 			expectedTf:     &TerraformConfig{UseFolders: true, Envs: []string{"prod"}},
 			expectedEnvs:   []string{"local", "prod"},
+			expectedTfEnvs: []string{"prod"},
+		},
+		{
+			name: "terraform multi env without matching .envs",
+			files: map[string]string{
+				"cleat.yaml":        "version: 1",
+				".iac/prod/main.tf": "",
+			},
+			expectedTf:     &TerraformConfig{UseFolders: false},
+			expectedEnvs:   nil,
+			expectedTfEnvs: nil,
+		},
+		{
+			name: "terraform mixed mating",
+			files: map[string]string{
+				"cleat.yaml":           "version: 1",
+				".iac/prod/main.tf":    "",
+				".iac/staging/main.tf": "",
+				".envs/prod.env":       "",
+				// staging.env is missing
+			},
+			expectedTf:     &TerraformConfig{UseFolders: true, Envs: []string{"prod"}},
+			expectedEnvs:   []string{"prod"},
 			expectedTfEnvs: []string{"prod"},
 		},
 		{

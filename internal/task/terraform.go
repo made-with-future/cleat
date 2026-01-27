@@ -3,7 +3,6 @@ package task
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/madewithfuture/cleat/internal/config"
@@ -79,7 +78,7 @@ func (t *TerraformTask) Commands(cfg *config.Config) [][]string {
 	if t.Env != "" {
 		envFile := filepath.Join(".envs", t.Env+".env")
 		if _, err := os.Stat(envFile); err == nil {
-			if _, err := exec.LookPath("op"); err == nil {
+			if ShouldUseOp(".") {
 				useOp = true
 				cmd = []string{
 					"op", "run", "--env-file=" + envFile, "--",

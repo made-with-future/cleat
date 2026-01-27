@@ -32,7 +32,7 @@ type GCPConfig struct {
 }
 
 type TerraformConfig struct {
-	UseFolders bool     `yaml:"use_folders"`
+	UseFolders bool     `yaml:"-"`
 	Envs       []string `yaml:"envs,omitempty"`
 }
 
@@ -206,11 +206,20 @@ func LoadConfig(path string) (*Config, error) {
 					// Check if subdirectory contains .tf files
 					subDir := filepath.Join(iacDir, entry.Name())
 					subEntries, _ := os.ReadDir(subDir)
+					hasTfInSubDir := false
 					for _, subEntry := range subEntries {
 						if !subEntry.IsDir() && strings.HasSuffix(subEntry.Name(), ".tf") {
+							hasTfInSubDir = true
+							break
+						}
+					}
+
+					if hasTfInSubDir {
+						// Mate them up with matching files in the .envs folder
+						envFile := filepath.Join(baseDir, ".envs", entry.Name()+".env")
+						if _, err := os.Stat(envFile); err == nil {
 							useFolders = true
 							detectedEnvs = append(detectedEnvs, entry.Name())
-							break
 						}
 					}
 				} else if strings.HasSuffix(entry.Name(), ".tf") {
@@ -223,7 +232,8 @@ func LoadConfig(path string) (*Config, error) {
 				if cfg.Terraform.Envs == nil {
 					cfg.Terraform.Envs = detectedEnvs
 				}
-				for _, env := range detectedEnvs {
+				// Ensure detected terraform envs are also in global envs
+				for _, env := range cfg.Terraform.Envs {
 					found := false
 					for _, existing := range cfg.Envs {
 						if existing == env {

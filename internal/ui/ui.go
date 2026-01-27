@@ -1061,16 +1061,11 @@ func (m model) buildConfigLines() []string {
 
 	if m.cfg.Terraform != nil {
 		configLines = append(configLines, " terraform:")
-		if m.cfg.Terraform.UseFolders {
-			configLines = append(configLines, "   use_folders: true")
-			if len(m.cfg.Terraform.Envs) > 0 {
-				configLines = append(configLines, "   envs:")
-				for _, env := range m.cfg.Terraform.Envs {
-					configLines = append(configLines, fmt.Sprintf("     - %s", env))
-				}
+		if len(m.cfg.Terraform.Envs) > 0 {
+			configLines = append(configLines, "   envs:")
+			for _, env := range m.cfg.Terraform.Envs {
+				configLines = append(configLines, fmt.Sprintf("     - %s", env))
 			}
-		} else {
-			configLines = append(configLines, "   use_folders: false")
 		}
 	}
 
