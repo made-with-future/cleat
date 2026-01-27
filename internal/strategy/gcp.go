@@ -90,20 +90,37 @@ func (s *GCPADCLoginStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, err
 	return s.buildExecutionPlan(cfg)
 }
 
-type GCPAppDeployStrategy struct {
+type GCPAppEngineDeployStrategy struct {
 	BaseStrategy
 }
 
-func NewGCPAppDeployStrategy(appYaml string) *GCPAppDeployStrategy {
-	return &GCPAppDeployStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:app-deploy", []task.Task{
+func NewGCPAppEngineDeployStrategy(appYaml string) *GCPAppEngineDeployStrategy {
+	return &GCPAppEngineDeployStrategy{
+		BaseStrategy: *NewBaseStrategy("gcp:app-engine-deploy", []task.Task{
 			task.NewGCPActivate(),
-			task.NewGCPAppDeploy(appYaml),
+			task.NewGCPAppEngineDeploy(appYaml),
 		}),
 	}
 }
 
-func (s *GCPAppDeployStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
+func (s *GCPAppEngineDeployStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
+	return s.buildExecutionPlan(cfg)
+}
+
+type GCPAppEnginePromoteStrategy struct {
+	BaseStrategy
+}
+
+func NewGCPAppEnginePromoteStrategy(service string) *GCPAppEnginePromoteStrategy {
+	return &GCPAppEnginePromoteStrategy{
+		BaseStrategy: *NewBaseStrategy("gcp:app-engine-promote", []task.Task{
+			task.NewGCPActivate(),
+			task.NewGCPAppEnginePromote(service),
+		}),
+	}
+}
+
+func (s *GCPAppEnginePromoteStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
 	return s.buildExecutionPlan(cfg)
 }
 

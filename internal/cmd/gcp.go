@@ -86,7 +86,12 @@ var gcpADCLoginCmd = &cobra.Command{
 	},
 }
 
-var gcpDeployCmd = &cobra.Command{
+var gcpAppEngineCmd = &cobra.Command{
+	Use:   "app-engine",
+	Short: "Google App Engine related commands",
+}
+
+var gcpAppEngineDeployCmd = &cobra.Command{
 	Use:   "deploy [service]",
 	Short: "Deploy to Google App Engine",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -118,7 +123,30 @@ var gcpDeployCmd = &cobra.Command{
 			}
 		}
 
-		s := strategy.NewGCPAppDeployStrategy(appYaml)
+		s := strategy.NewGCPAppEngineDeployStrategy(appYaml)
+		return s.Execute(cfg, executor.Default)
+	},
+}
+
+var gcpAppEnginePromoteCmd = &cobra.Command{
+	Use:   "promote [service]",
+	Short: "Promote a version to receive all traffic",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadDefaultConfig()
+		if err != nil {
+			return err
+		}
+
+		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
+			return fmt.Errorf("google_cloud_platform.project_name is not configured")
+		}
+
+		var service string
+		if len(args) > 0 {
+			service = args[0]
+		}
+
+		s := strategy.NewGCPAppEnginePromoteStrategy(service)
 		return s.Execute(cfg, executor.Default)
 	},
 }
@@ -146,7 +174,9 @@ func init() {
 	gcpCmd.AddCommand(gcpInitCmd)
 	gcpCmd.AddCommand(gcpSetConfigCmd)
 	gcpCmd.AddCommand(gcpADCLoginCmd)
-	gcpCmd.AddCommand(gcpDeployCmd)
+	gcpAppEngineCmd.AddCommand(gcpAppEngineDeployCmd)
+	gcpAppEngineCmd.AddCommand(gcpAppEnginePromoteCmd)
+	gcpCmd.AddCommand(gcpAppEngineCmd)
 	gcpCmd.AddCommand(gcpConsoleCmd)
 	rootCmd.AddCommand(gcpCmd)
 }

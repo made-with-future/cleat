@@ -115,6 +115,18 @@ func TestRun(t *testing.T) {
 		run([]string{"cleat"})
 	})
 
+	t.Run("No args, TUI returns gcp promote", func(t *testing.T) {
+		calls := 0
+		UIStart = func() (string, map[string]string, error) {
+			calls++
+			if calls == 1 {
+				return "gcp app-engine promote:svc", nil, nil
+			}
+			return "", nil, nil
+		}
+		run([]string{"cleat"})
+	})
+
 	t.Run("With args, executes subcommand", func(t *testing.T) {
 		waitCalls = 0
 		// version command is safe to run as it just prints
