@@ -475,6 +475,10 @@ func TestResolveCommandTasks(t *testing.T) {
 					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
 				},
 			},
+			{
+				Name:    "backend",
+				AppYaml: "backend/app.yaml",
+			},
 		},
 	}
 
@@ -499,8 +503,11 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"npm install", []string{"npm:install"}},
 		{"npm install:default", []string{"npm:install"}},
 		{"terraform plan:production", []string{"terraform:plan:production"}},
-		{"gcp deploy", []string{"gcp:activate", "gcp:app-deploy"}},
-		{"gcp deploy:default", []string{"gcp:activate", "gcp:app-deploy"}},
+		{"gcp app-engine deploy", []string{"gcp:activate", "gcp:app-engine-deploy"}},
+		{"gcp app-engine deploy:default", []string{"gcp:activate", "gcp:app-engine-deploy"}},
+		{"gcp app-engine promote", []string{"gcp:activate", "gcp:app-engine-promote"}},
+		{"gcp app-engine promote:default", []string{"gcp:activate", "gcp:app-engine-promote"}},
+		{"gcp app-engine promote:backend", []string{"gcp:activate", "gcp:app-engine-promote:backend"}},
 		{"gcp console", []string{"gcp:console"}},
 	}
 

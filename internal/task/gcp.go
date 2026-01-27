@@ -184,26 +184,26 @@ func (t *GCPADCLogin) Commands(cfg *config.Config) [][]string {
 	}
 }
 
-type GCPAppDeploy struct {
+type GCPAppEngineDeploy struct {
 	BaseTask
 	AppYaml string
 }
 
-func NewGCPAppDeploy(appYaml string) *GCPAppDeploy {
-	return &GCPAppDeploy{
+func NewGCPAppEngineDeploy(appYaml string) *GCPAppEngineDeploy {
+	return &GCPAppEngineDeploy{
 		BaseTask: BaseTask{
-			TaskName:        "gcp:app-deploy",
+			TaskName:        "gcp:app-engine-deploy",
 			TaskDescription: fmt.Sprintf("Deploy to Google App Engine using %s", appYaml),
 		},
 		AppYaml: appYaml,
 	}
 }
 
-func (t *GCPAppDeploy) ShouldRun(cfg *config.Config) bool {
+func (t *GCPAppEngineDeploy) ShouldRun(cfg *config.Config) bool {
 	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
 }
 
-func (t *GCPAppDeploy) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *GCPAppEngineDeploy) Run(cfg *config.Config, exec executor.Executor) error {
 	commands := t.Commands(cfg)
 	for _, cmd := range commands {
 		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
@@ -213,7 +213,7 @@ func (t *GCPAppDeploy) Run(cfg *config.Config, exec executor.Executor) error {
 	return nil
 }
 
-func (t *GCPAppDeploy) Requirements(cfg *config.Config) []InputRequirement {
+func (t *GCPAppEngineDeploy) Requirements(cfg *config.Config) []InputRequirement {
 	return []InputRequirement{
 		{
 			Key:    "gcp:version",
@@ -222,12 +222,65 @@ func (t *GCPAppDeploy) Requirements(cfg *config.Config) []InputRequirement {
 	}
 }
 
-func (t *GCPAppDeploy) Commands(cfg *config.Config) [][]string {
+func (t *GCPAppEngineDeploy) Commands(cfg *config.Config) [][]string {
 	version := cfg.Inputs["gcp:version"]
 	cmd := []string{"gcloud", "app", "deploy", t.AppYaml}
 	if version != "" {
 		cmd = append(cmd, "--version", version)
 	}
+	return [][]string{cmd}
+}
+
+type GCPAppEnginePromote struct {
+	BaseTask
+	Service string
+}
+
+func NewGCPAppEnginePromote(service string) *GCPAppEnginePromote {
+	name := "gcp:app-engine-promote"
+	desc := "Promote a version to receive all traffic"
+	if service != "" && service != "default" {
+		name = fmt.Sprintf("gcp:app-engine-promote:%s", service)
+		desc = fmt.Sprintf("Promote a version to receive all traffic for service %s", service)
+	}
+	return &GCPAppEnginePromote{
+		BaseTask: BaseTask{
+			TaskName:        name,
+			TaskDescription: desc,
+		},
+		Service: service,
+	}
+}
+
+func (t *GCPAppEnginePromote) ShouldRun(cfg *config.Config) bool {
+	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+}
+
+func (t *GCPAppEnginePromote) Run(cfg *config.Config, exec executor.Executor) error {
+	commands := t.Commands(cfg)
+	for _, cmd := range commands {
+		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *GCPAppEnginePromote) Requirements(cfg *config.Config) []InputRequirement {
+	return []InputRequirement{
+		{
+			Key:    "gcp:promote_version",
+			Prompt: "Enter version to promote",
+		},
+	}
+}
+
+func (t *GCPAppEnginePromote) Commands(cfg *config.Config) [][]string {
+	version := cfg.Inputs["gcp:promote_version"]
+	if version == "" {
+		return nil
+	}
+	cmd := []string{"gcloud", "app", "versions", "migrate", version}
 	return [][]string{cmd}
 }
 

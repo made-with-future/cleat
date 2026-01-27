@@ -1369,6 +1369,74 @@ func TestGCPConsole(t *testing.T) {
 	}
 }
 
+func TestGCPAppEngineDeploy(t *testing.T) {
+	cfg := &config.Config{
+		GoogleCloudPlatform: &config.GCPConfig{ProjectName: "test-project"},
+		Inputs:              map[string]string{"gcp:version": "v1"},
+	}
+	task := NewGCPAppEngineDeploy("app.yaml")
+
+	if !task.ShouldRun(cfg) {
+		t.Error("Expected ShouldRun to be true")
+	}
+
+	mock := &mockExecutor{}
+	if err := task.Run(cfg, mock); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(mock.commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(mock.commands))
+	}
+	expected := "gcloud app deploy app.yaml --version v1"
+	actual := mock.commands[0].name
+	for _, arg := range mock.commands[0].args {
+		actual += " " + arg
+	}
+	if actual != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, actual)
+	}
+}
+
+func TestGCPAppEnginePromote(t *testing.T) {
+	cfg := &config.Config{
+		GoogleCloudPlatform: &config.GCPConfig{ProjectName: "test-project"},
+		Inputs:              map[string]string{"gcp:promote_version": "v1"},
+	}
+
+	t.Run("Without service", func(t *testing.T) {
+		task := NewGCPAppEnginePromote("")
+		mock := &mockExecutor{}
+		if err := task.Run(cfg, mock); err != nil {
+			t.Fatal(err)
+		}
+		expected := "gcloud app versions migrate v1"
+		actual := mock.commands[0].name
+		for _, arg := range mock.commands[0].args {
+			actual += " " + arg
+		}
+		if actual != expected {
+			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		}
+	})
+
+	t.Run("With service", func(t *testing.T) {
+		task := NewGCPAppEnginePromote("backend")
+		mock := &mockExecutor{}
+		if err := task.Run(cfg, mock); err != nil {
+			t.Fatal(err)
+		}
+		expected := "gcloud app versions migrate v1"
+		actual := mock.commands[0].name
+		for _, arg := range mock.commands[0].args {
+			actual += " " + arg
+		}
+		if actual != expected {
+			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		}
+	})
+}
+
 // Verify all tasks implement the Task interface
 func TestTaskInterface(t *testing.T) {
 	svc := &config.ServiceConfig{Name: "default", Dir: "."}
@@ -1389,6 +1457,7 @@ func TestTaskInterface(t *testing.T) {
 	var _ Task = NewGCPActivate()
 	var _ Task = NewGCPInit()
 	var _ Task = NewGCPSetConfig()
+	var _ Task = NewGCPAppEnginePromote("")
 }
 
 // Helper to verify interface at compile time

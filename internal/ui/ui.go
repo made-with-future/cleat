@@ -718,7 +718,8 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 			{Label: "set-config", Command: "gcp set-config"},
 		}
 		if cfg.AppYaml != "" {
-			gcpChildren = append(gcpChildren, CommandItem{Label: "deploy", Command: "gcp deploy"})
+			gcpChildren = append(gcpChildren, CommandItem{Label: "deploy", Command: "gcp app-engine deploy"})
+			gcpChildren = append(gcpChildren, CommandItem{Label: "promote", Command: "gcp app-engine promote"})
 		}
 		gcpChildren = append(gcpChildren, CommandItem{Label: "console", Command: "gcp console"})
 		tree = append(tree, CommandItem{
@@ -806,7 +807,8 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 		}
 
 		if svc.AppYaml != "" {
-			svcItem.Children = append(svcItem.Children, CommandItem{Label: "deploy", Command: fmt.Sprintf("gcp deploy:%s", svc.Name)})
+			svcItem.Children = append(svcItem.Children, CommandItem{Label: "deploy", Command: fmt.Sprintf("gcp app-engine deploy:%s", svc.Name)})
+			svcItem.Children = append(svcItem.Children, CommandItem{Label: "promote", Command: fmt.Sprintf("gcp app-engine promote:%s", svc.Name)})
 		}
 
 		if len(svcItem.Children) > 0 {
