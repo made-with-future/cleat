@@ -912,6 +912,44 @@ func TestHistoryNavigationWithJK(t *testing.T) {
 	}
 }
 
+func TestHistoryJumpWithNumberKeys(t *testing.T) {
+	cfg := &config.Config{}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 20 // visibleHistoryCount will be 5
+
+	m.history = []history.HistoryEntry{
+		{Timestamp: time.Now(), Command: "cmd1"},
+		{Timestamp: time.Now(), Command: "cmd2"},
+		{Timestamp: time.Now(), Command: "cmd3"},
+		{Timestamp: time.Now(), Command: "cmd4"},
+		{Timestamp: time.Now(), Command: "cmd5"},
+		{Timestamp: time.Now(), Command: "cmd6"},
+		{Timestamp: time.Now(), Command: "cmd7"},
+	}
+
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("3")})
+	m = updatedModel.(model)
+	if m.focus != focusHistory {
+		t.Fatalf("expected focusHistory after '3', got %v", m.focus)
+	}
+	if m.historyCursor != 2 {
+		t.Errorf("expected historyCursor 2 after '3', got %d", m.historyCursor)
+	}
+	if m.historyOffset != 0 {
+		t.Errorf("expected historyOffset 0 after '3', got %d", m.historyOffset)
+	}
+
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("6")})
+	m = updatedModel.(model)
+	if m.historyCursor != 5 {
+		t.Errorf("expected historyCursor 5 after '6', got %d", m.historyCursor)
+	}
+	if m.historyOffset != 1 {
+		t.Errorf("expected historyOffset 1 after '6', got %d", m.historyOffset)
+	}
+}
+
 func TestGGKeybinding(t *testing.T) {
 	cfg := &config.Config{}
 	m := InitialModel(cfg, true)
