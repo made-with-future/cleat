@@ -45,7 +45,7 @@ func (t *DockerBuild) Run(cfg *config.Config, exec executor.Executor) error {
 	if t.Service != nil && t.Service.Dir != "" {
 		searchDir = t.Service.Dir
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		fmt.Println("--> Detected .envs/dev.env, using 1Password CLI (op)")
 	}
 
@@ -72,7 +72,7 @@ func (t *DockerBuild) Commands(cfg *config.Config) [][]string {
 		searchDir = t.Service.Dir
 		envFile = ".envs/dev.env"
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		args = append([]string{"run", "--env-file", envFile, "--", "docker"}, args...)
 		cmdName = "op"
 	}
@@ -116,7 +116,7 @@ func (t *DockerUp) Run(cfg *config.Config, exec executor.Executor) error {
 	if t.Service != nil && t.Service.Dir != "" {
 		searchDir = t.Service.Dir
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		fmt.Println("--> Detected .envs/dev.env, using 1Password CLI (op)")
 	}
 
@@ -140,7 +140,7 @@ func (t *DockerUp) Commands(cfg *config.Config) [][]string {
 		searchDir = t.Service.Dir
 		envFile = ".envs/dev.env"
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		args = append([]string{"run", "--env-file", envFile, "--", "docker"}, args...)
 		cmdName = "op"
 	}
@@ -184,7 +184,7 @@ func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
 	if t.Service != nil && t.Service.Dir != "" {
 		searchDir = t.Service.Dir
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		fmt.Println("--> Detected .envs/dev.env, using 1Password CLI (op)")
 	}
 
@@ -208,7 +208,7 @@ func (t *DockerDown) Commands(cfg *config.Config) [][]string {
 		searchDir = t.Service.Dir
 		envFile = ".envs/dev.env"
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		args = append([]string{"run", "--env-file", envFile, "--", "docker"}, args...)
 		cmdName = "op"
 	}
@@ -252,7 +252,7 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 	if t.Service != nil && t.Service.Dir != "" {
 		searchDir = t.Service.Dir
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		fmt.Println("--> Detected .envs/dev.env, using 1Password CLI (op)")
 	}
 
@@ -292,7 +292,7 @@ func (t *DockerRebuild) Commands(cfg *config.Config) [][]string {
 		envFile = ".envs/dev.env"
 	}
 
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		downArgs = append([]string{"run", "--env-file", envFile, "--", "docker"}, downArgs...)
 		downCmd = "op"
 
@@ -342,7 +342,7 @@ func (t *DockerRemoveOrphans) Run(cfg *config.Config, exec executor.Executor) er
 	if t.Service != nil && t.Service.Dir != "" {
 		searchDir = t.Service.Dir
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		fmt.Println("--> Detected .envs/dev.env, using 1Password CLI (op)")
 	}
 
@@ -366,7 +366,7 @@ func (t *DockerRemoveOrphans) Commands(cfg *config.Config) [][]string {
 		searchDir = t.Service.Dir
 		envFile = ".envs/dev.env"
 	}
-	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil {
+	if _, err := os.Stat(filepath.Join(searchDir, ".envs/dev.env")); err == nil && ShouldUseOp(searchDir) {
 		args = append([]string{"run", "--env-file", envFile, "--", "docker"}, args...)
 		cmdName = "op"
 	}

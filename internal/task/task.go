@@ -1,6 +1,11 @@
 package task
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
 )
@@ -48,4 +53,27 @@ func (t *BaseTask) Description() string    { return t.TaskDescription }
 func (t *BaseTask) Dependencies() []string { return t.TaskDeps }
 func (t *BaseTask) Requirements(cfg *config.Config) []InputRequirement {
 	return nil
+}
+
+// ShouldUseOp checks if 1Password CLI is available and if any .env file in .envs/ contains "op://"
+func ShouldUseOp(baseDir string) bool {
+	if _, err := exec.LookPath("op"); err != nil {
+		return false
+	}
+
+	envsDir := filepath.Join(baseDir, ".envs")
+	entries, err := os.ReadDir(envsDir)
+	if err != nil {
+		return false
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".env") {
+			content, err := os.ReadFile(filepath.Join(envsDir, entry.Name()))
+			if err == nil && strings.Contains(string(content), "op://") {
+				return true
+			}
+		}
+	}
+	return false
 }
