@@ -573,6 +573,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			if len(msg.Runes) == 1 {
+				r := msg.Runes[0]
+				if r >= '1' && r <= '9' && len(m.history) > 0 {
+					target := int(r - '1')
+					if target < len(m.history) {
+						m.focus = focusHistory
+						m.historyCursor = target
+						visibleCount := m.visibleHistoryCount()
+						if m.historyCursor < m.historyOffset {
+							m.historyOffset = m.historyCursor
+						} else if m.historyCursor >= m.historyOffset+visibleCount {
+							m.historyOffset = m.historyCursor - visibleCount + 1
+						}
+						m.updateTaskPreview()
+					}
+					return m, nil
+				}
+			}
+
 			switch string(msg.Runes) {
 			case "q":
 				m.quitting = true
@@ -1013,6 +1032,7 @@ func (m model) renderHelpOverlay() string {
 		"  c          Collapse all",
 		"  /          Filter commands",
 		"  Enter      Select/Toggle / Edit config",
+		"  1-9        Jump to history item",
 		"  x          Clear history (history pane)",
 		"  Tab        Switch pane",
 		"  Shift+Tab  Switch pane (reverse)",
