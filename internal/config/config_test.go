@@ -509,6 +509,67 @@ google_cloud_platform:
 	}
 }
 
+func TestLoadConfig_GCPAppYaml(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-test-gcp-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// Create root app.yaml
+	err = os.WriteFile("app.yaml", []byte("runtime: python39"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create service dir with app.yaml
+	err = os.Mkdir("backend", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile("backend/app.yaml", []byte("runtime: python39"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cleatYamlContent := `
+version: 1
+google_cloud_platform:
+  project_name: test-project
+`
+	err = os.WriteFile("cleat.yaml", []byte(cleatYamlContent), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig("cleat.yaml")
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.AppYaml != "app.yaml" {
+		t.Errorf("Expected root AppYaml to be 'app.yaml', got '%s'", cfg.AppYaml)
+	}
+
+	foundBackend := false
+	for _, svc := range cfg.Services {
+		if svc.Name == "backend" {
+			foundBackend = true
+			if svc.AppYaml != "backend/app.yaml" {
+				t.Errorf("Expected backend AppYaml to be 'backend/app.yaml', got '%s'", svc.AppYaml)
+			}
+			break
+		}
+	}
+	if !foundBackend {
+		t.Error("Expected backend service to be auto-detected because of app.yaml")
+	}
+}
+
 func TestLoadDefaultConfig_NotFound(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "cleat-test-no-config")
 	if err != nil {

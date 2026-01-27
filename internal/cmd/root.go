@@ -90,6 +90,9 @@ func run(args []string) {
 				} else {
 					cmdArgs = []string{"npm", scriptPart}
 				}
+			} else if strings.HasPrefix(selected, "npm install:") {
+				svcName := strings.TrimPrefix(selected, "npm install:")
+				cmdArgs = []string{"npm", "install", svcName}
 			}
 
 			if len(cmdArgs) > 0 {
@@ -123,6 +126,7 @@ func run(args []string) {
 
 			if tuiMode {
 				if Wait() {
+					fmt.Println()
 					continue
 				}
 			}

@@ -387,14 +387,12 @@ func TestNpmBuild(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 
-		if len(mock.commands) != 2 {
-			t.Fatalf("expected 2 commands, got %d", len(mock.commands))
+		// Now ONLY 'build' script is run if it exists
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
 		}
-		// Both should use docker compose run
-		for _, cmd := range mock.commands {
-			if cmd.name != "docker" {
-				t.Errorf("expected command 'docker', got %q", cmd.name)
-			}
+		if mock.commands[0].args[len(mock.commands[0].args)-1] != "build" {
+			t.Errorf("expected last arg to be 'build', got %q", mock.commands[0].args[len(mock.commands[0].args)-1])
 		}
 	})
 
@@ -416,6 +414,134 @@ func TestNpmBuild(t *testing.T) {
 		}
 		if mock.commands[0].name != "npm" {
 			t.Errorf("expected command 'npm', got %q", mock.commands[0].name)
+		}
+	})
+
+	t.Run("Scripts selection logic", func(t *testing.T) {
+		svc := &config.ServiceConfig{Name: "default", Dir: "."}
+
+		t.Run("Runs ONLY 'build' script if it exists", func(t *testing.T) {
+			npm := &config.NpmConfig{
+				Scripts: []string{"build", "test", "lint"},
+			}
+			task := NewNpmBuild(svc, npm)
+			cfg := &config.Config{}
+			mock := &mockExecutor{}
+
+			err := task.Run(cfg, mock)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(mock.commands) != 1 {
+				t.Errorf("expected 1 command, got %d", len(mock.commands))
+			}
+			if len(mock.commands) > 0 && mock.commands[0].args[len(mock.commands[0].args)-1] != "build" {
+				t.Errorf("expected 'build' script, got %v", mock.commands[0].args)
+			}
+		})
+
+		t.Run("Runs scripts containing 'build' if 'build' script DOES NOT exist", func(t *testing.T) {
+			npm := &config.NpmConfig{
+				Scripts: []string{"webpack-build", "tailwindcss-build", "test"},
+			}
+			task := NewNpmBuild(svc, npm)
+			cfg := &config.Config{}
+			mock := &mockExecutor{}
+
+			err := task.Run(cfg, mock)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(mock.commands) != 2 {
+				t.Errorf("expected 2 commands, got %d", len(mock.commands))
+			}
+		})
+
+		t.Run("Runs NOTHING if no scripts contain 'build' and 'build' is missing", func(t *testing.T) {
+			npm := &config.NpmConfig{
+				Scripts: []string{"test", "lint", "start"},
+			}
+			task := NewNpmBuild(svc, npm)
+			cfg := &config.Config{}
+			mock := &mockExecutor{}
+
+			err := task.Run(cfg, mock)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(mock.commands) != 0 {
+				t.Errorf("expected 0 commands, got %d", len(mock.commands))
+			}
+		})
+	})
+}
+
+func TestNpmInstall(t *testing.T) {
+	svc := &config.ServiceConfig{Name: "default", Dir: "."}
+	npm := &config.NpmConfig{}
+	task := NewNpmInstall(svc, npm)
+
+	if task.Name() != "npm:install" {
+		t.Errorf("expected name 'npm:install', got %q", task.Name())
+	}
+
+	t.Run("ShouldRun with npm config", func(t *testing.T) {
+		cfg := &config.Config{}
+		if !task.ShouldRun(cfg) {
+			t.Error("expected ShouldRun to return true when npm config exists")
+		}
+	})
+
+	t.Run("Run via Docker", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: true,
+		}
+		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
+		npmMod := &config.NpmConfig{
+			Service: "node",
+		}
+		taskDocker := NewNpmInstall(svcDocker, npmMod)
+
+		err := taskDocker.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "docker" {
+			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
+		}
+		if mock.commands[0].args[len(mock.commands[0].args)-1] != "install" {
+			t.Errorf("expected last arg to be 'install', got %q", mock.commands[0].args[len(mock.commands[0].args)-1])
+		}
+	})
+
+	t.Run("Run locally", func(t *testing.T) {
+		mock := &mockExecutor{}
+		cfg := &config.Config{
+			Docker: false,
+		}
+		taskLocal := NewNpmInstall(svc, npm)
+
+		err := taskLocal.Run(cfg, mock)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if len(mock.commands) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(mock.commands))
+		}
+		if mock.commands[0].name != "npm" {
+			t.Errorf("expected command 'npm', got %q", mock.commands[0].name)
+		}
+		if mock.commands[0].args[0] != "install" {
+			t.Errorf("expected arg 'install', got %q", mock.commands[0].args[0])
 		}
 	})
 }
@@ -1193,6 +1319,54 @@ func TestGCPSetConfig(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestGCPConsole(t *testing.T) {
+	cfg := &config.Config{
+		GoogleCloudPlatform: &config.GCPConfig{
+			ProjectName: "test-project",
+		},
+	}
+	task := NewGCPConsole()
+
+	if !task.ShouldRun(cfg) {
+		t.Error("Expected ShouldRun to return true")
+	}
+
+	mock := &mockExecutor{}
+	if err := task.Run(cfg, mock); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	if len(mock.commands) != 1 {
+		t.Errorf("Expected 1 call, got %d", len(mock.commands))
+	}
+
+	// The actual command depends on runtime.GOOS, but it should be one of xdg-open, open, or cmd
+	cmdName := mock.commands[0].name
+	found := false
+	for _, valid := range []string{"xdg-open", "open", "cmd"} {
+		if cmdName == valid {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Unexpected command name: %s", cmdName)
+	}
+
+	// Check if the URL is in the args
+	urlFound := false
+	expectedURL := "https://console.cloud.google.com/home/dashboard?project=test-project"
+	for _, arg := range mock.commands[0].args {
+		if arg == expectedURL {
+			urlFound = true
+			break
+		}
+	}
+	if !urlFound {
+		t.Errorf("Expected URL %s not found in args: %v", expectedURL, mock.commands[0].args)
+	}
 }
 
 // Verify all tasks implement the Task interface

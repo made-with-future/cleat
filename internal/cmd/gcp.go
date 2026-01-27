@@ -86,10 +86,67 @@ var gcpADCLoginCmd = &cobra.Command{
 	},
 }
 
+var gcpDeployCmd = &cobra.Command{
+	Use:   "deploy [service]",
+	Short: "Deploy to Google App Engine",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadDefaultConfig()
+		if err != nil {
+			return err
+		}
+
+		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
+			return fmt.Errorf("google_cloud_platform.project_name is not configured")
+		}
+
+		var appYaml string
+		if len(args) > 0 {
+			svcName := args[0]
+			for _, svc := range cfg.Services {
+				if svc.Name == svcName {
+					appYaml = svc.AppYaml
+					break
+				}
+			}
+			if appYaml == "" {
+				return fmt.Errorf("service %s not found or has no app.yaml", svcName)
+			}
+		} else {
+			appYaml = cfg.AppYaml
+			if appYaml == "" {
+				return fmt.Errorf("no root app.yaml found")
+			}
+		}
+
+		s := strategy.NewGCPAppDeployStrategy(appYaml)
+		return s.Execute(cfg, executor.Default)
+	},
+}
+
+var gcpConsoleCmd = &cobra.Command{
+	Use:   "console",
+	Short: "Open Google Cloud Console in browser",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadDefaultConfig()
+		if err != nil {
+			return err
+		}
+
+		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
+			return fmt.Errorf("google_cloud_platform.project_name is not configured")
+		}
+
+		s := strategy.NewGCPConsoleStrategy()
+		return s.Execute(cfg, executor.Default)
+	},
+}
+
 func init() {
 	gcpCmd.AddCommand(gcpActivateCmd)
 	gcpCmd.AddCommand(gcpInitCmd)
 	gcpCmd.AddCommand(gcpSetConfigCmd)
 	gcpCmd.AddCommand(gcpADCLoginCmd)
+	gcpCmd.AddCommand(gcpDeployCmd)
+	gcpCmd.AddCommand(gcpConsoleCmd)
 	rootCmd.AddCommand(gcpCmd)
 }

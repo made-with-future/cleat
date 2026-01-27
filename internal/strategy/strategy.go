@@ -238,6 +238,12 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 		return s
 	}
 
+	if strings.HasPrefix(command, "npm install") {
+		if s := GetNpmInstallStrategy(command, cfg); s != nil {
+			return s
+		}
+	}
+
 	if strings.HasPrefix(command, "npm run ") {
 		fullScript := strings.TrimPrefix(command, "npm run ")
 
@@ -327,6 +333,26 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 				case "django gen-random-secret-key":
 					return NewDjangoGenRandomSecretKeyStrategy(targetSvc)
 				}
+			}
+		}
+	}
+
+	if strings.HasPrefix(command, "gcp deploy") {
+		parts := strings.Split(command, ":")
+		if len(parts) == 2 {
+			// gcp deploy:svcName
+			svcName := parts[1]
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == svcName {
+					if cfg.Services[i].AppYaml != "" {
+						return NewGCPAppDeployStrategy(cfg.Services[i].AppYaml)
+					}
+				}
+			}
+		} else {
+			// gcp deploy (root)
+			if cfg.AppYaml != "" {
+				return NewGCPAppDeployStrategy(cfg.AppYaml)
 			}
 		}
 	}

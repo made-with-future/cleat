@@ -711,14 +711,19 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 	}
 
 	if cfg.GoogleCloudPlatform != nil {
+		gcpChildren := []CommandItem{
+			{Label: "activate", Command: "gcp activate"},
+			{Label: "adc-login", Command: "gcp adc-login"},
+			{Label: "init", Command: "gcp init"},
+			{Label: "set-config", Command: "gcp set-config"},
+		}
+		if cfg.AppYaml != "" {
+			gcpChildren = append(gcpChildren, CommandItem{Label: "deploy", Command: "gcp deploy"})
+		}
+		gcpChildren = append(gcpChildren, CommandItem{Label: "console", Command: "gcp console"})
 		tree = append(tree, CommandItem{
-			Label: "gcp",
-			Children: []CommandItem{
-				{Label: "activate", Command: "gcp activate"},
-				{Label: "adc-login", Command: "gcp adc-login"},
-				{Label: "init", Command: "gcp init"},
-				{Label: "set-config", Command: "gcp set-config"},
-			},
+			Label:    "gcp",
+			Children: gcpChildren,
 		})
 	}
 
@@ -782,10 +787,14 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 			}
 
 			// NPM
-			if mod.Npm != nil && len(mod.Npm.Scripts) > 0 {
+			if mod.Npm != nil {
 				npmItem := CommandItem{
 					Label: "npm",
 				}
+				npmItem.Children = append(npmItem.Children, CommandItem{
+					Label:   "install",
+					Command: fmt.Sprintf("npm install:%s", svc.Name),
+				})
 				for _, script := range mod.Npm.Scripts {
 					npmItem.Children = append(npmItem.Children, CommandItem{
 						Label:   fmt.Sprintf("run %s", script),
@@ -794,6 +803,10 @@ func buildCommandTree(cfg *config.Config) []CommandItem {
 				}
 				svcItem.Children = append(svcItem.Children, npmItem)
 			}
+		}
+
+		if svc.AppYaml != "" {
+			svcItem.Children = append(svcItem.Children, CommandItem{Label: "deploy", Command: fmt.Sprintf("gcp deploy:%s", svc.Name)})
 		}
 
 		if len(svcItem.Children) > 0 {

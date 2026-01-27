@@ -35,6 +35,32 @@ var npmCmd = &cobra.Command{
 	},
 }
 
+var npmInstallCmd = &cobra.Command{
+	Use:   "install [service]",
+	Short: "Run npm install",
+	Args:  cobra.MaximumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadDefaultConfig()
+		if err != nil {
+			return err
+		}
+
+		var command string
+		if len(args) == 1 {
+			command = "npm install:" + args[0]
+		} else {
+			command = "npm install"
+		}
+
+		s := strategy.GetStrategyForCommand(command, cfg)
+		if s == nil {
+			return fmt.Errorf("no strategy found for %s", command)
+		}
+		return s.Execute(cfg, executor.Default)
+	},
+}
+
 func init() {
+	npmCmd.AddCommand(npmInstallCmd)
 	rootCmd.AddCommand(npmCmd)
 }
