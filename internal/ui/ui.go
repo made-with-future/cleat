@@ -175,9 +175,8 @@ func (m *model) updateTaskPreview() {
 	// Calculate available width for wrapping
 	availableWidth := 0
 	if m.width > 0 {
-		gap := 2
-		paneWidth := (m.width - gap) / 2
-		availableWidth = paneWidth - 3 - 2 // -3 for borders/padding, -2 for right padding
+		_, rightPaneWidth := m.paneWidths()
+		availableWidth = rightPaneWidth - 3 - 2 // -3 for borders/padding, -2 for right padding
 	}
 
 	for _, t := range tasks {
@@ -198,6 +197,24 @@ func (m *model) updateTaskPreview() {
 		}
 	}
 	m.taskPreview = preview
+}
+
+func (m model) paneWidths() (int, int) {
+	const gap = 2
+	available := m.width - gap
+	if available < 0 {
+		return 0, 0
+	}
+	if m.width > 110 && m.width < 150 {
+		left := (available * 40) / 100
+		return left, available - left
+	}
+	if m.width >= 150 {
+		left := (available * 35) / 100
+		return left, available - left
+	}
+	left := available / 2
+	return left, available - left
 }
 
 // wrapLines wraps a slice of strings (e.g. command arguments or words) to fit within width
@@ -1261,7 +1278,7 @@ func (m model) renderMainUI() string {
 	gap := 2
 	titleLines := 1
 	helpLines := 2
-	paneWidth := (m.width - gap) / 2
+	leftPaneWidth, rightPaneWidth := m.paneWidths()
 	paneHeight := m.height - helpLines - titleLines
 
 	// Left panes height split
@@ -1336,7 +1353,7 @@ func (m model) renderMainUI() string {
 		taskLines = append(taskLines, " "+line)
 	}
 
-	// Build right pane content (with padding)
+	// Build config pane content (with padding)
 	var configLines []string
 
 	allConfigLines := m.buildConfigLines()
@@ -1401,7 +1418,7 @@ func (m model) renderMainUI() string {
 
 		// Format: Command (aligned left) ... Date Time (aligned right)
 		ts := entry.Timestamp.Format("2006-01-02 15:04")
-		contentWidth := paneWidth - 2 - 3 - 2 - 2 // -2 for borders, -3 for prefix, -2 for right padding, -2 for icon
+		contentWidth := rightPaneWidth - 2 - 3 - 2 - 2 // -2 for borders, -3 for prefix, -2 for right padding, -2 for icon
 		if contentWidth < 0 {
 			contentWidth = 0
 		}
@@ -1438,8 +1455,8 @@ func (m model) renderMainUI() string {
 	}
 
 	// Draw boxes
-	commandsBox := drawBox(leftLines, paneWidth, commandsPaneHeight, commandsColor, "Commands", m.focus == focusCommands)
-	historyBox := drawBox(historyLines, paneWidth, historyPaneHeight, historyColor, "Command History", m.focus == focusHistory)
+	commandsBox := drawBox(leftLines, leftPaneWidth, commandsPaneHeight, commandsColor, "Commands", m.focus == focusCommands)
+	configBox := drawBox(configLines, leftPaneWidth, configPaneHeight, configColor, "Configuration", m.focus == focusConfig)
 
 	taskTitle := "Tasks to run"
 	if m.focus == focusHistory {
@@ -1454,18 +1471,18 @@ func (m model) renderMainUI() string {
 			taskTitle = fmt.Sprintf("Tasks for %s", strings.TrimSpace(vItem.path))
 		}
 	}
-	taskBox := drawBox(taskLines, paneWidth, taskPaneHeight, comment, taskTitle, false)
+	taskBox := drawBox(taskLines, rightPaneWidth, taskPaneHeight, comment, taskTitle, false)
 
-	configBox := drawBox(configLines, paneWidth, configPaneHeight, configColor, "Configuration", m.focus == focusConfig)
+	historyBox := drawBox(historyLines, rightPaneWidth, historyPaneHeight, historyColor, "Command History", m.focus == focusHistory)
 
 	// Join boxes vertically for left and right sides
 	commandsBoxLines := strings.Split(commandsBox, "\n")
-	historyBoxLines := strings.Split(historyBox, "\n")
-	leftBoxLines := append(commandsBoxLines, historyBoxLines...)
+	configBoxLines := strings.Split(configBox, "\n")
+	leftBoxLines := append(commandsBoxLines, configBoxLines...)
 
 	taskBoxLines := strings.Split(taskBox, "\n")
-	configBoxLines := strings.Split(configBox, "\n")
-	rightBoxLines := append(taskBoxLines, configBoxLines...)
+	historyBoxLines := strings.Split(historyBox, "\n")
+	rightBoxLines := append(taskBoxLines, historyBoxLines...)
 
 	var combined strings.Builder
 	maxLines := len(leftBoxLines)
