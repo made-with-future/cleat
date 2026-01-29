@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Cleat!
 
 ### Prerequisites
 
-- [Go](https://go.dev/doc/install) 1.25.5 or later
+- [Go](https://go.dev/doc/install) - version specified in `go.mod`
 - [Make](https://www.gnu.org/software/make/)
 
 ### Building from Source
