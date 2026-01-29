@@ -30,9 +30,13 @@ jobs:
         run: |
           coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
           echo "Total coverage: ${coverage}%"
+          echo "DEBUG: Coverage value='$coverage'"
           threshold=70
-          if awk -v cov="$coverage" -v thresh="$threshold" 'BEGIN {if (cov < thresh) exit 1; exit 0}'; then
+          echo "DEBUG: Threshold=$threshold"
+          echo "DEBUG: Running awk comparison..."
+          if awk -v cov="$coverage" -v thresh="$threshold" 'BEGIN {print "DEBUG awk: cov=" cov " thresh=" thresh " result=" (cov < thresh); if (cov < thresh) exit 1; exit 0}'; then
             echo "✅ Coverage check passed: ${coverage}% >= ${threshold}%"
+            exit 0
           else
             echo "❌ Error: Coverage ${coverage}% is below ${threshold}% threshold"
             exit 1
