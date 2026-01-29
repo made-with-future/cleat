@@ -181,3 +181,138 @@ func TestHistoryGitRoot(t *testing.T) {
 		t.Errorf("Expected filename to start with %s, got %s", expectedPrefix, files[0].Name())
 	}
 }
+
+func TestHistoryHashLength(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-history-hash-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldUserHomeDir := UserHomeDir
+	UserHomeDir = func() (string, error) {
+		return tmpDir, nil
+	}
+	defer func() { UserHomeDir = oldUserHomeDir }()
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	entry := HistoryEntry{Command: "test", Timestamp: time.Now()}
+	err = Save(entry)
+	if err != nil {
+		t.Fatalf("Failed to save history: %v", err)
+	}
+
+	files, _ := os.ReadDir(filepath.Join(tmpDir, ".cleat"))
+	if len(files) != 1 {
+		t.Fatalf("Expected 1 history file, got %d", len(files))
+	}
+
+	// Verify hash is 8 bytes (16 hex chars)
+	// Filename format: <dirname>-<16hexchars>.history.json
+	filename := files[0].Name()
+	parts := strings.Split(filename, "-")
+	if len(parts) < 2 {
+		t.Fatalf("Expected filename with dash separator, got %s", filename)
+	}
+
+	hashPart := strings.TrimSuffix(parts[len(parts)-1], ".history.json")
+	if len(hashPart) != 16 {
+		t.Errorf("Expected hash length of 16 hex chars, got %d (%s)", len(hashPart), hashPart)
+	}
+}
+
+func TestHistoryRootEdgeCases(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-history-edge-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldUserHomeDir := UserHomeDir
+	UserHomeDir = func() (string, error) {
+		return tmpDir, nil
+	}
+	defer func() { UserHomeDir = oldUserHomeDir }()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+
+	// Test with root directory (edge case)
+	os.Chdir("/")
+	path, err := getHistoryFilePath()
+	if err != nil {
+		t.Fatalf("Failed to get history file path for root: %v", err)
+	}
+
+	// Should use "root" as project name for /
+	if !strings.Contains(path, "root-") {
+		t.Errorf("Expected 'root-' in path for root directory, got %s", path)
+	}
+}
+
+func TestHistoryWithInputs(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-history-inputs-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldUserHomeDir := UserHomeDir
+	UserHomeDir = func() (string, error) {
+		return tmpDir, nil
+	}
+	defer func() { UserHomeDir = oldUserHomeDir }()
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// Test saving and loading with various input combinations
+	testCases := []struct {
+		name   string
+		inputs map[string]string
+	}{
+		{"nil inputs", nil},
+		{"empty inputs", map[string]string{}},
+		{"single input", map[string]string{"key": "value"}},
+		{"multiple inputs", map[string]string{"env": "prod", "region": "us-west"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := HistoryEntry{
+				Command:   "test-" + tc.name,
+				Timestamp: time.Now(),
+				Inputs:    tc.inputs,
+				Success:   true,
+			}
+
+			err := Save(entry)
+			if err != nil {
+				t.Fatalf("Failed to save: %v", err)
+			}
+
+			entries, err := Load()
+			if err != nil {
+				t.Fatalf("Failed to load: %v", err)
+			}
+
+			// Find our entry (it should be first due to prepending)
+			if len(entries) == 0 {
+				t.Fatal("No entries loaded")
+			}
+
+			loaded := entries[0]
+			if loaded.Command != entry.Command {
+				t.Errorf("Command mismatch: expected %s, got %s", entry.Command, loaded.Command)
+			}
+
+			if len(loaded.Inputs) != len(tc.inputs) {
+				t.Errorf("Inputs length mismatch: expected %d, got %d", len(tc.inputs), len(loaded.Inputs))
+			}
+		})
+	}
+}

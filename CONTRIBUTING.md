@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Cleat!
 
 ### Prerequisites
 
-- [Go](https://go.dev/doc/install) 1.22 or later
+- [Go](https://go.dev/doc/install) 1.25.5 or later
 - [Make](https://www.gnu.org/software/make/)
 
 ### Building from Source
@@ -35,6 +35,23 @@ Execute the full test suite using the `Makefile`:
 ```bash
 make test
 ```
+
+### Code Coverage
+
+Check test coverage and verify it meets the 70% threshold:
+
+```bash
+make coverage
+```
+
+Generate an HTML coverage report for detailed analysis:
+
+```bash
+make coverage-html
+# Opens coverage.html in your browser
+```
+
+The CI pipeline enforces a minimum coverage of 70%. The `make coverage` command will fail if coverage drops below this threshold.
 
 ### Code Quality
 
