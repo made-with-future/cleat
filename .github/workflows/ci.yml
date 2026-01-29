@@ -24,7 +24,9 @@ jobs:
         run: go mod download
 
       - name: Run tests with coverage
-        run: go test -coverprofile=coverage.out ./...
+        run: |
+          echo "Running tests..."
+          go test -coverprofile=coverage.out ./... || { echo "Tests failed with exit code $?"; exit 1; }
 
       - name: Check coverage threshold
         run: |
