@@ -2,6 +2,7 @@ package task
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -35,9 +36,21 @@ func TestShouldUseOp(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to write .env file: %v", err)
 		}
-		// Since 'op' is in PATH in this environment, this should return true
-		if !ShouldUseOp(tempDir) {
-			t.Errorf("ShouldUseOp() should return true when op:// is present and op CLI exists")
+
+		// Check if 'op' CLI is actually installed
+		_, opErr := exec.LookPath("op")
+		result := ShouldUseOp(tempDir)
+
+		if opErr != nil {
+			// op CLI not installed, ShouldUseOp should return false
+			if result {
+				t.Errorf("ShouldUseOp() should return false when op:// is present but op CLI is not installed")
+			}
+		} else {
+			// op CLI is installed, ShouldUseOp should return true
+			if !result {
+				t.Errorf("ShouldUseOp() should return true when op:// is present and op CLI exists")
+			}
 		}
 	})
 
