@@ -23,5 +23,16 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
-      - name: Run tests
-        run: go test -v ./...
+      - name: Run tests with coverage
+        run: go test -v -coverprofile=coverage.out ./...
+
+      - name: Check coverage threshold
+        run: |
+          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${coverage}%"
+          threshold=70
+          if awk -v cov="$coverage" -v thresh="$threshold" 'BEGIN {exit (cov >= thresh)}'; then
+            echo "Error: Coverage ${coverage}% is below ${threshold}% threshold"
+            exit 1
+          fi
+          echo "Coverage check passed: ${coverage}% >= ${threshold}%"

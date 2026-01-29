@@ -37,13 +37,14 @@ func getHistoryFilePath() (string, error) {
 	}
 
 	hash := sha256.Sum256([]byte(absRoot))
-	// Use project directory name + short hash for better recognizability
+	// Use project directory name + hash for better recognizability
+	// Using 8 bytes (16 hex chars) to reduce collision risk while keeping filenames reasonable
 	projectDirName := filepath.Base(absRoot)
 	if projectDirName == "/" || projectDirName == "." || projectDirName == "" {
 		projectDirName = "root"
 	}
 
-	id := fmt.Sprintf("%s-%x", projectDirName, hash[:4])
+	id := fmt.Sprintf("%s-%x", projectDirName, hash[:8])
 
 	return filepath.Join(home, ".cleat", id+".history.json"), nil
 }

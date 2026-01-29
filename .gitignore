@@ -15,3 +15,7 @@
 
 # Tooling artifacts
 .output.txt
+
+# Coverage reports
+coverage.out
+coverage.html

@@ -35,6 +35,20 @@ setup-hooks:
 test:
 	go test ./...
 
+coverage:
+	@go test -coverprofile=coverage.out ./...
+	@go tool cover -func=coverage.out
+	@echo ""
+	@coverage=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	threshold=70; \
+	echo "Coverage threshold: $${threshold}%"; \
+	if awk -v cov="$$coverage" -v thresh="$$threshold" 'BEGIN {exit (cov >= thresh)}'; then \
+		echo "❌ Coverage $${coverage}% is below $${threshold}% threshold"; \
+		exit 1; \
+	else \
+		echo "✅ Coverage check passed: $${coverage}% >= $${threshold}%"; \
+	fi
+
 fmt:
 	go fmt ./...
 
@@ -50,4 +64,4 @@ else
 	cp $(BINARY_NAME) $(HOME)/.local/bin/
 endif
 
-.PHONY: all build build-all clean run install test fmt vet setup-hooks
+.PHONY: all build build-all clean run install test coverage coverage-html fmt vet setup-hooks
