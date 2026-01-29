@@ -42,11 +42,11 @@ coverage:
 	@coverage=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	threshold=70; \
 	echo "Coverage threshold: $${threshold}%"; \
-	if awk -v cov="$$coverage" -v thresh="$$threshold" 'BEGIN {exit (cov >= thresh)}'; then \
+	if awk -v cov="$$coverage" -v thresh="$$threshold" 'BEGIN {if (cov < thresh) exit 1; exit 0}'; then \
+		echo "✅ Coverage check passed: $${coverage}% >= $${threshold}%"; \
+	else \
 		echo "❌ Coverage $${coverage}% is below $${threshold}% threshold"; \
 		exit 1; \
-	else \
-		echo "✅ Coverage check passed: $${coverage}% >= $${threshold}%"; \
 	fi
 
 fmt:
