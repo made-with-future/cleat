@@ -76,9 +76,9 @@ func TestLoadConfigTerraformAutoDetection(t *testing.T) {
 				"cleat.yaml":        "version: 1",
 				".iac/prod/main.tf": "",
 			},
-			expectedTf:     &TerraformConfig{UseFolders: false},
-			expectedEnvs:   nil,
-			expectedTfEnvs: nil,
+			expectedTf:     &TerraformConfig{UseFolders: true, Envs: []string{"prod"}},
+			expectedEnvs:   []string{"prod"},
+			expectedTfEnvs: []string{"prod"},
 		},
 		{
 			name: "terraform mixed mating",
@@ -89,9 +89,9 @@ func TestLoadConfigTerraformAutoDetection(t *testing.T) {
 				".envs/prod.env":       "",
 				// staging.env is missing
 			},
-			expectedTf:     &TerraformConfig{UseFolders: true, Envs: []string{"prod"}},
-			expectedEnvs:   []string{"prod"},
-			expectedTfEnvs: []string{"prod"},
+			expectedTf:     &TerraformConfig{UseFolders: true, Envs: []string{"prod", "staging"}},
+			expectedEnvs:   []string{"prod", "staging"},
+			expectedTfEnvs: []string{"prod", "staging"},
 		},
 		{
 			name: "terraform single env, no .envs",

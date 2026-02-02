@@ -69,11 +69,68 @@ func ShouldUseOp(baseDir string) bool {
 
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".env") {
-			content, err := os.ReadFile(filepath.Join(envsDir, entry.Name()))
-			if err == nil && strings.Contains(string(content), "op://") {
+			if FileUsesOp(filepath.Join(envsDir, entry.Name())) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// FileUsesOp checks if 1Password CLI is available and if the specified .env file contains "op://"
+func FileUsesOp(envFile string) bool {
+	if _, err := exec.LookPath("op"); err != nil {
+		return false
+	}
+
+	content, err := os.ReadFile(envFile)
+	if err == nil && strings.Contains(string(content), "op://") {
+		return true
+	}
+	return false
+}
+
+// DetectEnvFile returns the paths to the .env file to use for tasks.
+// execPath: path relative to searchDir, suitable for use with executor.RunWithDir(searchDir, ...).
+// absPath: absolute path or relative to CWD, suitable for use with os.Open.
+// displayPath: user-friendly path for logging.
+func DetectEnvFile(searchDir string) (execPath string, absPath string, displayPath string) {
+	// 1. Check if we're in a Terraform subdirectory and it has .env
+	cwd, err := os.Getwd()
+	if err == nil {
+		// Check if cwd is or is under a .iac directory
+		isTF := false
+		parts := strings.Split(cwd, string(filepath.Separator))
+		for _, part := range parts {
+			if part == ".iac" {
+				isTF = true
+				break
+			}
+		}
+
+		if isTF {
+			envPath := filepath.Join(cwd, ".env")
+			if _, err := os.Stat(envPath); err == nil {
+				// Return path relative to searchDir so it works with RunWithDir(searchDir)
+				relPath, err := filepath.Rel(searchDir, envPath)
+				if err == nil {
+					return relPath, envPath, ".env"
+				}
+				return envPath, envPath, ".env"
+			}
+		}
+	}
+
+	// 2. Fallback to .envs/dev.env in searchDir
+	devEnvPath := filepath.Join(searchDir, ".envs/dev.env")
+	if _, err := os.Stat(devEnvPath); err == nil {
+		// The path relative to searchDir is just .envs/dev.env
+		displayPath = ".envs/dev.env"
+		if searchDir == "." || searchDir == "" {
+			displayPath = "./.envs/dev.env"
+		}
+		return filepath.Join(".envs", "dev.env"), devEnvPath, displayPath
+	}
+
+	return "", "", ""
 }
