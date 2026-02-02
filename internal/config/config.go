@@ -215,12 +215,8 @@ func LoadConfig(path string) (*Config, error) {
 					}
 
 					if hasTfInSubDir {
-						// Mate them up with matching files in the .envs folder
-						envFile := filepath.Join(baseDir, ".envs", entry.Name()+".env")
-						if _, err := os.Stat(envFile); err == nil {
-							useFolders = true
-							detectedEnvs = append(detectedEnvs, entry.Name())
-						}
+						useFolders = true
+						detectedEnvs = append(detectedEnvs, entry.Name())
 					}
 				} else if strings.HasSuffix(entry.Name(), ".tf") {
 					hasTfFiles = true
