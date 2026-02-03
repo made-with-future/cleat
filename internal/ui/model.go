@@ -113,6 +113,7 @@ func (m *model) updateTaskPreview() {
 	if m.focus == focusTasks {
 		return
 	}
+	m.taskScrollOffset = 0
 	if m.focus == focusConfig {
 		m.taskPreview = nil
 		return
