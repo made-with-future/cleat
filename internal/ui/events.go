@@ -22,6 +22,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleInputCollection(msg)
 	}
 
+	if m.state == stateWorkflowNameInput {
+		return m.handleWorkflowNameInput(msg)
+	}
+
+	if m.state == stateCreatingWorkflow {
+		return m.handleCreatingWorkflow(msg)
+	}
+
 	switch msg := msg.(type) {
 	case editorFinishedMsg:
 		return m.handleEditorFinished(msg)
@@ -86,6 +94,94 @@ func (m model) handleInputCollection(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m model) handleWorkflowNameInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			name := m.textInput.Value()
+			if name != "" {
+				var cmds []history.HistoryEntry
+				for _, idx := range m.selectedWorkflowIndices {
+					if idx < len(m.history) {
+						cmds = append(cmds, m.history[idx])
+					}
+				}
+				if len(cmds) > 0 {
+					history.SaveWorkflow(history.Workflow{
+						Name:     name,
+						Commands: cmds,
+					})
+					m.workflows, _ = history.LoadWorkflows()
+					m.tree = buildCommandTree(m.cfg, m.workflows)
+					m.updateVisibleItems()
+				}
+			}
+			m.state = stateBrowsing
+			m.selectedWorkflowIndices = []int{}
+			return m, nil
+		case tea.KeyEsc:
+			m.state = stateBrowsing
+			return m, nil
+		case tea.KeyCtrlC:
+			m.quitting = true
+			return m, tea.Quit
+		}
+	}
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+func (m model) handleCreatingWorkflow(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter", " ":
+			if len(m.history) > 0 {
+				foundIdx := -1
+				for i, idx := range m.selectedWorkflowIndices {
+					if idx == m.historyCursor {
+						foundIdx = i
+						break
+					}
+				}
+
+				if foundIdx != -1 {
+					// Remove from selection
+					m.selectedWorkflowIndices = append(m.selectedWorkflowIndices[:foundIdx], m.selectedWorkflowIndices[foundIdx+1:]...)
+				} else {
+					// Add to selection
+					m.selectedWorkflowIndices = append(m.selectedWorkflowIndices, m.historyCursor)
+				}
+			}
+			return m, nil
+		case "c":
+			if len(m.selectedWorkflowIndices) > 0 {
+				m.state = stateWorkflowNameInput
+				m.textInput.Prompt = "Workflow Name: "
+				m.textInput.SetValue("")
+				m.textInput.Focus()
+				return m, nil
+			}
+		case "esc":
+			m.state = stateBrowsing
+			m.selectedWorkflowIndices = []int{}
+			return m, nil
+		case "up", "k":
+			m.handleUpKey()
+			return m, nil
+		case "down", "j":
+			m.handleDownKey()
+			return m, nil
+		case "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
 func (m model) handleEditorFinished(msg editorFinishedMsg) (tea.Model, tea.Cmd) {
 	// Reload config after editor closes
 	cfg, err := config.LoadConfig(m.cfg.SourcePath)
@@ -98,8 +194,8 @@ func (m model) handleEditorFinished(msg editorFinishedMsg) (tea.Model, tea.Cmd) 
 	} else {
 		m.cfg = cfg
 		m.cfgFound = true
-		// Rebuild commands tree with new npm scripts
-		m.tree = buildCommandTree(cfg)
+		// Rebuild commands tree with new npm scripts and workflows
+		m.tree = buildCommandTree(cfg, m.workflows)
 		m.updateVisibleItems()
 		m.updateTaskPreview()
 		m.configScrollOffset = 0
@@ -136,10 +232,18 @@ func (m model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		return m, tea.Quit
 	case tea.KeyTab:
-		m.focus = (m.focus + 1) % 3
+		if m.focus == focusTasks {
+			m.focus = m.previousFocus
+		} else {
+			m.focus = (m.focus + 1) % 3
+		}
 		m.updateTaskPreview()
 	case tea.KeyShiftTab:
-		m.focus = (m.focus - 1 + 3) % 3
+		if m.focus == focusTasks {
+			m.focus = m.previousFocus
+		} else {
+			m.focus = (m.focus - 1 + 3) % 3
+		}
 		m.updateTaskPreview()
 	case tea.KeyUp:
 		m.handleUpKey()
@@ -206,6 +310,8 @@ func (m *model) handleUpKey() {
 		m.updateTaskPreview()
 	} else if m.focus == focusConfig && m.configScrollOffset > 0 {
 		m.configScrollOffset--
+	} else if m.focus == focusTasks && m.taskScrollOffset > 0 {
+		m.taskScrollOffset--
 	}
 }
 
@@ -229,6 +335,11 @@ func (m *model) handleDownKey() {
 		visibleCount := m.visibleConfigCount()
 		if m.configScrollOffset < len(lines)-visibleCount {
 			m.configScrollOffset++
+		}
+	} else if m.focus == focusTasks {
+		visibleCount := m.visibleTasksCount()
+		if m.taskScrollOffset < len(m.taskPreview)-visibleCount {
+			m.taskScrollOffset++
 		}
 	}
 }
@@ -325,6 +436,12 @@ func (m model) handleRuneKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state = stateConfirmClearHistory
 			return m, nil
 		}
+	case "w":
+		if m.focus == focusHistory && len(m.history) > 0 {
+			m.state = stateCreatingWorkflow
+			m.selectedWorkflowIndices = []int{}
+			return m, nil
+		}
 	case "e":
 		if m.focus == focusCommands {
 			m.expandAll()
@@ -339,6 +456,13 @@ func (m model) handleRuneKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor = 0
 			m.scrollOffset = 0
 			m.updateTaskPreview()
+			return m, nil
+		}
+	case "t":
+		if m.focus == focusCommands || m.focus == focusHistory {
+			m.previousFocus = m.focus
+			m.focus = focusTasks
+			m.taskScrollOffset = 0
 			return m, nil
 		}
 	case "g":

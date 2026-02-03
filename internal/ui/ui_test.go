@@ -400,6 +400,113 @@ func TestTabbing(t *testing.T) {
 	}
 }
 
+func TestWorkflowTaskPreviewIndentation(t *testing.T) {
+	cfg := &config.Config{
+		Docker: true,
+	}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 40
+
+	// Add a mock workflow
+	m.workflows = []history.Workflow{
+		{
+			Name: "test-wf",
+			Commands: []history.HistoryEntry{
+				{Command: "docker down"},
+			},
+		},
+	}
+	// Rebuild tree to include workflows
+	m.tree = buildCommandTree(cfg, m.workflows)
+	m.expandAll()
+	m.updateVisibleItems()
+
+	// 1. Find the workflow in visible items
+	found := false
+	for i, item := range m.visibleItems {
+		if item.item.Command == "workflow:test-wf" {
+			m.cursor = i
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatal("workflow:test-wf not found in tree")
+	}
+
+	m.updateTaskPreview()
+
+	// Check if task preview contains indented task
+	// Regular task starts with "• " (indented with "  " in View)
+	// Workflow task should start with "  • " (indented with "  " in View, so "    • ")
+
+	// Let's check m.taskPreview directly first
+	hasIndentedTask := false
+	for _, line := range m.taskPreview {
+		if strings.HasPrefix(ansi.Strip(line), "  • ") {
+			hasIndentedTask = true
+			break
+		}
+	}
+
+	if !hasIndentedTask {
+		t.Errorf("expected indented task line starting with '  • ', but not found. Preview: %v", m.taskPreview)
+	}
+
+	// Check command indentation
+	hasIndentedCmd := false
+	for _, line := range m.taskPreview {
+		if strings.HasPrefix(ansi.Strip(line), "      $ ") {
+			hasIndentedCmd = true
+			break
+		}
+	}
+	if !hasIndentedCmd {
+		t.Errorf("expected indented command line starting with '      $ ', but not found. Preview: %v", m.taskPreview)
+	}
+
+	// Check for the header as well
+	hasHeader := false
+	for _, line := range m.taskPreview {
+		if strings.Contains(ansi.Strip(line), "→ docker down") {
+			hasHeader = true
+			break
+		}
+	}
+	if !hasHeader {
+		t.Errorf("expected header '→ docker down', but not found")
+	}
+
+	// 2. Verify non-workflow task indentation (should NOT be indented)
+	found = false
+	for i, item := range m.visibleItems {
+		if item.item.Command == "docker down" {
+			m.cursor = i
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatal("docker down command not found in tree")
+	}
+
+	m.updateTaskPreview()
+
+	for _, line := range m.taskPreview {
+		stripped := ansi.Strip(line)
+		if strings.HasPrefix(stripped, "• ") {
+			// Success
+			return
+		}
+		if strings.HasPrefix(stripped, "  • ") {
+			t.Errorf("expected non-workflow task to NOT be indented, but found '  • '")
+		}
+	}
+}
+
 func TestNoConfigMessage(t *testing.T) {
 	m := InitialModel(&config.Config{}, false)
 	m.width = 100
@@ -1216,5 +1323,130 @@ func TestFocusedTitleColor(t *testing.T) {
 
 	if whiteCount == 0 {
 		t.Error("expected at least one white title when a pane is focused")
+	}
+}
+
+func TestTaskPaneFocusAndScrolling(t *testing.T) {
+	cfg := &config.Config{}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 20
+
+	m.taskPreview = []string{
+		"task 1", "task 2", "task 3", "task 4", "task 5",
+		"task 6", "task 7", "task 8", "task 9", "task 10",
+	}
+
+	// 1. 't' from Commands panel
+	m.focus = focusCommands
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = updatedModel.(model)
+	if m.focus != focusTasks {
+		t.Errorf("expected focusTasks after 't' from Commands, got %v", m.focus)
+	}
+	if m.previousFocus != focusCommands {
+		t.Errorf("expected previousFocus to be focusCommands, got %v", m.previousFocus)
+	}
+
+	// 2. Tab from Tasks panel takes you back
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updatedModel.(model)
+	if m.focus != focusCommands {
+		t.Errorf("expected focus back to Commands after Tab from Tasks, got %v", m.focus)
+	}
+
+	// 3. 't' from History panel
+	m.focus = focusHistory
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = updatedModel.(model)
+	if m.focus != focusTasks {
+		t.Errorf("expected focusTasks after 't' from History, got %v", m.focus)
+	}
+	if m.previousFocus != focusHistory {
+		t.Errorf("expected previousFocus to be focusHistory, got %v", m.previousFocus)
+	}
+
+	// 4. Tab from Tasks panel takes you back to History
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updatedModel.(model)
+	if m.focus != focusHistory {
+		t.Errorf("expected focus back to History after Tab from Tasks, got %v", m.focus)
+	}
+
+	// 5. 't' does NOT work from Config panel
+	m.focus = focusConfig
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = updatedModel.(model)
+	if m.focus != focusConfig {
+		t.Errorf("expected focus to stay on Config after 't', got %v", m.focus)
+	}
+
+	// 6. Scrolling in Task panel
+	m.focus = focusTasks
+	m.taskScrollOffset = 0
+	m.taskPreview = []string{
+		"task 1", "task 2", "task 3", "task 4", "task 5",
+		"task 6", "task 7", "task 8", "task 9", "task 10",
+	}
+
+	// Move down
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = updatedModel.(model)
+	if m.taskScrollOffset != 1 {
+		t.Errorf("expected taskScrollOffset 1 after 'j', got %d", m.taskScrollOffset)
+	}
+
+	// Move up
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = updatedModel.(model)
+	if m.taskScrollOffset != 0 {
+		t.Errorf("expected taskScrollOffset 0 after 'k', got %d", m.taskScrollOffset)
+	}
+}
+
+func TestConfigFocusClearsTaskPreview(t *testing.T) {
+	cfg := &config.Config{}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 20
+
+	// Set some task preview content manually
+	m.taskPreview = []string{"task 1", "task 2"}
+
+	// 1. Initially focus is on Commands.
+	if m.focus != focusCommands {
+		t.Fatalf("expected initial focusCommands, got %v", m.focus)
+	}
+
+	// 2. Tab to History. Task preview should still exist (it will be updated by updateTaskPreview)
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updatedModel.(model)
+	if m.focus != focusHistory {
+		t.Fatalf("expected focusHistory after 1st Tab, got %v", m.focus)
+	}
+	// Note: updateTaskPreview will run. If no history, it might clear it.
+	// But let's assume it has something or we don't care yet.
+
+	// 3. Tab to Configuration. Task preview SHOULD be cleared.
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updatedModel.(model)
+	if m.focus != focusConfig {
+		t.Fatalf("expected focusConfig after 2nd Tab, got %v", m.focus)
+	}
+
+	if len(m.taskPreview) != 0 {
+		t.Errorf("expected taskPreview to be cleared when focused on Config, got %v", m.taskPreview)
+	}
+
+	// 4. Tab back to Commands. Task preview SHOULD be restored.
+	// InitialModel builds a tree with some default items (build, run).
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updatedModel.(model)
+	if m.focus != focusCommands {
+		t.Fatalf("expected focus back to Commands after 3rd Tab, got %v", m.focus)
+	}
+
+	if len(m.taskPreview) == 0 {
+		t.Error("expected taskPreview to be restored when tabbing away from Config to Commands")
 	}
 }

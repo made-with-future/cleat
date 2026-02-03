@@ -12,10 +12,11 @@ import (
 )
 
 type HistoryEntry struct {
-	Timestamp time.Time         `json:"timestamp"`
-	Command   string            `json:"command"`
-	Inputs    map[string]string `json:"inputs,omitempty"`
-	Success   bool              `json:"success"`
+	Timestamp     time.Time         `json:"timestamp"`
+	Command       string            `json:"command"`
+	Inputs        map[string]string `json:"inputs,omitempty"`
+	Success       bool              `json:"success"`
+	WorkflowRunID string            `json:"workflow_run_id,omitempty"`
 }
 
 var UserHomeDir = os.UserHomeDir
