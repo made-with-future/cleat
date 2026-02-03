@@ -34,6 +34,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleCreatingWorkflow(msg)
 	}
 
+	if m.state == stateShowingConfig {
+		return m.handleShowingConfig(msg)
+	}
+
 	switch msg := msg.(type) {
 	case editorFinishedMsg:
 		return m.handleEditorFinished(msg)
@@ -230,6 +234,51 @@ func (m model) handleCreatingWorkflow(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) handleShowingConfig(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if msg.Type != tea.KeyRunes || string(msg.Runes) != "g" {
+			m.pendingG = false
+		}
+
+		switch msg.Type {
+		case tea.KeyEnter:
+			return m, m.openEditor()
+		case tea.KeyEsc:
+			m.state = stateBrowsing
+			m.focus = m.previousFocus
+			m.updateTaskPreview()
+			return m, nil
+		}
+
+		switch msg.String() {
+		case "c", "q":
+			m.state = stateBrowsing
+			m.focus = m.previousFocus
+			m.updateTaskPreview()
+			return m, nil
+		case "up", "k":
+			m.handleUpKey()
+			return m, nil
+		case "down", "j":
+			m.handleDownKey()
+			return m, nil
+		case "g":
+			if m.pendingG {
+				m.configScrollOffset = 0
+				m.pendingG = false
+			} else {
+				m.pendingG = true
+			}
+			return m, nil
+		case "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
 func (m model) handleEditorFinished(msg editorFinishedMsg) (tea.Model, tea.Cmd) {
 	// Reload config after editor closes
 	cfg, err := config.LoadConfig(m.cfg.SourcePath)
@@ -284,14 +333,14 @@ func (m model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.focus == focusTasks {
 			m.focus = m.previousFocus
 		} else {
-			m.focus = (m.focus + 1) % 3
+			m.focus = (m.focus + 1) % 2
 		}
 		m.updateTaskPreview()
 	case tea.KeyShiftTab:
 		if m.focus == focusTasks {
 			m.focus = m.previousFocus
 		} else {
-			m.focus = (m.focus - 1 + 3) % 3
+			m.focus = (m.focus - 1 + 2) % 2
 		}
 		m.updateTaskPreview()
 	case tea.KeyUp:
@@ -499,6 +548,13 @@ func (m model) handleRuneKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "c":
+		m.previousFocus = m.focus
+		m.state = stateShowingConfig
+		m.focus = focusConfig
+		m.configScrollOffset = 0
+		m.updateTaskPreview()
+		return m, nil
+	case "C":
 		if m.focus == focusCommands {
 			m.collapseAll()
 			m.updateVisibleItems()

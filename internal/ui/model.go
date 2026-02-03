@@ -31,6 +31,7 @@ const (
 	stateCreatingWorkflow
 	stateWorkflowNameInput
 	stateWorkflowLocationSelection
+	stateShowingConfig
 )
 
 // CommandItem represents a node in the command tree
@@ -210,8 +211,10 @@ func (m *model) updateTaskPreview() {
 	// Calculate available width for wrapping
 	availableWidth := 0
 	if m.width > 0 {
-		_, rightPaneWidth := m.paneWidths()
-		availableWidth = rightPaneWidth - 3 - 2 // -3 for borders/padding, -2 for right padding
+		availableWidth = m.width - 2 - 2 - 2 // -2 for borders, -2 for main UI padding, -2 for content padding
+		if availableWidth < 0 {
+			availableWidth = 0
+		}
 	}
 
 	lastCmd := ""
@@ -350,8 +353,8 @@ func (m model) visibleCommandCount() int {
 	if m.height == 0 {
 		return len(m.visibleItems)
 	}
-	titleLines := 1
-	helpLines := 2
+	titleLines := 2
+	helpLines := 3
 	paneHeight := (m.height - helpLines - titleLines) / 2
 	// Subtract: 2 for borders, 0 for title (now on border), 0 for blank line (now removed), 1 for potential scroll indicator
 	availableLines := paneHeight - 2 - 0 - 0 - 1
@@ -365,12 +368,14 @@ func (m model) visibleConfigCount() int {
 	if m.height == 0 {
 		return 0
 	}
-	titleLines := 1
-	helpLines := 2
-	paneHeight := (m.height - helpLines - titleLines) - ((m.height - helpLines - titleLines) / 2)
+	// Modal takes most of the height
+	modalHeight := m.height - 10
+	if modalHeight < 5 {
+		modalHeight = 5
+	}
 
 	// Subtract: 2 for borders, 0 for title (now on border), 0 for blank line (removed), 1 for action hint, 1 for potential scroll indicator
-	availableLines := paneHeight - 2 - 0 - 0 - 1 - 1
+	availableLines := modalHeight - 2 - 0 - 0 - 1 - 1
 	if availableLines < 1 {
 		availableLines = 1
 	}
@@ -381,9 +386,9 @@ func (m model) visibleHistoryCount() int {
 	if m.height == 0 {
 		return len(m.history)
 	}
-	titleLines := 1
-	helpLines := 2
-	paneHeight := (m.height - helpLines - titleLines) - ((m.height - helpLines - titleLines) / 2)
+	titleLines := 2
+	helpLines := 3
+	paneHeight := (m.height - helpLines - titleLines) / 2
 	// Subtract: 2 for borders, 1 for potential scroll indicator, 1 for padding/alignment consistency
 	availableLines := paneHeight - 2 - 1 - 1
 	if availableLines < 1 {
@@ -396,9 +401,9 @@ func (m model) visibleTasksCount() int {
 	if m.height == 0 {
 		return len(m.taskPreview)
 	}
-	titleLines := 1
-	helpLines := 2
-	paneHeight := (m.height - helpLines - titleLines) / 2
+	titleLines := 2
+	helpLines := 3
+	paneHeight := (m.height - helpLines - titleLines) - ((m.height - helpLines - titleLines) / 2)
 	// Subtract: 2 for borders, 1 for potential scroll indicator
 	availableLines := paneHeight - 2 - 1
 	if availableLines < 1 {
