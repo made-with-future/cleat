@@ -304,6 +304,33 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 		}
 	}
 
+	// Handle service-specific docker commands from TUI: "docker down:backend"
+	if strings.HasPrefix(command, "docker ") {
+		parts := strings.Split(command, ":")
+		if len(parts) == 2 {
+			baseCmd := parts[0]
+			svcName := parts[1]
+			var targetSvc *config.ServiceConfig
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == svcName {
+					targetSvc = &cfg.Services[i]
+					break
+				}
+			}
+
+			if targetSvc != nil {
+				switch baseCmd {
+				case "docker down":
+					return NewDockerDownStrategyForService(targetSvc)
+				case "docker rebuild":
+					return NewDockerRebuildStrategyForService(targetSvc)
+				case "docker remove-orphans":
+					return NewDockerRemoveOrphansStrategyForService(targetSvc)
+				}
+			}
+		}
+	}
+
 	// Handle service-specific django commands from TUI: "django migrate:backend"
 	if strings.HasPrefix(command, "django ") {
 		parts := strings.Split(command, ":")

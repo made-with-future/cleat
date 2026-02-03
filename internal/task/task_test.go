@@ -213,7 +213,7 @@ func TestDockerDown(t *testing.T) {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
 
-		expectedArgs := []string{"--log-level", "error", "compose", "--profile", "*", "down", "--remove-orphans"}
+		expectedArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans"}
 		if len(mock.commands[0].args) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
 		}
@@ -255,7 +255,7 @@ func TestDockerRemoveOrphans(t *testing.T) {
 			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
 		}
 
-		expectedArgs := []string{"--log-level", "error", "compose", "--profile", "*", "down", "--remove-orphans"}
+		expectedArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans"}
 		if len(mock.commands[0].args) != len(expectedArgs) {
 			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
 		}
@@ -298,7 +298,7 @@ func TestDockerRebuild(t *testing.T) {
 		if mock.commands[0].name != "docker" {
 			t.Errorf("expected first command 'docker', got %q", mock.commands[0].name)
 		}
-		expectedDownArgs := []string{"--log-level", "error", "compose", "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes"}
+		expectedDownArgs := []string{"compose", "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes"}
 		for i, arg := range expectedDownArgs {
 			if mock.commands[0].args[i] != arg {
 				t.Errorf("expected down arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
@@ -323,7 +323,7 @@ func TestDockerRebuild(t *testing.T) {
 		if len(cmds) != 2 {
 			t.Fatalf("expected 2 commands, got %d", len(cmds))
 		}
-		if cmds[0][0] != "docker" || cmds[0][6] != "down" {
+		if cmds[0][0] != "docker" || cmds[0][4] != "down" {
 			t.Errorf("unexpected first command: %v", cmds[0])
 		}
 		if cmds[1][0] != "docker" || cmds[1][6] != "build" {

@@ -30,6 +30,7 @@ const (
 	stateConfirmClearHistory
 	stateCreatingWorkflow
 	stateWorkflowNameInput
+	stateWorkflowLocationSelection
 )
 
 // CommandItem represents a node in the command tree
@@ -70,7 +71,7 @@ type model struct {
 	historyCursor           int
 	historyOffset           int
 	previousFocus           focus
-	workflows               []history.Workflow
+	workflows               []config.Workflow
 	selectedWorkflowIndices []int
 	showHelp                bool
 	filtering               bool
@@ -80,6 +81,7 @@ type model struct {
 	requirementIdx          int
 	textInput               textinput.Model
 	pendingG                bool
+	workflowLocationIdx     int
 }
 
 // InitialModel creates a new model with the given config
@@ -97,7 +99,7 @@ func InitialModel(cfg *config.Config, cfgFound bool) model {
 		textInput:               ti,
 	}
 	m.history, _ = history.Load()
-	m.workflows, _ = history.LoadWorkflows()
+	m.workflows, _ = history.LoadWorkflows(cfg)
 	m.tree = buildCommandTree(cfg, m.workflows)
 	m.updateVisibleItems()
 	m.updateTaskPreview()
@@ -152,7 +154,7 @@ func (m *model) updateTaskPreview() {
 
 	if strings.HasPrefix(command, "workflow:") {
 		name := strings.TrimPrefix(command, "workflow:")
-		var workflow *history.Workflow
+		var workflow *config.Workflow
 		for i := range m.workflows {
 			if m.workflows[i].Name == name {
 				workflow = &m.workflows[i]
@@ -161,23 +163,12 @@ func (m *model) updateTaskPreview() {
 		}
 
 		if workflow != nil {
-			for _, entry := range workflow.Commands {
+			for _, workflowCmd := range workflow.Commands {
 				cfgForCmd := m.cfg
-				if len(entry.Inputs) > 0 {
-					tempCfg := *m.cfg
-					tempCfg.Inputs = make(map[string]string)
-					for k, v := range m.cfg.Inputs {
-						tempCfg.Inputs[k] = v
-					}
-					for k, v := range entry.Inputs {
-						tempCfg.Inputs[k] = v
-					}
-					cfgForCmd = &tempCfg
-				}
-				tasks, err := strategy.ResolveCommandTasks(entry.Command, cfgForCmd)
+				tasks, err := strategy.ResolveCommandTasks(workflowCmd, cfgForCmd)
 				if err == nil {
 					for _, t := range tasks {
-						tasksToPreview = append(tasksToPreview, taskWithConfig{t, cfgForCmd, entry.Command})
+						tasksToPreview = append(tasksToPreview, taskWithConfig{t, cfgForCmd, workflowCmd})
 					}
 				}
 			}

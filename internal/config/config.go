@@ -74,6 +74,11 @@ func ptrBool(b bool) *bool {
 	return &b
 }
 
+type Workflow struct {
+	Name     string   `yaml:"name" json:"name"`
+	Commands []string `yaml:"commands" json:"commands"`
+}
+
 type Config struct {
 	Version             int              `yaml:"version"`
 	Docker              bool             `yaml:"docker"`
@@ -82,6 +87,7 @@ type Config struct {
 	Envs                []string         `yaml:"envs,omitempty"`
 	Services            []ServiceConfig  `yaml:"services"`
 	AppYaml             string           `yaml:"app_yaml,omitempty"`
+	Workflows           []Workflow       `yaml:"workflows,omitempty"`
 
 	// Inputs stores transient values collected during execution
 	Inputs map[string]string `yaml:"-"`
@@ -99,7 +105,7 @@ func SetTransientInputs(inputs map[string]string) {
 	}
 }
 
-// FindProjectRoot searches upwards from the current directory for a cleat.yaml file or a .git directory.
+// FindProjectRoot searches upwards from the current directory for a cleat.yaml/cleat.yml file or a .git directory.
 func FindProjectRoot() string {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -108,8 +114,11 @@ func FindProjectRoot() string {
 
 	curr := cwd
 	for {
-		// Check for cleat.yaml
+		// Check for cleat.yaml or cleat.yml
 		if _, err := os.Stat(filepath.Join(curr, "cleat.yaml")); err == nil {
+			return curr
+		}
+		if _, err := os.Stat(filepath.Join(curr, "cleat.yml")); err == nil {
 			return curr
 		}
 		// Check for .git
@@ -127,13 +136,17 @@ func FindProjectRoot() string {
 	return cwd
 }
 
-// LoadDefaultConfig searches upwards for cleat.yaml and loads it.
+// LoadDefaultConfig searches upwards for cleat.yaml/cleat.yml and loads it.
 // If the file is not found, it returns a default config with auto-detection enabled.
 func LoadDefaultConfig() (*Config, error) {
 	cwd, _ := os.Getwd()
 	curr := cwd
 	for {
 		path := filepath.Join(curr, "cleat.yaml")
+		if _, err := os.Stat(path); err == nil {
+			return LoadConfig(path)
+		}
+		path = filepath.Join(curr, "cleat.yml")
 		if _, err := os.Stat(path); err == nil {
 			return LoadConfig(path)
 		}

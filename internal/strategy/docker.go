@@ -40,6 +40,10 @@ func NewDockerDownStrategy(cfg *config.Config) Strategy {
 	return NewBaseStrategy("docker down", tasks)
 }
 
+func NewDockerDownStrategyForService(svc *config.ServiceConfig) Strategy {
+	return NewBaseStrategy("docker down:"+svc.Name, []task.Task{task.NewDockerDown(svc)})
+}
+
 func NewDockerRemoveOrphansStrategy(cfg *config.Config) Strategy {
 	var tasks []task.Task
 
@@ -67,6 +71,10 @@ func NewDockerRemoveOrphansStrategy(cfg *config.Config) Strategy {
 	return NewBaseStrategy("docker remove-orphans", tasks)
 }
 
+func NewDockerRemoveOrphansStrategyForService(svc *config.ServiceConfig) Strategy {
+	return NewBaseStrategy("docker remove-orphans:"+svc.Name, []task.Task{task.NewDockerRemoveOrphans(svc)})
+}
+
 func NewDockerRebuildStrategy(cfg *config.Config) Strategy {
 	var tasks []task.Task
 
@@ -92,4 +100,8 @@ func NewDockerRebuildStrategy(cfg *config.Config) Strategy {
 	}
 
 	return NewBaseStrategy("docker rebuild", tasks)
+}
+
+func NewDockerRebuildStrategyForService(svc *config.ServiceConfig) Strategy {
+	return NewBaseStrategy("docker rebuild:"+svc.Name, []task.Task{task.NewDockerRebuild(svc)})
 }

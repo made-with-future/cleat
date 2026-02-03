@@ -9,11 +9,11 @@ import (
 
 // Start launches the TUI and returns the selected command and collected inputs
 func Start() (string, map[string]string, error) {
-	cfg, err := config.LoadConfig("cleat.yaml")
+	cfg, err := config.LoadDefaultConfig()
 	cfgFound := true
 	if err != nil {
 		if os.IsNotExist(err) {
-			cfg = &config.Config{}
+			cfg = &config.Config{SourcePath: "cleat.yaml"}
 			cfgFound = false
 		} else {
 			return "", nil, err

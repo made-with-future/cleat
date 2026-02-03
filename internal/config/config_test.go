@@ -590,7 +590,7 @@ services:
   backend:
     build: .
 `
-	err = os.WriteFile("docker-compose.yml", []byte(dockerComposeContent), 0644)
+	err = os.WriteFile("docker-compose.yaml", []byte(dockerComposeContent), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -642,7 +642,7 @@ services:
   worker:
     image: redis
 `
-	err = os.WriteFile("docker-compose.yml", []byte(dockerComposeContent), 0644)
+	err = os.WriteFile("docker-compose.yaml", []byte(dockerComposeContent), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -722,7 +722,7 @@ services:
   frontend:
     build: ./frontend
 `
-	err = os.WriteFile("docker-compose.yml", []byte(dockerComposeContent), 0644)
+	err = os.WriteFile("docker-compose.yaml", []byte(dockerComposeContent), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -776,7 +776,7 @@ func TestLoadConfig_ServicePrecedence(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
 
-	// 1. Setup docker-compose.yml
+	// 1. Setup docker-compose.yaml
 	dockerComposeContent := `
 services:
   backend:
@@ -784,7 +784,7 @@ services:
   worker:
     build: ./worker
 `
-	os.WriteFile("docker-compose.yml", []byte(dockerComposeContent), 0644)
+	os.WriteFile("docker-compose.yaml", []byte(dockerComposeContent), 0644)
 
 	// 2. Setup files for auto-detection
 	os.WriteFile("manage.py", []byte(""), 0644)

@@ -63,22 +63,23 @@ func run(args []string) {
 
 			if strings.HasPrefix(selected, "workflow:") {
 				name := strings.TrimPrefix(selected, "workflow:")
-				workflows, _ := history.LoadWorkflows()
-				var workflow *history.Workflow
-				for _, w := range workflows {
-					if w.Name == name {
-						workflow = &w
+				cfg, _ := config.LoadDefaultConfig()
+				workflows, _ := history.LoadWorkflows(cfg)
+				var workflow *config.Workflow
+				for i := range workflows {
+					if workflows[i].Name == name {
+						workflow = &workflows[i]
 						break
 					}
 				}
 				if workflow != nil {
 					runID := fmt.Sprintf("wf-%d", time.Now().UnixNano())
-					for _, cmd := range workflow.Commands {
+					for _, workflowCmd := range workflow.Commands {
 						commandQueue = append(commandQueue, struct {
 							selected      string
 							inputs        map[string]string
 							workflowRunID string
-						}{cmd.Command, cmd.Inputs, runID})
+						}{workflowCmd, nil, runID})
 					}
 					continue
 				}
@@ -93,13 +94,7 @@ func run(args []string) {
 				cmdArgs = []string{"build"}
 			} else if selected == "run" {
 				cmdArgs = []string{"run"}
-			} else if selected == "docker down" {
-				cmdArgs = []string{"docker", "down"}
-			} else if selected == "docker rebuild" {
-				cmdArgs = []string{"docker", "rebuild"}
-			} else if selected == "docker remove-orphans" {
-				cmdArgs = []string{"docker", "remove-orphans"}
-			} else if strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
+			} else if strings.HasPrefix(selected, "docker ") || strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
 				cmdArgs = strings.Fields(selected)
 				if strings.Contains(selected, ":") {
 					parts := strings.Split(selected, ":")

@@ -14,8 +14,17 @@ import (
 	"github.com/muesli/termenv"
 )
 
+func ptrBool(b bool) *bool {
+	return &b
+}
+
 func init() {
 	lipgloss.SetColorProfile(termenv.TrueColor)
+	// Mock home directory for tests to avoid loading real history/workflows
+	testHomeDir, _ := os.MkdirTemp("", "cleat-ui-test-home-*")
+	history.UserHomeDir = func() (string, error) {
+		return testHomeDir, nil
+	}
 }
 
 func TestModelUpdate(t *testing.T) {
@@ -409,11 +418,11 @@ func TestWorkflowTaskPreviewIndentation(t *testing.T) {
 	m.height = 40
 
 	// Add a mock workflow
-	m.workflows = []history.Workflow{
+	m.workflows = []config.Workflow{
 		{
 			Name: "test-wf",
-			Commands: []history.HistoryEntry{
-				{Command: "docker down"},
+			Commands: []string{
+				"docker down",
 			},
 		},
 	}
@@ -610,6 +619,8 @@ func TestCursorDimmedWhenUnfocused(t *testing.T) {
 	m := InitialModel(&config.Config{}, true)
 	m.width = 100
 	m.height = 40
+	m.history = []history.HistoryEntry{{Command: "build", Success: true, Timestamp: time.Now()}}
+	m.updateTaskPreview()
 
 	// When commands pane is focused, cursor should be cyan (#8be9fd)
 	view1 := m.View()
@@ -1404,6 +1415,56 @@ func TestTaskPaneFocusAndScrolling(t *testing.T) {
 	}
 }
 
+func TestServiceDockerCommandsInTree(t *testing.T) {
+	cfg := &config.Config{
+		Docker: false,
+		Services: []config.ServiceConfig{
+			{
+				Name:   "svc1",
+				Docker: ptrBool(true),
+			},
+		},
+	}
+	m := InitialModel(cfg, true)
+	m.expandAll()
+	m.updateVisibleItems()
+
+	// Root docker should be there because a service has it
+	foundRootDocker := false
+	for _, item := range m.visibleItems {
+		if item.item.Label == "docker" && item.level == 0 {
+			foundRootDocker = true
+			break
+		}
+	}
+	if !foundRootDocker {
+		t.Error("expected root docker group when service has docker")
+	}
+
+	// svc1 should have docker group
+	foundSvcDocker := false
+	for _, item := range m.visibleItems {
+		if item.item.Label == "docker" && strings.Contains(item.path, "svc1") {
+			foundSvcDocker = true
+			// Check child commands
+			hasDown := false
+			for _, child := range item.item.Children {
+				if child.Label == "down" && child.Command == "docker down:svc1" {
+					hasDown = true
+					break
+				}
+			}
+			if !hasDown {
+				t.Errorf("expected docker down:svc1 in svc1 docker group")
+			}
+			break
+		}
+	}
+	if !foundSvcDocker {
+		t.Error("expected docker group under svc1")
+	}
+}
+
 func TestConfigFocusClearsTaskPreview(t *testing.T) {
 	cfg := &config.Config{}
 	m := InitialModel(cfg, true)
@@ -1448,5 +1509,135 @@ func TestConfigFocusClearsTaskPreview(t *testing.T) {
 
 	if len(m.taskPreview) == 0 {
 		t.Error("expected taskPreview to be restored when tabbing away from Config to Commands")
+	}
+}
+
+func TestWorkflowCreationFlow(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-ui-workflow-test-*")
+	defer os.RemoveAll(tmpDir)
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// Create dummy cleat.yaml so FindProjectRoot finds it
+	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
+
+	cfg := &config.Config{}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 40
+	m.history = []history.HistoryEntry{
+		{Command: "cmd1", Success: true, Timestamp: time.Now()},
+		{Command: "cmd2", Success: true, Timestamp: time.Now()},
+	}
+
+	// 1. Start workflow creation
+	m.focus = focusHistory
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("w")})
+	m = updatedModel.(model)
+	if m.state != stateCreatingWorkflow {
+		t.Errorf("expected stateCreatingWorkflow, got %v", m.state)
+	}
+
+	// 2. Select first item
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if len(m.selectedWorkflowIndices) != 1 {
+		t.Errorf("expected 1 selected index, got %v", len(m.selectedWorkflowIndices))
+	}
+
+	// 3. Confirm selection (press 'c')
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = updatedModel.(model)
+	if m.state != stateWorkflowNameInput {
+		t.Errorf("expected stateWorkflowNameInput, got %v", m.state)
+	}
+
+	// 4. Enter name and press Enter
+	m.textInput.SetValue("my-wf")
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateWorkflowLocationSelection {
+		t.Errorf("expected stateWorkflowLocationSelection, got %v", m.state)
+	}
+
+	// 5. Select Project (default) and press Enter
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Errorf("expected stateBrowsing, got %v", m.state)
+	}
+
+	// Verify file was created in project
+	if _, err := os.Stat("cleat.workflows.yaml"); os.IsNotExist(err) {
+		t.Error("expected cleat.workflows.yaml to be created")
+	}
+}
+
+func TestWorkflowCreationFlowUser(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-ui-workflow-user-test-*")
+	defer os.RemoveAll(tmpDir)
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// Mock home dir for this test specifically if needed, but ui_test.go already does it globally
+	// Create dummy cleat.yaml so FindProjectRoot finds it
+	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
+
+	cfg := &config.Config{}
+	m := InitialModel(cfg, true)
+	m.width = 100
+	m.height = 40
+	m.history = []history.HistoryEntry{
+		{Command: "cmd1", Success: true, Timestamp: time.Now()},
+	}
+
+	// 1. Start workflow creation
+	m.focus = focusHistory
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("w")})
+	m = updatedModel.(model)
+
+	// 2. Select first item
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+
+	// 3. Confirm selection (press 'c')
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = updatedModel.(model)
+
+	// 4. Enter name and press Enter
+	m.textInput.SetValue("user-wf")
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateWorkflowLocationSelection {
+		t.Errorf("expected stateWorkflowLocationSelection, got %v", m.state)
+	}
+	if len(m.selectedWorkflowIndices) == 0 {
+		t.Error("selectedWorkflowIndices was lost after entering name")
+	}
+
+	// 5. Select User (press 'down' then 'Enter')
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = updatedModel.(model)
+	if m.workflowLocationIdx != 1 {
+		t.Errorf("expected workflowLocationIdx 1, got %d", m.workflowLocationIdx)
+	}
+
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Errorf("expected stateBrowsing, got %v", m.state)
+	}
+
+	// Verify file was NOT created in project
+	if _, err := os.Stat("cleat.workflows.yaml"); err == nil {
+		t.Error("expected cleat.workflows.yaml NOT to be created")
+	}
+
+	// Verify file was created in user home
+	userFile, _ := history.GetUserWorkflowFilePath() // Needs to be accessible, might need to export or use a trick
+	if _, err := os.Stat(userFile); os.IsNotExist(err) {
+		t.Errorf("expected user workflow file to be created at %s", userFile)
 	}
 }
