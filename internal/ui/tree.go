@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/history"
 )
 
 const defaultConfigTemplate = `# Cleat configuration
@@ -28,9 +29,24 @@ services:
             - build
 `
 
-// buildCommandTree creates the commands tree from config
-func buildCommandTree(cfg *config.Config) []CommandItem {
+// buildCommandTree creates the commands tree from config and workflows
+func buildCommandTree(cfg *config.Config, workflows []history.Workflow) []CommandItem {
 	var tree []CommandItem
+
+	if len(workflows) > 0 {
+		var workflowChildren []CommandItem
+		for _, w := range workflows {
+			workflowChildren = append(workflowChildren, CommandItem{
+				Label:   w.Name,
+				Command: "workflow:" + w.Name,
+			})
+		}
+		tree = append(tree, CommandItem{
+			Label:    "workflows",
+			Children: workflowChildren,
+		})
+	}
+
 	tree = append(tree, CommandItem{Label: "build", Command: "build"})
 	tree = append(tree, CommandItem{Label: "run", Command: "run"})
 

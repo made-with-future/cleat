@@ -38,6 +38,10 @@ func (m model) View() string {
 		return m.overlay(base, m.renderConfirmModal())
 	}
 
+	if m.state == stateWorkflowNameInput {
+		return m.overlay(base, m.renderWorkflowNameModal())
+	}
+
 	// Show help overlay if active
 	if m.showHelp {
 		return m.overlay(base, m.renderHelpOverlay())
@@ -54,6 +58,7 @@ func (m model) renderMainUI() string {
 	comment := lipgloss.Color("#6272a4")
 	green := lipgloss.Color("#50fa7b")
 	red := lipgloss.Color("#ff5555")
+	orange := lipgloss.Color("#ffb86c")
 
 	// Build title bar
 	title := " Cleat "
@@ -75,6 +80,7 @@ func (m model) renderMainUI() string {
 	// Determine border colors based on focus
 	commandsColor := comment
 	historyColor := comment
+	taskColor := comment
 	configColor := comment
 
 	switch m.focus {
@@ -84,6 +90,8 @@ func (m model) renderMainUI() string {
 		historyColor = purple
 	case focusConfig:
 		configColor = purple
+	case focusTasks:
+		taskColor = purple
 	}
 
 	// Calculate dimensions
@@ -105,14 +113,14 @@ func (m model) renderMainUI() string {
 	leftLines := m.buildCommandsContent(comment, purple, cyan)
 	taskLines := m.buildTaskPreviewContent()
 	configLines := m.buildConfigContent(comment, purple)
-	historyLines := m.buildHistoryContent(comment, cyan, green, red, rightPaneWidth)
+	historyLines := m.buildHistoryContent(comment, cyan, green, red, orange, rightPaneWidth)
 
 	// Draw boxes
 	commandsBox := drawBox(leftLines, leftPaneWidth, commandsPaneHeight, commandsColor, "Commands", m.focus == focusCommands)
 	configBox := drawBox(configLines, leftPaneWidth, configPaneHeight, configColor, "Configuration", m.focus == focusConfig)
 
 	taskTitle := m.buildTaskTitle()
-	taskBox := drawBox(taskLines, rightPaneWidth, taskPaneHeight, comment, taskTitle, false)
+	taskBox := drawBox(taskLines, rightPaneWidth, taskPaneHeight, taskColor, taskTitle, m.focus == focusTasks)
 
 	historyBox := drawBox(historyLines, rightPaneWidth, historyPaneHeight, historyColor, "Command History", m.focus == focusHistory)
 
@@ -150,6 +158,9 @@ func (m model) renderMainUI() string {
 
 	// Help line
 	helpText := lipgloss.NewStyle().Foreground(comment).Render("↑/↓: navigate • enter: select/toggle • tab: switch pane • ?: help • q: quit")
+	if m.state == stateCreatingWorkflow {
+		helpText = lipgloss.NewStyle().Foreground(comment).Render("↑/↓: navigate • space/enter: select • c: confirm • esc: cancel")
+	}
 	if !m.cfgFound {
 		warning := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Render("(no cleat.yaml)")
 		separator := lipgloss.NewStyle().Foreground(comment).Render(" • ")
@@ -165,10 +176,10 @@ func (m model) buildCommandsContent(comment, purple, cyan lipgloss.Color) []stri
 
 	if m.filtering {
 		filterStyle := lipgloss.NewStyle().Foreground(purple)
-		leftLines = append(leftLines, " "+filterStyle.Render("/"+m.filterText+"█"))
+		leftLines = append(leftLines, "  "+filterStyle.Render("/"+m.filterText+"█"))
 	} else if m.filterText != "" {
 		filterStyle := lipgloss.NewStyle().Foreground(comment)
-		leftLines = append(leftLines, " "+filterStyle.Render("/"+m.filterText))
+		leftLines = append(leftLines, "  "+filterStyle.Render("/"+m.filterText))
 	}
 
 	visibleCount := m.visibleCommandCount()
@@ -177,7 +188,7 @@ func (m model) buildCommandsContent(comment, purple, cyan lipgloss.Color) []stri
 
 	// Show scroll up indicator
 	if hasMoreAbove {
-		leftLines = append(leftLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
+		leftLines = append(leftLines, "    "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
 	}
 
 	// Render visible commands
@@ -207,15 +218,15 @@ func (m model) buildCommandsContent(comment, purple, cyan lipgloss.Color) []stri
 			if m.focus != focusCommands {
 				cursorColor = comment // Dim when not focused
 			}
-			leftLines = append(leftLines, " "+lipgloss.NewStyle().Foreground(cursorColor).Render("> "+label))
+			leftLines = append(leftLines, "  "+lipgloss.NewStyle().Foreground(cursorColor).Render("> "+label))
 		} else {
-			leftLines = append(leftLines, "   "+label)
+			leftLines = append(leftLines, "    "+label)
 		}
 	}
 
 	// Show scroll down indicator
 	if hasMoreBelow {
-		leftLines = append(leftLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
+		leftLines = append(leftLines, "    "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
 	}
 
 	return leftLines
@@ -224,9 +235,32 @@ func (m model) buildCommandsContent(comment, purple, cyan lipgloss.Color) []stri
 // buildTaskPreviewContent builds the task preview pane content
 func (m model) buildTaskPreviewContent() []string {
 	var taskLines []string
-	for _, line := range m.taskPreview {
-		taskLines = append(taskLines, " "+line)
+	comment := lipgloss.Color("#6272a4")
+
+	visibleTasksCount := m.visibleTasksCount()
+	hasMoreAbove := m.taskScrollOffset > 0
+	hasMoreBelow := m.taskScrollOffset+visibleTasksCount < len(m.taskPreview)
+
+	// Show scroll up indicator
+	if hasMoreAbove {
+		taskLines = append(taskLines, "    "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
 	}
+
+	// Render visible tasks
+	endIdx := m.taskScrollOffset + visibleTasksCount
+	if endIdx > len(m.taskPreview) {
+		endIdx = len(m.taskPreview)
+	}
+
+	for i := m.taskScrollOffset; i < endIdx; i++ {
+		taskLines = append(taskLines, "  "+m.taskPreview[i])
+	}
+
+	// Show scroll down indicator
+	if hasMoreBelow {
+		taskLines = append(taskLines, "    "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
+	}
+
 	return taskLines
 }
 
@@ -241,7 +275,7 @@ func (m model) buildConfigContent(comment, purple lipgloss.Color) []string {
 
 	// Show scroll up indicator
 	if hasMoreConfigAbove {
-		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
+		configLines = append(configLines, "    "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
 	}
 
 	// Render visible config lines
@@ -250,12 +284,12 @@ func (m model) buildConfigContent(comment, purple lipgloss.Color) []string {
 		endConfigIdx = len(allConfigLines)
 	}
 	for i := m.configScrollOffset; i < endConfigIdx; i++ {
-		configLines = append(configLines, " "+allConfigLines[i])
+		configLines = append(configLines, "  "+allConfigLines[i])
 	}
 
 	// Show scroll down indicator
 	if hasMoreConfigBelow {
-		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
+		configLines = append(configLines, "    "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
 	}
 
 	configLines = append(configLines, "")
@@ -265,21 +299,21 @@ func (m model) buildConfigContent(comment, purple lipgloss.Color) []string {
 		if !m.cfgFound {
 			actionText = "Press Enter to create"
 		}
-		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(purple).Render(actionText))
+		configLines = append(configLines, "  "+lipgloss.NewStyle().Foreground(purple).Render(actionText))
 	}
 
 	return configLines
 }
 
 // buildHistoryContent builds the history pane content
-func (m model) buildHistoryContent(comment, cyan, green, red lipgloss.Color, rightPaneWidth int) []string {
+func (m model) buildHistoryContent(comment, cyan, green, red, orange lipgloss.Color, rightPaneWidth int) []string {
 	var historyLines []string
 	visibleHistoryCount := m.visibleHistoryCount()
 	hasMoreHistoryAbove := m.historyOffset > 0
 	hasMoreHistoryBelow := m.historyOffset+visibleHistoryCount < len(m.history)
 
 	if hasMoreHistoryAbove {
-		historyLines = append(historyLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
+		historyLines = append(historyLines, "    "+lipgloss.NewStyle().Foreground(comment).Render("▲ more"))
 	}
 
 	endHistoryIdx := m.historyOffset + visibleHistoryCount
@@ -296,11 +330,40 @@ func (m model) buildHistoryContent(comment, cyan, green, red lipgloss.Color, rig
 			icon = "✘"
 			iconColor = red
 		}
+
+		// Add selection mark if creating workflow
+		if m.state == stateCreatingWorkflow {
+			mark := "[ ]"
+			for j, idx := range m.selectedWorkflowIndices {
+				if idx == i {
+					mark = fmt.Sprintf("[%d]", j+1)
+					break
+				}
+			}
+			icon = mark + " " + icon
+		}
+
 		renderedIcon := lipgloss.NewStyle().Foreground(iconColor).Render(icon)
+
+		// Workflow marker
+		marker := " "
+		if entry.WorkflowRunID != "" {
+			marker = lipgloss.NewStyle().Foreground(orange).Render("┃")
+		}
 
 		// Format: Command (aligned left) ... Date Time (aligned right)
 		ts := entry.Timestamp.Format("2006-01-02 15:04")
-		contentWidth := rightPaneWidth - 2 - 3 - 2 - 2 // -2 for borders, -3 for prefix, -2 for right padding, -2 for icon
+
+		// Calculate widths for dynamic layout
+		prefixWidth := 4 // "  > " or "    "
+		iconWidth := 2   // icon + space
+		if m.state == stateCreatingWorkflow {
+			iconWidth = 6 // "[1] " + icon + " "
+		}
+		paddingWidth := 4 // spaces before marker (3) + marker (1)
+
+		// Total non-content width including borders (2), prefix (4), icon (2/6), padding/marker (4), and some extra right margin (2)
+		contentWidth := rightPaneWidth - 2 - prefixWidth - iconWidth - paddingWidth - 2
 		if contentWidth < 0 {
 			contentWidth = 0
 		}
@@ -322,18 +385,20 @@ func (m model) buildHistoryContent(comment, cyan, green, red lipgloss.Color, rig
 			label = renderedIcon + " " + displayCmd + strings.Repeat(" ", spaces) + ts
 		}
 
+		label = label + "   " + marker
+
 		if i == m.historyCursor {
 			cursorColor := cyan
 			if m.focus != focusHistory {
 				cursorColor = comment
 			}
-			historyLines = append(historyLines, " "+lipgloss.NewStyle().Foreground(cursorColor).Render("> "+label))
+			historyLines = append(historyLines, "  "+lipgloss.NewStyle().Foreground(cursorColor).Render("> "+label))
 		} else {
-			historyLines = append(historyLines, "   "+label)
+			historyLines = append(historyLines, "    "+label)
 		}
 	}
 	if hasMoreHistoryBelow {
-		historyLines = append(historyLines, " "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
+		historyLines = append(historyLines, "    "+lipgloss.NewStyle().Foreground(comment).Render("▼ more"))
 	}
 
 	return historyLines
@@ -454,6 +519,34 @@ func (m model) renderInputModal() string {
 }
 
 // renderConfirmModal renders the confirmation dialog
+func (m model) renderWorkflowNameModal() string {
+	width := 60
+	height := 10
+
+	purple := lipgloss.Color("#bd93f9")
+	comment := lipgloss.Color("#6272a4")
+
+	title := " Create Workflow "
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(purple)
+
+	content := "\n Enter a name for your workflow:\n\n"
+	content += " " + m.textInput.View() + "\n\n"
+	content += lipgloss.NewStyle().Foreground(comment).Render(" enter: confirm • esc: cancel")
+
+	lines := strings.Split(content, "\n")
+	var centeredLines []string
+	for _, line := range lines {
+		padding := (width - lipgloss.Width(line)) / 2
+		if padding < 0 {
+			padding = 0
+		}
+		centeredLines = append(centeredLines, strings.Repeat(" ", padding)+line)
+	}
+
+	modal := drawBox(centeredLines, width, height, purple, titleStyle.Render(title), true)
+	return modal
+}
+
 func (m model) renderConfirmModal() string {
 	purple := lipgloss.Color("#bd93f9")
 	fg := lipgloss.Color("#f8f8f2")
@@ -498,7 +591,9 @@ func (m model) renderHelpOverlay() string {
 		"  /          Filter commands",
 		"  Enter      Select/Toggle / Edit config",
 		"  1-9        Jump to history item",
+		"  t          Jump to task panel",
 		"  x          Clear history (history pane)",
+		"  w          Create workflow from history (history pane)",
 		"  Tab        Switch pane",
 		"  Shift+Tab  Switch pane (reverse)",
 		"  q/Esc      Quit",

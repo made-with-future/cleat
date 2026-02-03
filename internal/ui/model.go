@@ -19,6 +19,7 @@ const (
 	focusCommands focus = iota
 	focusHistory
 	focusConfig
+	focusTasks
 )
 
 type uiState int
@@ -27,6 +28,8 @@ const (
 	stateBrowsing uiState = iota
 	stateInputCollection
 	stateConfirmClearHistory
+	stateCreatingWorkflow
+	stateWorkflowNameInput
 )
 
 // CommandItem represents a node in the command tree
@@ -48,31 +51,35 @@ type editorFinishedMsg struct{ err error }
 
 // model holds all the TUI state
 type model struct {
-	cfg                *config.Config
-	cfgFound           bool
-	quitting           bool
-	width              int
-	height             int
-	tree               []CommandItem
-	visibleItems       []visibleItem
-	cursor             int
-	scrollOffset       int
-	configScrollOffset int
-	focus              focus
-	selectedCommand    string
-	collectedInputs    map[string]string
-	taskPreview        []string
-	history            []history.HistoryEntry
-	historyCursor      int
-	historyOffset      int
-	showHelp           bool
-	filtering          bool
-	filterText         string
-	state              uiState
-	requirements       []task.InputRequirement
-	requirementIdx     int
-	textInput          textinput.Model
-	pendingG           bool
+	cfg                     *config.Config
+	cfgFound                bool
+	quitting                bool
+	width                   int
+	height                  int
+	tree                    []CommandItem
+	visibleItems            []visibleItem
+	cursor                  int
+	scrollOffset            int
+	configScrollOffset      int
+	focus                   focus
+	selectedCommand         string
+	collectedInputs         map[string]string
+	taskPreview             []string
+	taskScrollOffset        int
+	history                 []history.HistoryEntry
+	historyCursor           int
+	historyOffset           int
+	previousFocus           focus
+	workflows               []history.Workflow
+	selectedWorkflowIndices []int
+	showHelp                bool
+	filtering               bool
+	filterText              string
+	state                   uiState
+	requirements            []task.InputRequirement
+	requirementIdx          int
+	textInput               textinput.Model
+	pendingG                bool
 }
 
 // InitialModel creates a new model with the given config
@@ -81,15 +88,17 @@ func InitialModel(cfg *config.Config, cfgFound bool) model {
 	ti.Focus()
 
 	m := model{
-		cfg:             cfg,
-		cfgFound:        cfgFound,
-		tree:            buildCommandTree(cfg),
-		focus:           focusCommands,
-		state:           stateBrowsing,
-		collectedInputs: make(map[string]string),
-		textInput:       ti,
+		cfg:                     cfg,
+		cfgFound:                cfgFound,
+		focus:                   focusCommands,
+		state:                   stateBrowsing,
+		collectedInputs:         make(map[string]string),
+		selectedWorkflowIndices: []int{},
+		textInput:               ti,
 	}
 	m.history, _ = history.Load()
+	m.workflows, _ = history.LoadWorkflows()
+	m.tree = buildCommandTree(cfg, m.workflows)
 	m.updateVisibleItems()
 	m.updateTaskPreview()
 	return m
@@ -101,6 +110,13 @@ func (m model) Init() tea.Cmd {
 
 // updateTaskPreview generates the task preview for the currently selected command
 func (m *model) updateTaskPreview() {
+	if m.focus == focusTasks {
+		return
+	}
+	if m.focus == focusConfig {
+		m.taskPreview = nil
+		return
+	}
 	var command string
 	var inputs map[string]string
 
@@ -126,28 +142,72 @@ func (m *model) updateTaskPreview() {
 		command = item.item.Command
 	}
 
-	// Use saved inputs for history items if available
-	cfg := m.cfg
-	if len(inputs) > 0 {
-		// Create a temporary config with the saved inputs merged in
-		tempCfg := *m.cfg
-		tempCfg.Inputs = make(map[string]string)
-		for k, v := range m.cfg.Inputs {
-			tempCfg.Inputs[k] = v
+	type taskWithConfig struct {
+		t       task.Task
+		cfg     *config.Config
+		cmdName string
+	}
+	var tasksToPreview []taskWithConfig
+
+	if strings.HasPrefix(command, "workflow:") {
+		name := strings.TrimPrefix(command, "workflow:")
+		var workflow *history.Workflow
+		for i := range m.workflows {
+			if m.workflows[i].Name == name {
+				workflow = &m.workflows[i]
+				break
+			}
 		}
-		for k, v := range inputs {
-			tempCfg.Inputs[k] = v
+
+		if workflow != nil {
+			for _, entry := range workflow.Commands {
+				cfgForCmd := m.cfg
+				if len(entry.Inputs) > 0 {
+					tempCfg := *m.cfg
+					tempCfg.Inputs = make(map[string]string)
+					for k, v := range m.cfg.Inputs {
+						tempCfg.Inputs[k] = v
+					}
+					for k, v := range entry.Inputs {
+						tempCfg.Inputs[k] = v
+					}
+					cfgForCmd = &tempCfg
+				}
+				tasks, err := strategy.ResolveCommandTasks(entry.Command, cfgForCmd)
+				if err == nil {
+					for _, t := range tasks {
+						tasksToPreview = append(tasksToPreview, taskWithConfig{t, cfgForCmd, entry.Command})
+					}
+				}
+			}
 		}
-		cfg = &tempCfg
+	} else {
+		// Use saved inputs for history items if available
+		cfg := m.cfg
+		if len(inputs) > 0 {
+			// Create a temporary config with the saved inputs merged in
+			tempCfg := *m.cfg
+			tempCfg.Inputs = make(map[string]string)
+			for k, v := range m.cfg.Inputs {
+				tempCfg.Inputs[k] = v
+			}
+			for k, v := range inputs {
+				tempCfg.Inputs[k] = v
+			}
+			cfg = &tempCfg
+		}
+
+		tasks, err := strategy.ResolveCommandTasks(command, cfg)
+		if err != nil {
+			m.taskPreview = []string{fmt.Sprintf("Error: %v", err)}
+			return
+		}
+		for _, t := range tasks {
+			tasksToPreview = append(tasksToPreview, taskWithConfig{t, cfg, ""})
+		}
 	}
 
-	tasks, err := strategy.ResolveCommandTasks(command, cfg)
-	if err != nil {
-		m.taskPreview = []string{fmt.Sprintf("Error: %v", err)}
-		return
-	}
-
-	if len(tasks) == 0 {
+	if len(tasksToPreview) == 0 {
 		m.taskPreview = []string{"No tasks will run"}
 		return
 	}
@@ -162,20 +222,42 @@ func (m *model) updateTaskPreview() {
 		availableWidth = rightPaneWidth - 3 - 2 // -3 for borders/padding, -2 for right padding
 	}
 
-	for _, t := range tasks {
+	lastCmd := ""
+	orange := lipgloss.Color("#ffb86c")
+
+	for _, tc := range tasksToPreview {
+		taskWidth := availableWidth
+		indent := ""
+		if tc.cmdName != "" {
+			indent = "  "
+			taskWidth -= 2
+			if taskWidth < 0 {
+				taskWidth = 0
+			}
+		}
+
+		// Command header for workflows
+		if tc.cmdName != "" && tc.cmdName != lastCmd {
+			if len(preview) > 0 {
+				preview = append(preview, "")
+			}
+			preview = append(preview, lipgloss.NewStyle().Foreground(orange).Render("→ "+tc.cmdName))
+			lastCmd = tc.cmdName
+		}
+
 		// Name
-		nameLines := wrapLines(strings.Fields(t.Name()), availableWidth, "• ", "  ", lipgloss.NewStyle())
+		nameLines := wrapLines(strings.Fields(tc.t.Name()), taskWidth, indent+"• ", indent+"  ", lipgloss.NewStyle())
 		preview = append(preview, nameLines...)
 
 		// Description
-		if t.Description() != "" {
-			descLines := wrapLines(strings.Fields(t.Description()), availableWidth, "  ", "  ", lipgloss.NewStyle())
+		if tc.t.Description() != "" {
+			descLines := wrapLines(strings.Fields(tc.t.Description()), taskWidth, indent+"  ", indent+"  ", lipgloss.NewStyle())
 			preview = append(preview, descLines...)
 		}
 
 		// Commands
-		for _, cmd := range t.Commands(cfg) {
-			cmdLines := wrapLines(cmd, availableWidth, "    $ ", "        ", commentStyle)
+		for _, cmd := range tc.t.Commands(tc.cfg) {
+			cmdLines := wrapLines(cmd, taskWidth, indent+"    $ ", indent+"        ", commentStyle)
 			preview = append(preview, cmdLines...)
 		}
 	}
@@ -304,8 +386,31 @@ func (m model) visibleConfigCount() int {
 }
 
 func (m model) visibleHistoryCount() int {
-	// 2 (top/bottom borders) + 2 (more indicators) = 4
-	// (Search/Padding line removed)
-	// But it's split with Commands pane
-	return (m.height-1-2)/2 - 3
+	if m.height == 0 {
+		return len(m.history)
+	}
+	titleLines := 1
+	helpLines := 2
+	paneHeight := (m.height - helpLines - titleLines) - ((m.height - helpLines - titleLines) / 2)
+	// Subtract: 2 for borders, 1 for potential scroll indicator, 1 for padding/alignment consistency
+	availableLines := paneHeight - 2 - 1 - 1
+	if availableLines < 1 {
+		availableLines = 1
+	}
+	return availableLines
+}
+
+func (m model) visibleTasksCount() int {
+	if m.height == 0 {
+		return len(m.taskPreview)
+	}
+	titleLines := 1
+	helpLines := 2
+	paneHeight := (m.height - helpLines - titleLines) / 2
+	// Subtract: 2 for borders, 1 for potential scroll indicator
+	availableLines := paneHeight - 2 - 1
+	if availableLines < 1 {
+		availableLines = 1
+	}
+	return availableLines
 }

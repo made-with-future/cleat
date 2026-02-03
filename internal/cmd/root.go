@@ -32,10 +32,23 @@ func Execute() {
 
 func run(args []string) {
 	tuiMode := len(args) == 1
+	var commandQueue []struct {
+		selected      string
+		inputs        map[string]string
+		workflowRunID string
+	}
+
 	for {
 		var selected string
 		var inputs map[string]string
-		if tuiMode {
+		var workflowRunID string
+		if len(commandQueue) > 0 {
+			item := commandQueue[0]
+			commandQueue = commandQueue[1:]
+			selected = item.selected
+			inputs = item.inputs
+			workflowRunID = item.workflowRunID
+		} else if tuiMode {
 			var err error
 			selected, inputs, err = UIStart()
 			if err != nil {
@@ -48,9 +61,32 @@ func run(args []string) {
 				return
 			}
 
-			if len(inputs) > 0 {
-				config.SetTransientInputs(inputs)
+			if strings.HasPrefix(selected, "workflow:") {
+				name := strings.TrimPrefix(selected, "workflow:")
+				workflows, _ := history.LoadWorkflows()
+				var workflow *history.Workflow
+				for _, w := range workflows {
+					if w.Name == name {
+						workflow = &w
+						break
+					}
+				}
+				if workflow != nil {
+					runID := fmt.Sprintf("wf-%d", time.Now().UnixNano())
+					for _, cmd := range workflow.Commands {
+						commandQueue = append(commandQueue, struct {
+							selected      string
+							inputs        map[string]string
+							workflowRunID string
+						}{cmd.Command, cmd.Inputs, runID})
+					}
+					continue
+				}
 			}
+		}
+
+		if selected != "" {
+			config.SetTransientInputs(inputs)
 
 			var cmdArgs []string
 			if selected == "build" {
@@ -98,6 +134,9 @@ func run(args []string) {
 			if len(cmdArgs) > 0 {
 				rootCmd.SetArgs(cmdArgs)
 			} else {
+				if tuiMode {
+					continue
+				}
 				return
 			}
 		} else {
@@ -112,22 +151,42 @@ func run(args []string) {
 					Exit(1)
 					return
 				}
+				// If in a workflow, maybe we should stop?
+				if len(commandQueue) > 0 {
+					fmt.Println("Workflow failed. Stopping.")
+					commandQueue = nil
+				}
 			}
 
 			if tuiMode && selected != "" {
 				// Save to history
 				history.Save(history.HistoryEntry{
-					Timestamp: time.Now(),
-					Command:   selected,
-					Inputs:    inputs,
-					Success:   err == nil,
+					Timestamp:     time.Now(),
+					Command:       selected,
+					Inputs:        inputs,
+					Success:       err == nil,
+					WorkflowRunID: workflowRunID,
 				})
+			}
+
+			// If there are more commands in the queue, don't wait yet
+			if len(commandQueue) > 0 {
+				fmt.Println("\nRunning next command in workflow...")
+				time.Sleep(1 * time.Second)
+				break
 			}
 
 			if tuiMode {
 				if Wait() {
 					fmt.Println()
-					continue
+					if selected != "" {
+						commandQueue = append(commandQueue, struct {
+							selected      string
+							inputs        map[string]string
+							workflowRunID string
+						}{selected, inputs, workflowRunID})
+					}
+					break
 				}
 			}
 			break
