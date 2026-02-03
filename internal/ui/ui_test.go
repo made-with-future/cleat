@@ -71,14 +71,24 @@ func TestModelView(t *testing.T) {
 	if !strings.Contains(view, "Commands") {
 		t.Error("expected view to contain 'Commands' section")
 	}
-	if !strings.Contains(view, "Configuration") {
-		t.Error("expected view to contain 'Configuration' section")
+	// Configuration is now in a modal, not visible initially
+	if strings.Contains(view, "Configuration") {
+		t.Error("expected view NOT to contain 'Configuration' section initially")
 	}
+
 	if !strings.Contains(view, "Command History") {
 		t.Error("expected view to contain 'Command History' section")
 	}
 	if !strings.Contains(view, "Tasks for build") {
 		t.Error("expected view to contain 'Tasks for build' section")
+	}
+
+	// Press 'c' to open configuration modal
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = updatedModel.(model)
+	view = m.View()
+	if !strings.Contains(view, "Configuration") {
+		t.Error("expected view to contain 'Configuration' section after pressing 'c'")
 	}
 }
 
@@ -111,6 +121,9 @@ func TestConfigPreview(t *testing.T) {
 	m.width = 100
 	m.height = 40
 
+	// Open configuration modal
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = updatedModel.(model)
 	view := m.View()
 
 	if !strings.Contains(view, "version: 1") {
@@ -151,7 +164,12 @@ func TestConfigPreview(t *testing.T) {
 	m2.updateVisibleItems()
 	m2.width = 100
 	m2.height = 40
+
+	// Open configuration modal
+	updatedModel2, _ := m2.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m2 = updatedModel2.(model)
 	view2 := m2.View()
+
 	if !strings.Contains(view2, "terraform:") {
 		t.Error("expected view to contain 'terraform:' section")
 	}
@@ -387,11 +405,11 @@ func TestTabbing(t *testing.T) {
 		t.Errorf("expected focus to be history after Tab, got %v", m.focus)
 	}
 
-	// Tab -> Config
+	// Tab -> Commands (skips Config modal)
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
-	if m.focus != focusConfig {
-		t.Errorf("expected focus to be config after Tab, got %v", m.focus)
+	if m.focus != focusCommands {
+		t.Errorf("expected focus to be commands after 2nd Tab, got %v", m.focus)
 	}
 
 	// Shift+Tab -> History
@@ -522,6 +540,11 @@ func TestNoConfigMessage(t *testing.T) {
 	m.height = 40
 
 	view := m.View()
+	// Press 'c' to see the message in the configuration modal
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = updatedModel.(model)
+	view = m.View()
+
 	if !strings.Contains(view, "No cleat.yaml found") {
 		t.Error("expected view to contain 'No cleat.yaml found' in config pane when cfgFound is false")
 	}
@@ -535,9 +558,8 @@ func TestConfigPaneAction(t *testing.T) {
 	m.width = 100
 	m.height = 40
 
-	// Tab to history, then to config pane
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	updatedModel, _ = updatedModel.Update(tea.KeyMsg{Type: tea.KeyTab})
+	// Press 'c' to open config modal
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
 	m = updatedModel.(model)
 	if m.focus != focusConfig {
 		t.Fatalf("expected focus to be config, got %v", m.focus)
@@ -545,18 +567,29 @@ func TestConfigPaneAction(t *testing.T) {
 
 	view := m.View()
 	if !strings.Contains(view, "Press Enter to create") {
-		t.Error("expected 'Press Enter to create' hint when config not found and pane focused")
+		t.Error("expected 'Press Enter to create' hint when config not found and modal focused")
+	}
+
+	// Close modal
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Errorf("expected state browsing after Esc, got %v", m.state)
 	}
 
 	// With config found
 	m2 := InitialModel(&config.Config{}, true)
 	m2.width = 100
 	m2.height = 40
+
+	// Open modal
+	updatedModel2, _ := m2.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m2 = updatedModel2.(model)
 	m2.focus = focusConfig
 
 	view2 := m2.View()
 	if !strings.Contains(view2, "Press Enter to edit") {
-		t.Error("expected 'Press Enter to edit' hint when config exists and pane focused")
+		t.Error("expected 'Press Enter to edit' hint when config exists and modal focused")
 	}
 }
 
@@ -684,8 +717,11 @@ func TestHelpOverlay(t *testing.T) {
 	if !strings.Contains(view, "e          Expand all") {
 		t.Error("expected help overlay to contain 'e          Expand all'")
 	}
-	if !strings.Contains(view, "c          Collapse all") {
-		t.Error("expected help overlay to contain 'c          Collapse all'")
+	if !strings.Contains(view, "C          Collapse all") {
+		t.Error("expected help overlay to contain 'C          Collapse all'")
+	}
+	if !strings.Contains(view, "c          Show configuration") {
+		t.Error("expected help overlay to contain 'c          Show configuration'")
 	}
 
 	// Press any key to dismiss
@@ -763,13 +799,14 @@ func TestTaskPreviewWrapping(t *testing.T) {
 	// Verify that some lines in taskPreview are wrapped
 	// docker rebuild has long commands
 	hasWrappedLines := false
+	// width = 60. availableWidth = 60 - 6 = 54.
+	expectedAvailableWidth := 54
 	for _, line := range m.taskPreview {
 		// Strip ANSI codes for length check
 		plainLine := lipgloss.Width(line)
 		if plainLine > 0 {
-			// paneWidth = (60-2)/2 = 29. availableWidth = 26.
-			if plainLine > 26 {
-				t.Errorf("line exceeds available width: %d > 26: %q", plainLine, line)
+			if plainLine > expectedAvailableWidth {
+				t.Errorf("line exceeds available width: %d > %d: %q", plainLine, expectedAvailableWidth, line)
 			}
 			// Check if we have any continuation lines (starting with 8 spaces for commands)
 			if strings.HasPrefix(ansi.Strip(line), "        ") {
@@ -985,7 +1022,7 @@ func TestHistoryNavigationWithJK(t *testing.T) {
 	cfg := &config.Config{}
 	m := InitialModel(cfg, true)
 	m.width = 100
-	m.height = 20 // visibleHistoryCount will be 5
+	m.height = 20 // visibleHistoryCount will be 4
 
 	// Inject some history entries
 	m.history = []history.HistoryEntry{
@@ -1034,7 +1071,7 @@ func TestHistoryJumpWithNumberKeys(t *testing.T) {
 	cfg := &config.Config{}
 	m := InitialModel(cfg, true)
 	m.width = 100
-	m.height = 20 // visibleHistoryCount will be 5
+	m.height = 20 // visibleHistoryCount will be 4
 
 	m.history = []history.HistoryEntry{
 		{Timestamp: time.Now(), Command: "cmd1"},
@@ -1063,8 +1100,8 @@ func TestHistoryJumpWithNumberKeys(t *testing.T) {
 	if m.historyCursor != 5 {
 		t.Errorf("expected historyCursor 5 after '6', got %d", m.historyCursor)
 	}
-	if m.historyOffset != 1 {
-		t.Errorf("expected historyOffset 1 after '6', got %d", m.historyOffset)
+	if m.historyOffset != 3 {
+		t.Errorf("expected historyOffset 3 after '6', got %d", m.historyOffset)
 	}
 }
 
@@ -1470,6 +1507,9 @@ func TestConfigFocusClearsTaskPreview(t *testing.T) {
 	m := InitialModel(cfg, true)
 	m.width = 100
 	m.height = 20
+	m.history = []history.HistoryEntry{
+		{Command: "build", Success: true, Timestamp: time.Now()},
+	}
 
 	// Set some task preview content manually
 	m.taskPreview = []string{"task 1", "task 2"}
@@ -1488,27 +1528,26 @@ func TestConfigFocusClearsTaskPreview(t *testing.T) {
 	// Note: updateTaskPreview will run. If no history, it might clear it.
 	// But let's assume it has something or we don't care yet.
 
-	// 3. Tab to Configuration. Task preview SHOULD be cleared.
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	// 3. Press 'c' to open Configuration. Task preview SHOULD be cleared.
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
 	m = updatedModel.(model)
 	if m.focus != focusConfig {
-		t.Fatalf("expected focusConfig after 2nd Tab, got %v", m.focus)
+		t.Fatalf("expected focusConfig after pressing 'c', got %v", m.focus)
 	}
 
 	if len(m.taskPreview) != 0 {
 		t.Errorf("expected taskPreview to be cleared when focused on Config, got %v", m.taskPreview)
 	}
 
-	// 4. Tab back to Commands. Task preview SHOULD be restored.
-	// InitialModel builds a tree with some default items (build, run).
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	// 4. Close Config modal. Task preview SHOULD be restored.
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m = updatedModel.(model)
-	if m.focus != focusCommands {
-		t.Fatalf("expected focus back to Commands after 3rd Tab, got %v", m.focus)
+	if m.focus != focusHistory {
+		t.Fatalf("expected focus back to History after closing Config modal, got %v", m.focus)
 	}
 
 	if len(m.taskPreview) == 0 {
-		t.Error("expected taskPreview to be restored when tabbing away from Config to Commands")
+		t.Error("expected taskPreview to be restored when closing Config modal")
 	}
 }
 

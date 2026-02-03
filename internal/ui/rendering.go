@@ -46,6 +46,10 @@ func (m model) View() string {
 		return m.overlay(base, m.renderWorkflowLocationModal())
 	}
 
+	if m.state == stateShowingConfig {
+		return m.overlay(base, m.renderConfigModal())
+	}
+
 	// Show help overlay if active
 	if m.showHelp {
 		return m.overlay(base, m.renderHelpOverlay())
@@ -85,85 +89,69 @@ func (m model) renderMainUI() string {
 	commandsColor := comment
 	historyColor := comment
 	taskColor := comment
-	configColor := comment
 
 	switch m.focus {
 	case focusCommands:
 		commandsColor = purple
 	case focusHistory:
 		historyColor = purple
-	case focusConfig:
-		configColor = purple
 	case focusTasks:
 		taskColor = purple
 	}
 
 	// Calculate dimensions
 	gap := 2
-	titleLines := 1
-	helpLines := 2
+	titleLines := 2
+	helpLines := 3
 	leftPaneWidth, rightPaneWidth := m.paneWidths()
 	paneHeight := m.height - helpLines - titleLines
 
-	// Left panes height split
-	commandsPaneHeight := paneHeight / 2
-	historyPaneHeight := paneHeight - commandsPaneHeight
-
-	// Right panes height split
-	taskPaneHeight := paneHeight / 2
-	configPaneHeight := paneHeight - taskPaneHeight
+	// Height split
+	topPaneHeight := paneHeight / 2
+	bottomPaneHeight := paneHeight - topPaneHeight
 
 	// Build pane content
 	leftLines := m.buildCommandsContent(comment, purple, cyan)
 	taskLines := m.buildTaskPreviewContent()
-	configLines := m.buildConfigContent(comment, purple)
 	historyLines := m.buildHistoryContent(comment, cyan, green, red, orange, rightPaneWidth)
 
 	// Draw boxes
-	commandsBox := drawBox(leftLines, leftPaneWidth, commandsPaneHeight, commandsColor, "Commands", m.focus == focusCommands)
-	configBox := drawBox(configLines, leftPaneWidth, configPaneHeight, configColor, "Configuration", m.focus == focusConfig)
+	commandsBox := drawBox(leftLines, leftPaneWidth, topPaneHeight, commandsColor, "Commands", m.focus == focusCommands)
+	historyBox := drawBox(historyLines, rightPaneWidth, topPaneHeight, historyColor, "Command History", m.focus == focusHistory)
 
 	taskTitle := m.buildTaskTitle()
-	taskBox := drawBox(taskLines, rightPaneWidth, taskPaneHeight, taskColor, taskTitle, m.focus == focusTasks)
+	taskBox := drawBox(taskLines, m.width, bottomPaneHeight, taskColor, taskTitle, m.focus == focusTasks)
 
-	historyBox := drawBox(historyLines, rightPaneWidth, historyPaneHeight, historyColor, "Command History", m.focus == focusHistory)
-
-	// Join boxes vertically for left and right sides
+	// Join Row 1 boxes side-by-side
 	commandsBoxLines := strings.Split(commandsBox, "\n")
-	configBoxLines := strings.Split(configBox, "\n")
-	leftBoxLines := append(commandsBoxLines, configBoxLines...)
-
-	taskBoxLines := strings.Split(taskBox, "\n")
 	historyBoxLines := strings.Split(historyBox, "\n")
-	rightBoxLines := append(taskBoxLines, historyBoxLines...)
 
 	var combined strings.Builder
-	maxLines := len(leftBoxLines)
-	if len(rightBoxLines) > maxLines {
-		maxLines = len(rightBoxLines)
-	}
-
-	for i := 0; i < maxLines; i++ {
+	for i := 0; i < topPaneHeight; i++ {
 		left := ""
 		right := ""
-		if i < len(leftBoxLines) {
-			left = leftBoxLines[i]
+		if i < len(commandsBoxLines) {
+			left = commandsBoxLines[i]
 		}
-		if i < len(rightBoxLines) {
-			right = rightBoxLines[i]
+		if i < len(historyBoxLines) {
+			right = historyBoxLines[i]
 		}
 		combined.WriteString(left)
 		combined.WriteString(strings.Repeat(" ", gap))
 		combined.WriteString(right)
-		if i < maxLines-1 {
-			combined.WriteString("\n")
-		}
+		combined.WriteString("\n")
 	}
 
+	// Append Row 2 (Tasks)
+	combined.WriteString(taskBox)
+
 	// Help line
-	helpText := lipgloss.NewStyle().Foreground(comment).Render("↑/↓: navigate • enter: select/toggle • tab: switch pane • ?: help • q: quit")
+	helpText := lipgloss.NewStyle().Foreground(comment).Render("↑/↓: navigate • enter: select/toggle • tab: switch pane • c: config • ?: help • q: quit")
 	if m.state == stateCreatingWorkflow {
 		helpText = lipgloss.NewStyle().Foreground(comment).Render("↑/↓: navigate • space/enter: select • c: confirm • esc: cancel")
+	}
+	if m.state == stateShowingConfig {
+		helpText = lipgloss.NewStyle().Foreground(comment).Render("↑/↓: scroll • enter: edit • c/esc/q: close")
 	}
 	if !m.cfgFound {
 		warning := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Render("(no cleat.yaml)")
@@ -607,6 +595,37 @@ func (m model) renderWorkflowLocationModal() string {
 	return modalStyle.Render(content)
 }
 
+func (m model) renderConfigModal() string {
+	purple := lipgloss.Color("#bd93f9")
+	comment := lipgloss.Color("#6272a4")
+
+	width := 60
+	if width > m.width-10 {
+		width = m.width - 10
+	}
+	if width < 60 {
+		width = 60
+	}
+	if width > m.width {
+		width = m.width
+	}
+	height := m.height - 10
+	if height < 10 {
+		height = 10
+	}
+	if height > m.height {
+		height = m.height
+	}
+
+	configLines := m.buildConfigContent(comment, purple)
+
+	title := " Configuration "
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(purple)
+
+	modal := drawBox(configLines, width, height, purple, titleStyle.Render(title), true)
+	return modal
+}
+
 func (m model) renderHelpOverlay() string {
 	purple := lipgloss.Color("#bd93f9")
 	comment := lipgloss.Color("#6272a4")
@@ -621,9 +640,10 @@ func (m model) renderHelpOverlay() string {
 		"  ↑/k        Move up",
 		"  ↓/j        Move down",
 		"  e          Expand all",
-		"  c          Collapse all",
+		"  C          Collapse all",
 		"  /          Filter commands",
-		"  Enter      Select/Toggle / Edit config",
+		"  c          Show configuration",
+		"  Enter      Select/Toggle / Edit config (in config modal)",
 		"  1-9        Jump to history item",
 		"  t          Jump to task panel",
 		"  x          Clear history (history pane)",
