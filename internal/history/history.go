@@ -25,7 +25,7 @@ const (
 	maxHistorySize = 50
 )
 
-func getHistoryFilePath() (string, error) {
+func getFilePath(suffix string) (string, error) {
 	home, err := UserHomeDir()
 	if err != nil {
 		return "", err
@@ -47,7 +47,11 @@ func getHistoryFilePath() (string, error) {
 
 	id := fmt.Sprintf("%s-%x", projectDirName, hash[:8])
 
-	return filepath.Join(home, ".cleat", id+".history.yaml"), nil
+	return filepath.Join(home, ".cleat", id+"."+suffix), nil
+}
+
+func getHistoryFilePath() (string, error) {
+	return getFilePath("history.yaml")
 }
 
 func Save(entry HistoryEntry) error {

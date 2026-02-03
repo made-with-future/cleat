@@ -162,6 +162,8 @@ func run(args []string) {
 					Success:       err == nil,
 					WorkflowRunID: workflowRunID,
 				})
+				// Update stats
+				history.UpdateStats(selected)
 			}
 
 			// If there are more commands in the queue, don't wait yet

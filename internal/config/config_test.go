@@ -1275,3 +1275,43 @@ func TestLoadDefaultConfig_UpwardsSearch(t *testing.T) {
 		t.Errorf("Expected SourcePath '%s', got '%s'", expectedSourcePath, cfg.SourcePath)
 	}
 }
+
+func TestLoadConfigTerraformDir(t *testing.T) {
+	t.Run("terraform with custom dir", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "cleat-tf-dir-*")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		// Create custom terraform dir and a file in it
+		customTerraformDir := filepath.Join(tmpDir, "terraform-custom")
+		os.MkdirAll(customTerraformDir, 0755)
+		os.WriteFile(filepath.Join(customTerraformDir, "main.tf"), []byte(""), 0644)
+
+		cleatYamlContent := `
+terraform:
+  dir: terraform-custom
+`
+		cleatYamlPath := filepath.Join(tmpDir, "cleat.yaml")
+		os.WriteFile(cleatYamlPath, []byte(cleatYamlContent), 0644)
+
+		cfg, err := LoadConfig(cleatYamlPath)
+		if err != nil {
+			t.Fatalf("LoadConfig failed: %v", err)
+		}
+
+		if cfg.Terraform == nil {
+			t.Fatal("Terraform config should not be nil")
+		}
+
+		if cfg.Terraform.Dir != "terraform-custom" {
+			t.Errorf("Expected terraform dir to be 'terraform-custom', got '%s'", cfg.Terraform.Dir)
+		}
+
+		// Check if auto-detection still works with custom dir
+		if cfg.Terraform.UseFolders {
+			t.Error("Expected UseFolders to be false for a flat structure")
+		}
+	})
+}
