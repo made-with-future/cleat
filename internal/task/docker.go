@@ -192,7 +192,7 @@ func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
 
 func (t *DockerDown) Commands(cfg *config.Config) [][]string {
 	cmdName := "docker"
-	args := []string{"--log-level", "error", "compose"}
+	args := []string{"compose"}
 	args = append(args, "--profile", "*", "down", "--remove-orphans")
 
 	// 1Password integration
@@ -268,7 +268,7 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 func (t *DockerRebuild) Commands(cfg *config.Config) [][]string {
 	// 1. Down
 	downCmd := "docker"
-	downArgs := []string{"--log-level", "error", "compose"}
+	downArgs := []string{"compose"}
 	downArgs = append(downArgs, "--profile", "*", "down", "--remove-orphans", "--rmi", "all", "--volumes")
 
 	// 2. Build
@@ -346,7 +346,7 @@ func (t *DockerRemoveOrphans) Run(cfg *config.Config, exec executor.Executor) er
 
 func (t *DockerRemoveOrphans) Commands(cfg *config.Config) [][]string {
 	cmdName := "docker"
-	args := []string{"--log-level", "error", "compose"}
+	args := []string{"compose"}
 	args = append(args, "--profile", "*", "down", "--remove-orphans")
 
 	// 1Password integration

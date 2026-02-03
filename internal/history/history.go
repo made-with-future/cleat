@@ -2,13 +2,13 @@ package history
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 type HistoryEntry struct {
@@ -47,7 +47,7 @@ func getHistoryFilePath() (string, error) {
 
 	id := fmt.Sprintf("%s-%x", projectDirName, hash[:8])
 
-	return filepath.Join(home, ".cleat", id+".history.json"), nil
+	return filepath.Join(home, ".cleat", id+".history.yaml"), nil
 }
 
 func Save(entry HistoryEntry) error {
@@ -61,7 +61,7 @@ func Save(entry HistoryEntry) error {
 		entries = entries[:maxHistorySize]
 	}
 
-	data, err := json.MarshalIndent(entries, "", "  ")
+	data, err := yaml.Marshal(entries)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func Load() ([]HistoryEntry, error) {
 	}
 
 	var entries []HistoryEntry
-	if err := json.Unmarshal(data, &entries); err != nil {
+	if err := yaml.Unmarshal(data, &entries); err != nil {
 		return nil, err
 	}
 

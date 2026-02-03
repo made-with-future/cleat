@@ -26,6 +26,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleWorkflowNameInput(msg)
 	}
 
+	if m.state == stateWorkflowLocationSelection {
+		return m.handleWorkflowLocationSelection(msg)
+	}
+
 	if m.state == stateCreatingWorkflow {
 		return m.handleCreatingWorkflow(msg)
 	}
@@ -101,21 +105,9 @@ func (m model) handleWorkflowNameInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			name := m.textInput.Value()
 			if name != "" {
-				var cmds []history.HistoryEntry
-				for _, idx := range m.selectedWorkflowIndices {
-					if idx < len(m.history) {
-						cmds = append(cmds, m.history[idx])
-					}
-				}
-				if len(cmds) > 0 {
-					history.SaveWorkflow(history.Workflow{
-						Name:     name,
-						Commands: cmds,
-					})
-					m.workflows, _ = history.LoadWorkflows()
-					m.tree = buildCommandTree(m.cfg, m.workflows)
-					m.updateVisibleItems()
-				}
+				m.state = stateWorkflowLocationSelection
+				m.workflowLocationIdx = 0 // 0: Project, 1: User
+				return m, nil
 			}
 			m.state = stateBrowsing
 			m.selectedWorkflowIndices = []int{}
@@ -131,6 +123,62 @@ func (m model) handleWorkflowNameInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.textInput, cmd = m.textInput.Update(msg)
 	return m, cmd
+}
+
+func (m model) handleWorkflowLocationSelection(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			name := m.textInput.Value()
+			var workflowSteps []string
+			for _, idx := range m.selectedWorkflowIndices {
+				if idx < len(m.history) {
+					entry := m.history[idx]
+					workflowSteps = append(workflowSteps, entry.Command)
+				}
+			}
+
+			if len(workflowSteps) > 0 {
+				workflow := config.Workflow{
+					Name:     name,
+					Commands: workflowSteps,
+				}
+				if m.workflowLocationIdx == 0 {
+					history.SaveWorkflowToProject(workflow)
+				} else {
+					history.SaveWorkflowToUser(workflow)
+				}
+				m.workflows, _ = history.LoadWorkflows(m.cfg)
+				m.tree = buildCommandTree(m.cfg, m.workflows)
+				m.updateVisibleItems()
+			}
+			m.state = stateBrowsing
+			m.selectedWorkflowIndices = []int{}
+			return m, nil
+		case tea.KeyEsc:
+			m.state = stateBrowsing
+			m.selectedWorkflowIndices = []int{}
+			return m, nil
+		}
+
+		switch msg.String() {
+		case "up", "k":
+			if m.workflowLocationIdx > 0 {
+				m.workflowLocationIdx--
+			}
+			return m, nil
+		case "down", "j":
+			if m.workflowLocationIdx < 1 {
+				m.workflowLocationIdx++
+			}
+			return m, nil
+		case "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		}
+	}
+	return m, nil
 }
 
 func (m model) handleCreatingWorkflow(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -195,6 +243,7 @@ func (m model) handleEditorFinished(msg editorFinishedMsg) (tea.Model, tea.Cmd) 
 		m.cfg = cfg
 		m.cfgFound = true
 		// Rebuild commands tree with new npm scripts and workflows
+		m.workflows, _ = history.LoadWorkflows(cfg)
 		m.tree = buildCommandTree(cfg, m.workflows)
 		m.updateVisibleItems()
 		m.updateTaskPreview()

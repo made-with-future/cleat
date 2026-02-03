@@ -211,14 +211,14 @@ func TestHistoryHashLength(t *testing.T) {
 	}
 
 	// Verify hash is 8 bytes (16 hex chars)
-	// Filename format: <dirname>-<16hexchars>.history.json
+	// Filename format: <dirname>-<16hexchars>.history.yaml
 	filename := files[0].Name()
 	parts := strings.Split(filename, "-")
 	if len(parts) < 2 {
 		t.Fatalf("Expected filename with dash separator, got %s", filename)
 	}
 
-	hashPart := strings.TrimSuffix(parts[len(parts)-1], ".history.json")
+	hashPart := strings.TrimSuffix(parts[len(parts)-1], ".history.yaml")
 	if len(hashPart) != 16 {
 		t.Errorf("Expected hash length of 16 hex chars, got %d (%s)", len(hashPart), hashPart)
 	}

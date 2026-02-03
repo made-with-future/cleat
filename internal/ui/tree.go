@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/history"
 )
 
 const defaultConfigTemplate = `# Cleat configuration
@@ -30,7 +29,7 @@ services:
 `
 
 // buildCommandTree creates the commands tree from config and workflows
-func buildCommandTree(cfg *config.Config, workflows []history.Workflow) []CommandItem {
+func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []CommandItem {
 	var tree []CommandItem
 
 	if len(workflows) > 0 {
@@ -50,7 +49,17 @@ func buildCommandTree(cfg *config.Config, workflows []history.Workflow) []Comman
 	tree = append(tree, CommandItem{Label: "build", Command: "build"})
 	tree = append(tree, CommandItem{Label: "run", Command: "run"})
 
-	if cfg.Docker {
+	hasDocker := cfg.Docker
+	if !hasDocker {
+		for i := range cfg.Services {
+			if cfg.Services[i].IsDocker() {
+				hasDocker = true
+				break
+			}
+		}
+	}
+
+	if hasDocker {
 		tree = append(tree, CommandItem{
 			Label: "docker",
 			Children: []CommandItem{
@@ -155,6 +164,17 @@ func buildCommandTree(cfg *config.Config, workflows []history.Workflow) []Comman
 				}
 				svcItem.Children = append(svcItem.Children, npmItem)
 			}
+		}
+
+		if svc.IsDocker() {
+			svcItem.Children = append(svcItem.Children, CommandItem{
+				Label: "docker",
+				Children: []CommandItem{
+					{Label: "down", Command: fmt.Sprintf("docker down:%s", svc.Name)},
+					{Label: "rebuild", Command: fmt.Sprintf("docker rebuild:%s", svc.Name)},
+					{Label: "remove-orphans", Command: fmt.Sprintf("docker remove-orphans:%s", svc.Name)},
+				},
+			})
 		}
 
 		if svc.AppYaml != "" {

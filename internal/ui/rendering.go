@@ -42,6 +42,10 @@ func (m model) View() string {
 		return m.overlay(base, m.renderWorkflowNameModal())
 	}
 
+	if m.state == stateWorkflowLocationSelection {
+		return m.overlay(base, m.renderWorkflowLocationModal())
+	}
+
 	// Show help overlay if active
 	if m.showHelp {
 		return m.overlay(base, m.renderHelpOverlay())
@@ -573,6 +577,36 @@ func (m model) renderConfirmModal() string {
 }
 
 // renderHelpOverlay renders a centered help modal
+func (m model) renderWorkflowLocationModal() string {
+	purple := lipgloss.Color("#bd93f9")
+	comment := lipgloss.Color("#6272a4")
+	cyan := lipgloss.Color("#8be9fd")
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(purple).MarginBottom(1)
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(purple).
+		Padding(1, 4).
+		Width(40)
+
+	options := []string{"Project (cleat.workflows.yaml)", "User (~/.cleat/...workflows.yaml)"}
+	var renderedOptions []string
+
+	for i, opt := range options {
+		if i == m.workflowLocationIdx {
+			renderedOptions = append(renderedOptions, lipgloss.NewStyle().Foreground(cyan).Render("> "+opt))
+		} else {
+			renderedOptions = append(renderedOptions, "  "+opt)
+		}
+	}
+
+	content := titleStyle.Render("Save Workflow to...") + "\n\n" +
+		strings.Join(renderedOptions, "\n") + "\n\n" +
+		lipgloss.NewStyle().Foreground(comment).Render("↑/↓: navigate • enter: select • esc: cancel")
+
+	return modalStyle.Render(content)
+}
+
 func (m model) renderHelpOverlay() string {
 	purple := lipgloss.Color("#bd93f9")
 	comment := lipgloss.Color("#6272a4")
