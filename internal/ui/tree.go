@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/history"
 )
 
 const defaultConfigTemplate = `# Cleat configuration
@@ -43,6 +44,22 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		tree = append(tree, CommandItem{
 			Label:    "workflows",
 			Children: workflowChildren,
+		})
+	}
+
+	// Add top 3 commands
+	if topCmds, err := history.GetTopCommands(3); err == nil && len(topCmds) > 0 {
+		var topChildren []CommandItem
+		for _, cmd := range topCmds {
+			topChildren = append(topChildren, CommandItem{
+				Label:   fmt.Sprintf("%s (%d)", cmd.Command, cmd.Count),
+				Command: cmd.Command,
+			})
+		}
+		tree = append(tree, CommandItem{
+			Label:    "most used",
+			Children: topChildren,
+			Expanded: true,
 		})
 	}
 

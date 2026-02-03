@@ -32,6 +32,7 @@ type GCPConfig struct {
 }
 
 type TerraformConfig struct {
+	Dir        string   `yaml:"dir,omitempty"`
 	UseFolders bool     `yaml:"-"`
 	Envs       []string `yaml:"envs,omitempty"`
 }
@@ -201,7 +202,11 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	// Auto-detect Terraform
-	iacDir := filepath.Join(baseDir, ".iac")
+	iacDirName := ".iac"
+	if cfg.Terraform != nil && cfg.Terraform.Dir != "" {
+		iacDirName = cfg.Terraform.Dir
+	}
+	iacDir := filepath.Join(baseDir, iacDirName)
 	if info, err := os.Stat(iacDir); err == nil && info.IsDir() {
 		if cfg.Terraform == nil {
 			cfg.Terraform = &TerraformConfig{}

@@ -9,6 +9,14 @@ import (
 	"github.com/madewithfuture/cleat/internal/executor"
 )
 
+func getTerraformDir(cfg *config.Config) string {
+	dir := ".iac"
+	if cfg.Terraform != nil && cfg.Terraform.Dir != "" {
+		dir = cfg.Terraform.Dir
+	}
+	return dir
+}
+
 type TerraformTask struct {
 	BaseTask
 	Env    string
@@ -64,9 +72,10 @@ func (t *TerraformTask) Run(cfg *config.Config, exec executor.Executor) error {
 func (t *TerraformTask) detectEnvFile(cfg *config.Config) (path string, display string) {
 	cwd, _ := os.Getwd()
 	baseDir := filepath.Dir(cfg.SourcePath)
-	targetDir := filepath.Join(baseDir, ".iac")
+	iacDir := getTerraformDir(cfg)
+	targetDir := filepath.Join(baseDir, iacDir)
 	if cfg.Terraform != nil && cfg.Terraform.UseFolders && t.Env != "" {
-		targetDir = filepath.Join(baseDir, ".iac", t.Env)
+		targetDir = filepath.Join(baseDir, iacDir, t.Env)
 	}
 
 	// 1. Check for .env in the target directory
@@ -77,9 +86,9 @@ func (t *TerraformTask) detectEnvFile(cfg *config.Config) (path string, display 
 			relPath = tfEnv
 		}
 
-		display = ".iac/.env"
+		display = iacDir + "/.env"
 		if cfg.Terraform != nil && cfg.Terraform.UseFolders && t.Env != "" {
-			display = filepath.Join(".iac", t.Env, ".env")
+			display = filepath.Join(iacDir, t.Env, ".env")
 		}
 		return relPath, display
 	}
@@ -104,9 +113,10 @@ func (t *TerraformTask) Commands(cfg *config.Config) [][]string {
 
 	cwd, _ := os.Getwd()
 	baseDir := filepath.Dir(cfg.SourcePath)
-	targetDir := filepath.Join(baseDir, ".iac")
+	iacDir := getTerraformDir(cfg)
+	targetDir := filepath.Join(baseDir, iacDir)
 	if cfg.Terraform.UseFolders && t.Env != "" {
-		targetDir = filepath.Join(baseDir, ".iac", t.Env)
+		targetDir = filepath.Join(baseDir, iacDir, t.Env)
 	}
 
 	// If Env is empty, we might not want to use environment-specific paths

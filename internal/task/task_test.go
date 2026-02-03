@@ -1173,6 +1173,29 @@ func TestTerraformTask(t *testing.T) {
 	})
 }
 
+func TestTerraformTaskCustomDir(t *testing.T) {
+	cfg := &config.Config{
+		Terraform: &config.TerraformConfig{
+			Dir: "tf",
+		},
+	}
+
+	t.Run("plan with custom dir", func(t *testing.T) {
+		task := NewTerraformTask("", "plan", nil)
+		mock := &mockExecutor{}
+		task.Run(cfg, mock)
+
+		expected := "terraform -chdir=tf plan"
+		actual := mock.commands[0].name
+		for _, arg := range mock.commands[0].args {
+			actual += " " + arg
+		}
+		if actual != expected {
+			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		}
+	})
+}
+
 func TestGCPADCLogin(t *testing.T) {
 	cfg := &config.Config{
 		GoogleCloudPlatform: &config.GCPConfig{
