@@ -51,8 +51,12 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 	if topCmds, err := history.GetTopCommands(3); err == nil && len(topCmds) > 0 {
 		var topChildren []CommandItem
 		for _, cmd := range topCmds {
+			label := cmd.Command
+			if strings.HasPrefix(label, "workflow:") {
+				label = fmt.Sprintf("Workflow: %s", strings.TrimPrefix(label, "workflow:"))
+			}
 			topChildren = append(topChildren, CommandItem{
-				Label:   fmt.Sprintf("%s (%d)", cmd.Command, cmd.Count),
+				Label:   label,
 				Command: cmd.Command,
 			})
 		}

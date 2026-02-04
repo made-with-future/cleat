@@ -2,7 +2,11 @@ package cmd
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/madewithfuture/cleat/internal/history"
 )
 
 func TestRootCmd(t *testing.T) {
@@ -133,6 +137,65 @@ func TestRun(t *testing.T) {
 		run([]string{"cleat", "version"})
 		if waitCalls != 0 {
 			t.Errorf("expected Wait to be called 0 times for CLI mode, got %d", waitCalls)
+		}
+	})
+
+	t.Run("TUI returns workflow, tracks stats", func(t *testing.T) {
+		// Setup temp dirs
+		tmpDir, err := os.MkdirTemp("", "cleat-stats-workflow-test-*")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		// Mock home directory for history package
+		oldUserHomeDir := history.UserHomeDir
+		history.UserHomeDir = func() (string, error) {
+			return tmpDir, nil
+		}
+		defer func() { history.UserHomeDir = oldUserHomeDir }()
+
+		// setup project dir with cleat.yaml and a workflow
+		projectDir := filepath.Join(tmpDir, "project")
+		os.Mkdir(projectDir, 0755)
+		workflowContent := `
+workflows:
+- name: my-workflow
+  commands:
+    - build
+`
+		os.WriteFile(filepath.Join(projectDir, "cleat.yaml"), []byte(workflowContent), 0644)
+		oldWd, _ := os.Getwd()
+		os.Chdir(projectDir)
+		defer os.Chdir(oldWd)
+
+		uiCalls := 0
+		UIStart = func() (string, map[string]string, error) {
+			uiCalls++
+			if uiCalls == 1 {
+				return "workflow:my-workflow", nil, nil
+			}
+			return "", nil, nil // Quit on second call
+		}
+
+		// This will just run the first command of the workflow and then loop
+		// It's tricky to test the full workflow run without more refactoring
+		// We just want to check if stats are updated.
+		run([]string{"cleat"})
+
+		// check stats file
+		stats, err := history.LoadStats()
+		if err != nil {
+			t.Fatalf("Failed to load stats: %v", err)
+		}
+
+		if stats.Commands["workflow:my-workflow"].Count != 1 {
+			t.Errorf("Expected workflow:my-workflow count 1, got %d", stats.Commands["workflow:my-workflow"].Count)
+		}
+
+		// The inner command should NOT be tracked
+		if _, ok := stats.Commands["build"]; ok {
+			t.Errorf("Did not expect 'build' command to be tracked in stats for a workflow run")
 		}
 	})
 }
