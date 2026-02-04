@@ -62,6 +62,9 @@ func run(args []string) {
 			}
 
 			if strings.HasPrefix(selected, "workflow:") {
+				// Update stats for the workflow itself
+				history.UpdateStats(selected)
+
 				name := strings.TrimPrefix(selected, "workflow:")
 				cfg, _ := config.LoadDefaultConfig()
 				workflows, _ := history.LoadWorkflows(cfg)
@@ -162,8 +165,10 @@ func run(args []string) {
 					Success:       err == nil,
 					WorkflowRunID: workflowRunID,
 				})
-				// Update stats
-				history.UpdateStats(selected)
+				// Update stats, but only if not part of a workflow run
+				if workflowRunID == "" {
+					history.UpdateStats(selected)
+				}
 			}
 
 			// If there are more commands in the queue, don't wait yet
