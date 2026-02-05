@@ -10,15 +10,15 @@ Restore the missing `WorkflowProvider` to the strategy dispatcher to fix the reg
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Setup & Command Resolution (Red Phase)' (Protocol in workflow.md)
 
 ## Phase 2: Implementation of WorkflowProvider (Green Phase)
-- [ ] Task: Implement the `WorkflowProvider`
-    - [ ] Define `WorkflowProvider` struct in `internal/strategy/strategy.go`.
-    - [ ] Implement `CanHandle(command string)` to detect the `workflow:` prefix.
-    - [ ] Implement `GetStrategy(command string, sess *session.Session)` to look up the workflow in `sess.Config.Workflows`.
-    - [ ] Create a `WorkflowStrategy` that wraps the execution of multiple sub-commands.
-- [ ] Task: Register the provider and pass tests
-    - [ ] Add `&WorkflowProvider{}` to the `GetProviders()` slice.
-    - [ ] Run tests and ensure the previously failing cases now pass.
-    - [ ] Verify code coverage for the new provider is >80%.
+- [x] Task: Implement the `WorkflowProvider` [3be00d1]
+    - [x] Define `WorkflowProvider` struct in `internal/strategy/strategy.go`.
+    - [x] Implement `CanHandle(command string)` to detect the `workflow:` prefix.
+    - [x] Implement `GetStrategy(command string, sess *session.Session)` to look up the workflow in `sess.Config.Workflows`.
+    - [x] Create a `WorkflowStrategy` that wraps the execution of multiple sub-commands.
+- [x] Task: Register the provider and pass tests [3be00d1]
+    - [x] Add `&WorkflowProvider{}` to the `GetProviders()` slice.
+    - [x] Run tests and ensure the previously failing cases now pass.
+    - [x] Verify code coverage for the new provider is >80%.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Implementation of WorkflowProvider (Green Phase)' (Protocol in workflow.md)
 
 ## Phase 3: Advanced Execution & TUI Verification
