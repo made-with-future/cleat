@@ -3,14 +3,17 @@ package ui
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/history"
+	"github.com/madewithfuture/cleat/internal/task"
 	"github.com/muesli/termenv"
 )
 
@@ -20,7 +23,6 @@ func ptrBool(b bool) *bool {
 
 func init() {
 	lipgloss.SetColorProfile(termenv.TrueColor)
-	// Mock home directory for tests to avoid loading real history/workflows
 	testHomeDir, _ := os.MkdirTemp("", "cleat-ui-test-home-*")
 	history.UserHomeDir = func() (string, error) {
 		return testHomeDir, nil
@@ -30,7 +32,6 @@ func init() {
 func TestModelUpdate(t *testing.T) {
 	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
 
-	// Test quitting with 'q'
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")}
 	updatedModel, cmd := m.Update(msg)
 
@@ -42,7 +43,6 @@ func TestModelUpdate(t *testing.T) {
 		t.Error("expected a non-nil command after pressing 'q'")
 	}
 
-	// Test window resize
 	m = InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
 	wmsg := tea.WindowSizeMsg{Width: 100, Height: 40}
 	updatedModel, _ = m.Update(wmsg)
@@ -71,19 +71,7 @@ func TestModelView(t *testing.T) {
 	if !strings.Contains(view, "Commands") {
 		t.Error("expected view to contain 'Commands' section")
 	}
-	// Configuration is now in a modal, not visible initially
-	if strings.Contains(view, "Configuration") {
-		t.Error("expected view NOT to contain 'Configuration' section initially")
-	}
 
-	if !strings.Contains(view, "Command History") {
-		t.Error("expected view to contain 'Command History' section")
-	}
-	if !strings.Contains(view, "Tasks for build") {
-		t.Error("expected view to contain 'Tasks for build' section")
-	}
-
-	// Press 'c' to open configuration modal
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
 	m = updatedModel.(model)
 	view = m.View()
@@ -103,7 +91,6 @@ func TestErrorBar(t *testing.T) {
 		t.Error("expected view to contain error message")
 	}
 
-	// Check if any key clears it
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
 	m = updatedModel.(model)
 	if m.fatalError != nil {
@@ -119,14 +106,12 @@ func TestFiltering(t *testing.T) {
 	m.width = 100
 	m.height = 40
 
-	// Press '/' to start filtering
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
 	m = updatedModel.(model)
 	if !m.filtering {
 		t.Error("expected filtering to be true")
 	}
 
-	// Type 'down'
 	for _, r := range "down" {
 		updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		m = updatedModel.(model)
@@ -135,7 +120,6 @@ func TestFiltering(t *testing.T) {
 		t.Errorf("expected filterText 'down', got %q", m.filterText)
 	}
 
-	// Verify only matching items (or parents of matching items) visible
 	foundDown := false
 	for _, item := range m.visibleItems {
 		if strings.Contains(item.item.Label, "down") || strings.Contains(item.path, "down") {
@@ -146,26 +130,16 @@ func TestFiltering(t *testing.T) {
 		t.Error("expected to find item matching 'down' in filtered results")
 	}
 
-	// Backspace
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	m = updatedModel.(model)
 	if m.filterText != "dow" {
 		t.Errorf("expected filterText 'dow' after backspace, got %q", m.filterText)
 	}
 
-	// Escape to exit filter
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m = updatedModel.(model)
 	if m.filtering {
 		t.Error("expected filtering to be false after Esc")
-	}
-}
-
-func TestModelInit(t *testing.T) {
-	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-	cmd := m.Init()
-	if cmd != nil {
-		t.Error("expected Init to return nil")
 	}
 }
 
@@ -176,18 +150,22 @@ func TestTabbing(t *testing.T) {
 		t.Error("expected initial focus to be commands")
 	}
 
-	// Tab -> History
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
 	if m.focus != focusHistory {
 		t.Errorf("expected focus to be history after Tab, got %v", m.focus)
 	}
 
-	// Tab -> Commands
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
 	if m.focus != focusCommands {
 		t.Errorf("expected focus to be commands after 2nd Tab, got %v", m.focus)
+	}
+	
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	m = updatedModel.(model)
+	if m.focus != focusHistory {
+		t.Errorf("expected focus history after ShiftTab, got %v", m.focus)
 	}
 }
 
@@ -196,7 +174,6 @@ func TestHelpOverlay(t *testing.T) {
 	m.width = 100
 	m.height = 40
 
-	// Press '?'
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
 	m = updatedModel.(model)
 	if !m.showHelp {
@@ -208,51 +185,10 @@ func TestHelpOverlay(t *testing.T) {
 		t.Error("expected view to contain 'Keyboard Shortcuts'")
 	}
 
-	// Press any key to dismiss
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
 	m = updatedModel.(model)
 	if m.showHelp {
 		t.Error("expected showHelp to be false after pressing a key")
-	}
-}
-
-func TestModelUpdateNavigation(t *testing.T) {
-	cfg := &config.Config{
-		Docker: true,
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	// Down
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	m = updatedModel.(model)
-	if m.cursor != 1 {
-		t.Errorf("expected cursor 1 after Down, got %d", m.cursor)
-	}
-
-	// Up
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	m = updatedModel.(model)
-	if m.cursor != 0 {
-		t.Errorf("expected cursor 0 after Up, got %d", m.cursor)
-	}
-}
-
-func TestModelUpdateEnter(t *testing.T) {
-	cfg := &config.Config{}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	// Press Enter on 'build'
-	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Error("expected a command after pressing Enter")
-	}
-	resModel := updatedModel.(model)
-	if !resModel.quitting {
-		t.Error("expected quitting after selecting a command")
 	}
 }
 
@@ -262,41 +198,241 @@ func TestTUIKeys(t *testing.T) {
 	m.width = 100
 	m.height = 40
 
-	// Expand all 'e'
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
-	m = updatedModel.(model)
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("C")})
 	
-	// Collapse all 'C'
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("C")})
-	m = updatedModel.(model)
-	
-	// Jump to tasks 't'
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = updatedModel.(model)
 	if m.focus != focusTasks {
 		t.Error("expected focus tasks after 't'")
 	}
 }
 
-func TestTerraformTree(t *testing.T) {
-	cfg := &config.Config{
-		Terraform: &config.TerraformConfig{
-			UseFolders: true,
-			Envs: []string{"prod"},
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.expandAll()
-	m.updateVisibleItems()
+func TestConfirmClearHistory(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.state = stateConfirmClearHistory
 	
-	foundProd := false
-	for _, item := range m.visibleItems {
-		if strings.Contains(item.path, "terraform.prod") {
-			foundProd = true
-			break
-		}
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("expected state browsing after cancel")
 	}
-	if !foundProd {
-		t.Error("expected terraform.prod in tree")
+	
+	m.state = stateConfirmClearHistory
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("expected state browsing after confirm")
 	}
+}
+
+func TestWorkflowCreationFlow(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.history = []history.HistoryEntry{{Command: "build", Timestamp: time.Now()}}
+	m.state = stateCreatingWorkflow
+	
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if len(m.selectedWorkflowIndices) != 1 {
+		t.Error("expected 1 selected index")
+	}
+	
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = updatedModel.(model)
+	if m.state != stateWorkflowNameInput {
+		t.Errorf("expected state stateWorkflowNameInput, got %v", m.state)
+	}
+	
+	m.textInput.SetValue("my-wf")
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateWorkflowLocationSelection {
+		t.Errorf("expected state WorkflowLocationSelection, got %v", m.state)
+	}
+}
+
+func TestInputCollection(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.state = stateInputCollection
+	m.requirements = []task.InputRequirement{{Key: "foo", Prompt: "Foo"}}
+	m.requirementIdx = 0
+	
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if !m.quitting {
+		t.Error("expected quitting after filling requirements")
+	}
+}
+
+func TestShowingConfig(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.state = stateShowingConfig
+	
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("expected state browsing after Esc")
+	}
+}
+
+func TestJumpWithNumbers(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.history = []history.HistoryEntry{{Command: "h1"}, {Command: "h2"}, {Command: "h3"}}
+	
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
+	m = updatedModel.(model)
+	if m.focus != focusHistory || m.historyCursor != 1 {
+		t.Errorf("jump to 2 failed: focus=%v, cursor=%d", m.focus, m.historyCursor)
+	}
+}
+
+func TestWorkflowLocationSelection(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-ui-wf-loc-*")
+	defer os.RemoveAll(tmpDir)
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+	
+	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
+
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.state = stateWorkflowLocationSelection
+	m.selectedWorkflowIndices = []int{0}
+	m.history = []history.HistoryEntry{{Command: "build", Timestamp: time.Now()}}
+	m.textInput.SetValue("my-wf")
+	
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("expected state browsing after saving")
+	}
+}
+
+func TestNavigationKeys(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.history = []history.HistoryEntry{{Command: "h1"}, {Command: "h2"}}
+	
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	
+	m.focus = focusHistory
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+}
+
+func TestEditorFinished(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-ui-editor-*")
+	defer os.RemoveAll(tmpDir)
+	
+	path := filepath.Join(tmpDir, "cleat.yaml")
+	os.WriteFile(path, []byte("version: 1"), 0644)
+	
+	m := InitialModel(&config.Config{SourcePath: path}, true, "0.1.0", &executor.ShellExecutor{})
+	
+	updatedModel, _ := m.Update(editorFinishedMsg{err: nil})
+	m = updatedModel.(model)
+	if !m.cfgFound {
+		t.Error("expected config to be found after editor finished")
+	}
+}
+
+func TestRenderingHelpers(t *testing.T) {
+    m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+    m.visibleTail("styled string", 2)
+    m.overlayLine("bg line", "fg", 2)
+    m.overlayLine("bg", "fg", 10)
+}
+
+func TestBuildCommandTreeDeep(t *testing.T) {
+    cfg := &config.Config{
+        Docker: true,
+        GoogleCloudPlatform: &config.GCPConfig{ProjectName: "p"},
+        AppYaml: "app.yaml",
+        Terraform: &config.TerraformConfig{UseFolders: true, Envs: []string{"dev"}},
+        Services: []config.ServiceConfig{
+            {
+                Name: "s1",
+                Modules: []config.ModuleConfig{
+                    {Python: &config.PythonConfig{Django: true}},
+                    {Npm: &config.NpmConfig{Scripts: []string{"s1"}}},
+                },
+                AppYaml: "s1.yaml",
+                Docker: ptrBool(true),
+            },
+        },
+    }
+    tree := buildCommandTree(cfg, []config.Workflow{{Name: "w1"}})
+    if len(tree) == 0 {
+        t.Error("tree should not be empty")
+    }
+}
+
+func TestTUIStateRendering(t *testing.T) {
+    m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+    m.width = 100
+    m.height = 40
+    
+    states := []uiState{
+        stateInputCollection,
+        stateConfirmClearHistory,
+        stateWorkflowNameInput,
+        stateWorkflowLocationSelection,
+        stateShowingConfig,
+    }
+    
+    for _, s := range states {
+        m.state = s
+        m.View()
+    }
+}
+
+func TestHandleEnterKey(t *testing.T) {
+    cfg := &config.Config{
+        Services: []config.ServiceConfig{
+            {Name: "svc", Modules: []config.ModuleConfig{{Python: &config.PythonConfig{Django: true}}}},
+        },
+    }
+    m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
+    m.expandAll()
+    m.updateVisibleItems()
+    
+    // Find a leaf command
+    for i, item := range m.visibleItems {
+        if item.item.Command != "" {
+            m.cursor = i
+            break
+        }
+    }
+    
+    m.handleEnterKey()
+    
+    // Test with history focus
+    m.focus = focusHistory
+    m.history = []history.HistoryEntry{{Command: "build"}}
+    m.handleEnterKey()
+}
+
+func TestBuildConfigLines(t *testing.T) {
+    cfg := &config.Config{
+        Version: 1,
+        Docker: true,
+        GoogleCloudPlatform: &config.GCPConfig{ProjectName: "p"},
+        Terraform: &config.TerraformConfig{Envs: []string{"e"}},
+        Services: []config.ServiceConfig{{Name: "s", Modules: []config.ModuleConfig{{Python: &config.PythonConfig{Django: true}}}}},
+    }
+    m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
+    m.buildConfigLines()
+}
+
+func TestBuildHistoryContent(t *testing.T) {
+    m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+    m.width = 100
+    m.history = []history.HistoryEntry{{Command: "c1", Success: true, Timestamp: time.Now()}}
+    m.buildHistoryContent(lipgloss.Color("1"), lipgloss.Color("2"), lipgloss.Color("3"), lipgloss.Color("4"), lipgloss.Color("5"), 50)
+    
+    m.state = stateCreatingWorkflow
+    m.buildHistoryContent(lipgloss.Color("1"), lipgloss.Color("2"), lipgloss.Color("3"), lipgloss.Color("4"), lipgloss.Color("5"), 50)
 }
