@@ -9,7 +9,7 @@ Restore the missing `WorkflowProvider` to the strategy dispatcher to fix the reg
     - [x] Verify that `GetStrategyForCommand` currently returns `nil` for these commands.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Setup & Command Resolution (Red Phase)' (Protocol in workflow.md)
 
-## Phase 2: Implementation of WorkflowProvider (Green Phase)
+## Phase 2: Implementation of WorkflowProvider (Green Phase) [checkpoint: 63e6f63]
 - [x] Task: Implement the `WorkflowProvider` [3be00d1]
     - [x] Define `WorkflowProvider` struct in `internal/strategy/strategy.go`.
     - [x] Implement `CanHandle(command string)` to detect the `workflow:` prefix.
