@@ -26,15 +26,6 @@ type GCPConfig = schema.GCPConfig
 type TerraformConfig = schema.TerraformConfig
 type Workflow = schema.Workflow
 
-var transientInputs = make(map[string]string)
-
-// SetTransientInputs sets inputs that will be merged into all future loaded configs
-func SetTransientInputs(inputs map[string]string) {
-	for k, v := range inputs {
-		transientInputs[k] = v
-	}
-}
-
 // FindProjectRoot searches upwards from the current directory for a cleat.yaml/cleat.yml file or a .git directory.
 func FindProjectRoot() string {
 	cwd, err := os.Getwd()
@@ -120,9 +111,6 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	cfg.Inputs = make(map[string]string)
-	for k, v := range transientInputs {
-		cfg.Inputs[k] = v
-	}
 
 	baseDir := filepath.Dir(path)
 	if err := detector.DetectAll(baseDir, &cfg); err != nil {
