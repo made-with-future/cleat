@@ -3,10 +3,10 @@
 Refactor the strategy routing logic to use a modular dispatcher pattern, ensuring high test coverage and extensibility.
 
 ## Phase 1: Baseline and Coverage
-- [ ] Task: Increase test coverage for `GetStrategyForCommand` to >80%
-    - [ ] Analyze current gaps in `strategy_test.go`
-    - [ ] Write additional unit tests for edge cases (GCP, Terraform, missing services)
-    - [ ] Verify coverage reaches >80% for `GetStrategyForCommand`
+- [x] Task: Increase test coverage for \`GetStrategyForCommand\` to >80% (a1c39cf)
+    - [x] Analyze current gaps in \`strategy_test.go\`
+    - [x] Write additional unit tests for edge cases (GCP, Terraform, missing services)
+    - [x] Verify coverage reaches >80% for \`GetStrategyForCommand\`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Baseline and Coverage' (Protocol in workflow.md)
 
 ## Phase 2: Dispatcher Foundation
