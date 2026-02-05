@@ -12,9 +12,9 @@ This plan outlines the refactoring of configuration and auto-detection logic.
 - [x] Task: Extract Django and NPM auto-detection logic (a2dcc96)
     - [x] Write tests for Django and NPM detectors
     - [x] Move Django/NPM detection logic to \`internal/detector\`
-- [ ] Task: Extract GCP and Terraform auto-detection logic
-    - [ ] Write tests for GCP and Terraform detectors
-    - [ ] Move GCP/Terraform detection logic to `internal/detector`
+- [x] Task: Extract GCP and Terraform auto-detection logic (8f3dcbd)
+    - [x] Write tests for GCP and Terraform detectors
+    - [x] Move GCP/Terraform detection logic to \`internal/detector\`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Foundation and Extraction' (Protocol in workflow.md)
 
 ## Phase 2: Config Integration and Cleanup
