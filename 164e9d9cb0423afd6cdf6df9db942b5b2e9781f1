@@ -1,0 +1,1 @@
+Task: Extract NPM Strategy Logic\nSummary: Extracted NPM installation and script execution routing logic from LegacyProvider into NpmProvider. Registered NpmProvider in GetProviders.\nFiles: internal/strategy/strategy.go\nWhy: To modularize the dispatcher and improve maintainability of NPM-specific routing.
