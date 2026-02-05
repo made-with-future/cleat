@@ -1,7 +1,6 @@
 package history
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,20 +31,7 @@ func getFilePath(suffix string) (string, error) {
 		return "", fmt.Errorf("failed to get user home dir: %w", err)
 	}
 
-	root := config.FindProjectRoot()
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute project root: %w", err)
-	}
-
-	hash := sha256.Sum256([]byte(absRoot))
-	projectDirName := filepath.Base(absRoot)
-	if projectDirName == "/" || projectDirName == "." || projectDirName == "" {
-		projectDirName = "root"
-	}
-
-	id := fmt.Sprintf("%s-%x", projectDirName, hash[:8])
-
+	id := config.GetProjectID()
 	return filepath.Join(home, ".cleat", id+"."+suffix), nil
 }
 

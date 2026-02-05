@@ -13,7 +13,7 @@ import (
 var log zerolog.Logger
 
 // Init initializes the global logger
-func Init(logPath string, level string) error {
+func Init(logPath string, level string, context map[string]interface{}) error {
 	// Handle home directory expansion if necessary
 	if strings.HasPrefix(logPath, "~/") {
 		home, err := os.UserHomeDir()
@@ -48,7 +48,13 @@ func Init(logPath string, level string) error {
 		zLevel = zerolog.InfoLevel
 	}
 
-	log = zerolog.New(f).Level(zLevel).With().Timestamp().Logger()
+	c := zerolog.New(f).Level(zLevel).With().Timestamp()
+	if context != nil {
+		for k, v := range context {
+			c = c.Interface(k, v)
+		}
+	}
+	log = c.Logger()
 	return nil
 }
 
