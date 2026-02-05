@@ -1,0 +1,1 @@
+Implemented WorkflowProvider to resolveNamed workflows from config. Refactored Docker, Django, and GCP providers to correctly handle colon-separated commands, fixing a regression.
