@@ -86,6 +86,24 @@ var gcpADCLoginCmd = &cobra.Command{
 	},
 }
 
+var gcpADCImpersonateLoginCmd = &cobra.Command{
+	Use:   "adc-impersonate-login",
+	Short: "Login to GCP with service account impersonation (ADC)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadDefaultConfig()
+		if err != nil {
+			return err
+		}
+
+		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
+			return fmt.Errorf("google_cloud_platform.project_name is not configured")
+		}
+
+		s := strategy.NewGCPADCImpersonateLoginStrategy()
+		return s.Execute(cfg, executor.Default)
+	},
+}
+
 var gcpAppEngineCmd = &cobra.Command{
 	Use:   "app-engine",
 	Short: "Google App Engine related commands",
@@ -174,6 +192,7 @@ func init() {
 	gcpCmd.AddCommand(gcpInitCmd)
 	gcpCmd.AddCommand(gcpSetConfigCmd)
 	gcpCmd.AddCommand(gcpADCLoginCmd)
+	gcpCmd.AddCommand(gcpADCImpersonateLoginCmd)
 	gcpAppEngineCmd.AddCommand(gcpAppEngineDeployCmd)
 	gcpAppEngineCmd.AddCommand(gcpAppEnginePromoteCmd)
 	gcpCmd.AddCommand(gcpAppEngineCmd)

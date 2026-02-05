@@ -1234,6 +1234,95 @@ func TestGCPADCLogin(t *testing.T) {
 	}
 }
 
+func TestGCPADCImpersonateLogin(t *testing.T) {
+	t.Run("From inputs", func(t *testing.T) {
+		cfg := &config.Config{
+			GoogleCloudPlatform: &config.GCPConfig{
+				ProjectName: "test-project",
+			},
+			Inputs: map[string]string{
+				"gcp:impersonate-service-account": "test-sa@test-project.iam.gserviceaccount.com",
+			},
+		}
+		task := NewGCPADCImpersonateLogin()
+
+		mock := &mockExecutor{}
+		if err := task.Run(cfg, mock); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if len(mock.commands) != 4 {
+			t.Fatalf("Expected 4 calls, got %d", len(mock.commands))
+		}
+
+		expectedCommands := []string{
+			"gcloud config configurations activate test-project",
+			"gcloud auth application-default login --impersonate-service-account test-sa@test-project.iam.gserviceaccount.com --project test-project",
+			"gcloud auth login --impersonate-service-account test-sa@test-project.iam.gserviceaccount.com --project test-project",
+			"gcloud auth application-default set-quota-project test-project",
+		}
+
+		for i, expected := range expectedCommands {
+			actual := mock.commands[i].name
+			for _, arg := range mock.commands[i].args {
+				actual += " " + arg
+			}
+			if actual != expected {
+				t.Errorf("Expected call %d '%s', got '%s'", i+1, expected, actual)
+			}
+		}
+
+		// Test requirements
+		reqs := task.Requirements(cfg)
+		if len(reqs) != 1 || reqs[0].Key != "gcp:impersonate-service-account" {
+			t.Errorf("Expected 1 requirement for gcp:impersonate-service-account, got %v", reqs)
+		}
+	})
+
+	t.Run("From config", func(t *testing.T) {
+		cfg := &config.Config{
+			GoogleCloudPlatform: &config.GCPConfig{
+				ProjectName:               "test-project",
+				ImpersonateServiceAccount: "config-sa@test-project.iam.gserviceaccount.com",
+			},
+			Inputs: map[string]string{},
+		}
+		task := NewGCPADCImpersonateLogin()
+
+		mock := &mockExecutor{}
+		if err := task.Run(cfg, mock); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if len(mock.commands) != 4 {
+			t.Fatalf("Expected 4 calls, got %d", len(mock.commands))
+		}
+
+		expectedCommands := []string{
+			"gcloud config configurations activate test-project",
+			"gcloud auth application-default login --impersonate-service-account config-sa@test-project.iam.gserviceaccount.com --project test-project",
+			"gcloud auth login --impersonate-service-account config-sa@test-project.iam.gserviceaccount.com --project test-project",
+			"gcloud auth application-default set-quota-project test-project",
+		}
+
+		for i, expected := range expectedCommands {
+			actual := mock.commands[i].name
+			for _, arg := range mock.commands[i].args {
+				actual += " " + arg
+			}
+			if actual != expected {
+				t.Errorf("Expected call %d '%s', got '%s'", i+1, expected, actual)
+			}
+		}
+
+		// Test requirements
+		reqs := task.Requirements(cfg)
+		if len(reqs) != 0 {
+			t.Errorf("Expected 0 requirements when configured, got %v", reqs)
+		}
+	})
+}
+
 func TestGCPSetConfig(t *testing.T) {
 	t.Run("Without account", func(t *testing.T) {
 		cfg := &config.Config{

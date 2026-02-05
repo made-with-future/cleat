@@ -1680,3 +1680,37 @@ func TestWorkflowCreationFlowUser(t *testing.T) {
 		t.Errorf("expected user workflow file to be created at %s", userFile)
 	}
 }
+
+func TestGCPCommandsInTree(t *testing.T) {
+	cfg := &config.Config{
+		GoogleCloudPlatform: &config.GCPConfig{
+			ProjectName: "test-project",
+		},
+	}
+	m := InitialModel(cfg, true)
+	m.expandAll()
+	m.updateVisibleItems()
+
+	expectedLabels := []string{
+		"build",
+		"run",
+		"gcp",
+		"activate",
+		"adc-login",
+		"adc-impersonate-login",
+		"init",
+		"set-config",
+		"console",
+	}
+
+	foundLabels := make(map[string]bool)
+	for _, item := range m.visibleItems {
+		foundLabels[item.item.Label] = true
+	}
+
+	for _, label := range expectedLabels {
+		if !foundLabels[label] {
+			t.Errorf("expected label %q not found in visible items", label)
+		}
+	}
+}
