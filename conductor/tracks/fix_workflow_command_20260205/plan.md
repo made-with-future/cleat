@@ -22,9 +22,9 @@ Restore the missing `WorkflowProvider` to the strategy dispatcher to fix the reg
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Implementation of WorkflowProvider (Green Phase)' (Protocol in workflow.md)
 
 ## Phase 3: Advanced Execution & TUI Verification
-- [ ] Task: Support dynamic inputs and error handling
-    - [ ] Ensure `WorkflowStrategy` correctly bubbles up `InputRequirements` from its constituent tasks.
-    - [ ] Verify that a failure in one step stops the workflow (Fail Fast).
-- [ ] Task: Final verification and TUI check
+- [x] Task: Support dynamic inputs and error handling [caa5bc3]
+    - [x] Ensure `WorkflowStrategy` correctly bubbles up `InputRequirements` from its constituent tasks.
+    - [x] Verify that a failure in one step stops the workflow (Fail Fast).
+- [~] Task: Final verification and TUI check
     - [ ] Perform manual verification in the TUI to ensure workflows can be triggered without the "unknown command" error.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Advanced Execution & TUI Verification' (Protocol in workflow.md)
