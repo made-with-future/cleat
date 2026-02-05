@@ -3,9 +3,9 @@
 Replace global transient state with an explicitly passed `Session` object.
 
 ## Phase 1: Session Definition and Schema Update
-- [ ] Task: Create `internal/session` package
-    - [ ] Define `Session` struct in `internal/session/session.go`
-    - [ ] Add constructor `NewSession(cfg *schema.Config, exec executor.Executor)`
+- [x] Task: Create \`internal/session\` package (537d6db)
+    - [x] Define \`Session\` struct in \`internal/session/session.go\`
+    - [x] Add constructor \`NewSession(cfg *schema.Config, exec executor.Executor)\`
 - [ ] Task: Remove global state from `internal/config`
     - [ ] Delete `transientInputs` and `SetTransientInputs` from `internal/config/config.go`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Session Definition and Schema Update' (Protocol in workflow.md)
