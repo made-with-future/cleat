@@ -32,6 +32,22 @@ type CommandProvider interface {
 	GetStrategy(command string, cfg *config.Config) Strategy
 }
 
+// RegistryProvider handles strategies registered via the global Registry
+type RegistryProvider struct{}
+
+func (p *RegistryProvider) CanHandle(command string) bool {
+	_, ok := Registry[command]
+	return ok
+}
+
+func (p *RegistryProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+	constructor, ok := Registry[command]
+	if !ok {
+		return nil
+	}
+	return constructor(cfg)
+}
+
 // ExecutionMode determines how tasks are run
 type ExecutionMode int
 
