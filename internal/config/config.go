@@ -7,16 +7,13 @@ import (
 
 	"github.com/madewithfuture/cleat/internal/config/schema"
 	"github.com/madewithfuture/cleat/internal/detector"
+	"github.com/madewithfuture/cleat/internal/logger"
 	"gopkg.in/yaml.v3"
 )
 
 const LatestVersion = 1
 
-// Re-export types from schema for backward compatibility if possible, 
-// or update all usages in the project. Since I'm refactoring, 
-// I'll use type aliases or just update the usages.
-// For now, let's use type aliases for the most common ones.
-
+// Re-export types from schema
 type Config = schema.Config
 type ServiceConfig = schema.ServiceConfig
 type ModuleConfig = schema.ModuleConfig
@@ -30,19 +27,18 @@ type Workflow = schema.Workflow
 func FindProjectRoot() string {
 	cwd, err := os.Getwd()
 	if err != nil {
+		logger.Error("failed to get current working directory", err, nil)
 		return "."
 	}
 
 	curr := cwd
 	for {
-		// Check for cleat.yaml or cleat.yml
 		if _, err := os.Stat(filepath.Join(curr, "cleat.yaml")); err == nil {
 			return curr
 		}
 		if _, err := os.Stat(filepath.Join(curr, "cleat.yml")); err == nil {
 			return curr
 		}
-		// Check for .git
 		if _, err := os.Stat(filepath.Join(curr, ".git")); err == nil {
 			return curr
 		}
@@ -58,7 +54,6 @@ func FindProjectRoot() string {
 }
 
 // LoadDefaultConfig searches upwards for cleat.yaml/cleat.yml and loads it.
-// If the file is not found, it returns a default config with auto-detection enabled.
 func LoadDefaultConfig() (*Config, error) {
 	cwd, _ := os.Getwd()
 	curr := cwd
@@ -87,7 +82,7 @@ func LoadConfig(path string) (*Config, error) {
 		if os.IsNotExist(err) {
 			data = []byte{}
 		} else {
-			return nil, err
+			return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
 		}
 	}
 
@@ -95,7 +90,7 @@ func LoadConfig(path string) (*Config, error) {
 	cfg.SourcePath, _ = filepath.Abs(path)
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal config from %s: %w", path, err)
 	}
 
 	if cfg.Version == 0 {
@@ -103,18 +98,18 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	if cfg.Version > LatestVersion || cfg.Version < 1 {
-		return nil, fmt.Errorf("unrecognized configuration version: %d", cfg.Version)
+		return nil, fmt.Errorf("unrecognized configuration version in %s: %d", path, cfg.Version)
 	}
 
 	if cfg.Envs != nil && len(cfg.Envs) == 0 {
-		return nil, fmt.Errorf("envs must have at least one item if provided")
+		return nil, fmt.Errorf("envs in %s must have at least one item if provided", path)
 	}
 
 	cfg.Inputs = make(map[string]string)
 
 	baseDir := filepath.Dir(path)
 	if err := detector.DetectAll(baseDir, &cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auto-detection failed during config load of %s: %w", path, err)
 	}
 
 	return &cfg, nil

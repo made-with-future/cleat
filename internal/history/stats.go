@@ -1,10 +1,12 @@
 package history
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 
+	"github.com/madewithfuture/cleat/internal/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,6 +25,7 @@ func getStatsFilePath() (string, error) {
 func UpdateStats(command string) error {
 	stats, err := LoadStats()
 	if err != nil {
+		logger.Warn("failed to load existing stats before update", map[string]interface{}{"error": err.Error()})
 		// If loading fails, start fresh
 		stats = ProjectStats{
 			Commands: make(map[string]CommandStat),
@@ -43,7 +46,7 @@ func UpdateStats(command string) error {
 func SaveStats(stats ProjectStats) error {
 	data, err := yaml.Marshal(stats)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal stats: %w", err)
 	}
 
 	statsFile, err := getStatsFilePath()
@@ -52,10 +55,13 @@ func SaveStats(stats ProjectStats) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(statsFile), 0755); err != nil {
-		return err
+		return fmt.Errorf("failed to create stats directory: %w", err)
 	}
 
-	return os.WriteFile(statsFile, data, 0644)
+	if err := os.WriteFile(statsFile, data, 0644); err != nil {
+		return fmt.Errorf("failed to write stats file: %w", err)
+	}
+	return nil
 }
 
 func LoadStats() (ProjectStats, error) {
@@ -70,12 +76,12 @@ func LoadStats() (ProjectStats, error) {
 		if os.IsNotExist(err) {
 			return ProjectStats{Commands: make(map[string]CommandStat)}, nil
 		}
-		return ProjectStats{}, err
+		return ProjectStats{}, fmt.Errorf("failed to read stats file: %w", err)
 	}
 
 	var stats ProjectStats
 	if err := yaml.Unmarshal(data, &stats); err != nil {
-		return ProjectStats{}, err
+		return ProjectStats{}, fmt.Errorf("failed to unmarshal stats: %w", err)
 	}
 
 	return stats, nil
