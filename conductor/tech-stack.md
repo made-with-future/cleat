@@ -14,6 +14,7 @@
 - **Configuration Schema:** A centralized schema package (`internal/config/schema`) to maintain a clean separation between data structures and logic.
 - **Command Dispatcher:** A modular routing system (`CommandProvider` interface) in `internal/strategy` for extensible command-to-strategy resolution.
 - **Session-Based Execution:** A unified `Session` object (`internal/session`) that encapsulates dynamic state (inputs, config, executor) and is passed explicitly through the call chain.
+- **Structured Logging:** `rs/zerolog` for persistent, JSON-formatted logging (`~/.cleat/cleat.log`) to provide audit trails and deep observability into background operations and errors.
 
 ## Utilities & Terminal Handling
 - **Terminal Management:** `golang.org/x/term`, `github.com/muesli/termenv`, and `github.com/charmbracelet/x/ansi` for handling terminal resizing, raw mode, and cross-platform ANSI escapes.
