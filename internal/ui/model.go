@@ -83,16 +83,18 @@ type model struct {
 	textInput               textinput.Model
 	pendingG                bool
 	workflowLocationIdx     int
+	version                 string
 }
 
 // InitialModel creates a new model with the given config
-func InitialModel(cfg *config.Config, cfgFound bool) model {
+func InitialModel(cfg *config.Config, cfgFound bool, version string) model {
 	ti := textinput.New()
 	ti.Focus()
 
 	m := model{
 		cfg:                     cfg,
 		cfgFound:                cfgFound,
+		version:                 version,
 		focus:                   focusCommands,
 		state:                   stateBrowsing,
 		collectedInputs:         make(map[string]string),

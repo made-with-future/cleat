@@ -28,7 +28,7 @@ func init() {
 }
 
 func TestModelUpdate(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 
 	// Test quitting with 'q'
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")}
@@ -43,7 +43,7 @@ func TestModelUpdate(t *testing.T) {
 	}
 
 	// Test window resize
-	m = InitialModel(&config.Config{}, true)
+	m = InitialModel(&config.Config{}, true, "0.1.0")
 	wmsg := tea.WindowSizeMsg{Width: 100, Height: 40}
 	updatedModel, _ = m.Update(wmsg)
 	resModel = updatedModel.(model)
@@ -53,7 +53,7 @@ func TestModelUpdate(t *testing.T) {
 }
 
 func TestModelView(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -117,7 +117,7 @@ func TestConfigPreview(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -159,7 +159,7 @@ func TestConfigPreview(t *testing.T) {
 
 	// Test with Terraform
 	cfg.Terraform = &config.TerraformConfig{UseFolders: true, Envs: []string{"production", "staging"}}
-	m2 := InitialModel(cfg, true)
+	m2 := InitialModel(cfg, true, "0.1.0")
 	m2.expandAll()
 	m2.updateVisibleItems()
 	m2.width = 100
@@ -201,7 +201,7 @@ func TestConfigPreviewFiltering(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -219,7 +219,7 @@ func TestConfigPreviewFiltering(t *testing.T) {
 }
 
 func TestSmallDimensions(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 
 	// Test that small dimensions show the "too small" message
 	m.width = 40
@@ -261,7 +261,7 @@ func TestTaskPreviewAllCommands(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -293,7 +293,7 @@ func TestCommandTreeNesting(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.expandAll()
 	m.updateVisibleItems()
 
@@ -354,7 +354,7 @@ func TestNavigation(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 
 	if m.cursor != 0 {
 		t.Errorf("expected initial cursor 0, got %d", m.cursor)
@@ -376,7 +376,7 @@ func TestNavigation(t *testing.T) {
 }
 
 func TestEnterKey(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 
 	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
@@ -392,7 +392,7 @@ func TestEnterKey(t *testing.T) {
 }
 
 func TestTabbing(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 
 	if m.focus != focusCommands {
 		t.Error("expected initial focus to be commands")
@@ -431,7 +431,7 @@ func TestWorkflowTaskPreviewIndentation(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -535,7 +535,7 @@ func TestWorkflowTaskPreviewIndentation(t *testing.T) {
 }
 
 func TestNoConfigMessage(t *testing.T) {
-	m := InitialModel(&config.Config{}, false)
+	m := InitialModel(&config.Config{}, false, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -554,7 +554,7 @@ func TestNoConfigMessage(t *testing.T) {
 }
 
 func TestConfigPaneAction(t *testing.T) {
-	m := InitialModel(&config.Config{}, false)
+	m := InitialModel(&config.Config{}, false, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -578,7 +578,7 @@ func TestConfigPaneAction(t *testing.T) {
 	}
 
 	// With config found
-	m2 := InitialModel(&config.Config{}, true)
+	m2 := InitialModel(&config.Config{}, true, "0.1.0")
 	m2.width = 100
 	m2.height = 40
 
@@ -608,7 +608,7 @@ func TestScrolling(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.expandAll()
 	m.updateVisibleItems()
 	m.width = 80
@@ -649,7 +649,7 @@ func TestScrolling(t *testing.T) {
 }
 
 func TestCursorDimmedWhenUnfocused(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 	m.history = []history.HistoryEntry{{Command: "build", Success: true, Timestamp: time.Now()}}
@@ -694,7 +694,7 @@ func TestCursorDimmedWhenUnfocused(t *testing.T) {
 }
 
 func TestHelpOverlay(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -734,7 +734,7 @@ func TestHelpOverlay(t *testing.T) {
 }
 
 func TestEscToQuit(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 
 	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	resModel := updatedModel.(model)
@@ -751,7 +751,7 @@ func TestTaskPreviewWrapping(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.expandAll()
 	m.updateVisibleItems()
 	m.width = 60
@@ -831,7 +831,7 @@ func TestConfigScrolling(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		cfg.Services[i] = config.ServiceConfig{Name: "service-" + string(rune('a'+i))}
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.expandAll()
 	m.updateVisibleItems()
 	m.width = 100
@@ -882,7 +882,7 @@ func TestInputCollectionModal(t *testing.T) {
 			ProjectName: "test-project",
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.expandAll()
 	m.updateVisibleItems()
 
@@ -941,7 +941,7 @@ func TestNestedCommandPathTitle(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.expandAll()
 	m.updateVisibleItems()
 	m.width = 100
@@ -1020,7 +1020,7 @@ func TestNestedCommandPathTitle(t *testing.T) {
 
 func TestHistoryNavigationWithJK(t *testing.T) {
 	cfg := &config.Config{}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 20 // visibleHistoryCount will be 4
 
@@ -1069,7 +1069,7 @@ func TestHistoryNavigationWithJK(t *testing.T) {
 
 func TestHistoryJumpWithNumberKeys(t *testing.T) {
 	cfg := &config.Config{}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 20 // visibleHistoryCount will be 4
 
@@ -1107,7 +1107,7 @@ func TestHistoryJumpWithNumberKeys(t *testing.T) {
 
 func TestGGKeybinding(t *testing.T) {
 	cfg := &config.Config{}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -1203,7 +1203,7 @@ func TestHistoryTaskPreview(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 120
 	m.height = 40
 
@@ -1280,7 +1280,7 @@ func TestClearHistoryConfirmation(t *testing.T) {
 	// Save some history
 	history.Save(history.HistoryEntry{Command: "test-cmd", Timestamp: time.Now()})
 
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 	m.focus = focusHistory
@@ -1328,7 +1328,7 @@ func TestClearHistoryConfirmation(t *testing.T) {
 }
 
 func TestFocusedTitleColor(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 
@@ -1376,7 +1376,7 @@ func TestFocusedTitleColor(t *testing.T) {
 
 func TestTaskPaneFocusAndScrolling(t *testing.T) {
 	cfg := &config.Config{}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 20
 
@@ -1462,7 +1462,7 @@ func TestServiceDockerCommandsInTree(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.expandAll()
 	m.updateVisibleItems()
 
@@ -1504,7 +1504,7 @@ func TestServiceDockerCommandsInTree(t *testing.T) {
 
 func TestConfigFocusClearsTaskPreview(t *testing.T) {
 	cfg := &config.Config{}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 20
 	m.history = []history.HistoryEntry{
@@ -1562,7 +1562,7 @@ func TestWorkflowCreationFlow(t *testing.T) {
 	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
 
 	cfg := &config.Config{}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 	m.history = []history.HistoryEntry{
@@ -1625,7 +1625,7 @@ func TestWorkflowCreationFlowUser(t *testing.T) {
 	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
 
 	cfg := &config.Config{}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 	m.history = []history.HistoryEntry{
@@ -1687,7 +1687,7 @@ func TestGCPCommandsInTree(t *testing.T) {
 			ProjectName: "test-project",
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 	m.expandAll()
 	m.updateVisibleItems()
 

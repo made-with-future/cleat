@@ -1,6 +1,10 @@
 package task
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/madewithfuture/cleat/internal/config"
@@ -1196,6 +1200,83 @@ func TestTerraformTaskCustomDir(t *testing.T) {
 	})
 }
 
+func TestTerraformTaskWithOp(t *testing.T) {
+	// Create a temp directory for our mock 'op' executable
+	binDir, err := os.MkdirTemp("", "cleat-test-bin")
+	if err != nil {
+		t.Fatalf("failed to create temp bin dir: %v", err)
+	}
+	defer os.RemoveAll(binDir)
+
+	// Create mock 'op' executable
+	opPath := filepath.Join(binDir, "op")
+	if runtime.GOOS == "windows" {
+		opPath += ".exe"
+	}
+	err = os.WriteFile(opPath, []byte("#!/bin/sh\nexit 0\n"), 0755)
+	if err != nil {
+		t.Fatalf("failed to create mock op: %v", err)
+	}
+
+	// Add binDir to PATH
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+	os.Setenv("PATH", binDir+string(os.PathListSeparator)+oldPath)
+
+	// Create temp project directory
+	projectDir, err := os.MkdirTemp("", "cleat-test-project")
+	if err != nil {
+		t.Fatalf("failed to create project dir: %v", err)
+	}
+	defer os.RemoveAll(projectDir)
+
+	configPath := filepath.Join(projectDir, "cleat.yaml")
+	err = os.WriteFile(configPath, []byte("terraform:\n  envs: [production]\n"), 0644)
+	if err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	envsDir := filepath.Join(projectDir, ".envs")
+	err = os.Mkdir(envsDir, 0755)
+	if err != nil {
+		t.Fatalf("failed to create .envs dir: %v", err)
+	}
+
+	envFile := filepath.Join(envsDir, "production.env")
+	err = os.WriteFile(envFile, []byte("SOME_SECRET=op://vault/item/password\n"), 0644)
+	if err != nil {
+		t.Fatalf("failed to write env file: %v", err)
+	}
+
+	cfg := &config.Config{
+		SourcePath: configPath,
+		Terraform: &config.TerraformConfig{
+			UseFolders: true,
+			Envs:       []string{"production"},
+		},
+	}
+
+	// Change to project dir
+	oldCwd, _ := os.Getwd()
+	defer os.Chdir(oldCwd)
+	os.Chdir(projectDir)
+
+	task := NewTerraformTask("production", "plan", nil)
+	commands := task.Commands(cfg)
+
+	if len(commands) != 1 {
+		t.Fatalf("Expected 1 command, got %d", len(commands))
+	}
+
+	cmd := commands[0]
+	cmdStr := strings.Join(cmd, " ")
+
+	expectedPrefix := "op run --env-file=.envs/production.env --no-masking -- terraform"
+	if !strings.HasPrefix(cmdStr, expectedPrefix) {
+		t.Errorf("Expected command to start with '%s', got '%s'", expectedPrefix, cmdStr)
+	}
+}
+
 func TestGCPADCLogin(t *testing.T) {
 	cfg := &config.Config{
 		GoogleCloudPlatform: &config.GCPConfig{
@@ -1251,15 +1332,14 @@ func TestGCPADCImpersonateLogin(t *testing.T) {
 			t.Fatalf("Run failed: %v", err)
 		}
 
-		if len(mock.commands) != 4 {
-			t.Fatalf("Expected 4 calls, got %d", len(mock.commands))
+		if len(mock.commands) != 3 {
+			t.Fatalf("Expected 3 calls, got %d", len(mock.commands))
 		}
 
 		expectedCommands := []string{
 			"gcloud config configurations activate test-project",
 			"gcloud auth application-default login --impersonate-service-account test-sa@test-project.iam.gserviceaccount.com --project test-project",
 			"gcloud auth login --impersonate-service-account test-sa@test-project.iam.gserviceaccount.com --project test-project",
-			"gcloud auth application-default set-quota-project test-project",
 		}
 
 		for i, expected := range expectedCommands {
@@ -1294,15 +1374,14 @@ func TestGCPADCImpersonateLogin(t *testing.T) {
 			t.Fatalf("Run failed: %v", err)
 		}
 
-		if len(mock.commands) != 4 {
-			t.Fatalf("Expected 4 calls, got %d", len(mock.commands))
+		if len(mock.commands) != 3 {
+			t.Fatalf("Expected 3 calls, got %d", len(mock.commands))
 		}
 
 		expectedCommands := []string{
 			"gcloud config configurations activate test-project",
 			"gcloud auth application-default login --impersonate-service-account config-sa@test-project.iam.gserviceaccount.com --project test-project",
 			"gcloud auth login --impersonate-service-account config-sa@test-project.iam.gserviceaccount.com --project test-project",
-			"gcloud auth application-default set-quota-project test-project",
 		}
 
 		for i, expected := range expectedCommands {
