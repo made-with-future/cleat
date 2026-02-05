@@ -15,9 +15,9 @@ Refactor the strategy routing logic to use a modular dispatcher pattern, ensurin
 - [x] Task: Implement \`RegistryProvider\` (2c37c79)
     - [x] Write tests for the `RegistryProvider`
     - [x] Implement `RegistryProvider` to handle strategies registered via `Register()`
-- [ ] Task: Implement Dispatcher Loop
-    - [ ] Refactor `GetStrategyForCommand` to use a slice of `CommandProviders`
-    - [ ] Verify existing tests still pass with only the `RegistryProvider` integrated
+- [x] Task: Implement Dispatcher Loop (8b9e700)
+    - [x] Refactor \`GetStrategyForCommand\` to use a slice of \`CommandProviders\`
+    - [x] Verify existing tests still pass with only the \`RegistryProvider\` integrated
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Dispatcher Foundation' (Protocol in workflow.md)
 
 ## Phase 3: Module Extraction
