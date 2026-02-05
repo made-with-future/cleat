@@ -6,7 +6,7 @@ Cleat currently has several instances where errors are either silently ignored (
 ## Functional Requirements
 - **System-wide Error Audit:** Search and identify all instances of ignored errors (`_ = `) and missing error context across all `internal/` packages.
 - **Structured Logging System:**
-    - Implement a logging utility that writes to a persistent log file (e.g., `~/.cleat/cleat.log`).
+    - Implement a logging utility, such as rs/zerolog, that writes to a persistent log file (e.g., `~/.cleat/cleat.log`).
     - Use **Structured JSON** format for log entries.
     - Log levels: `DEBUG`, `INFO`, `WARN`, `ERROR`.
 - **Hybrid Error Handling:**

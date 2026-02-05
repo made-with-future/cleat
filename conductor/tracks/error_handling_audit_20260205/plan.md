@@ -1,11 +1,11 @@
 # Implementation Plan: Comprehensive Error Context and Logging Audit
 
-Improve error handling across Cleat by introducing structured JSON logging and surfacing critical errors in the TUI.
+Improve error handling across Cleat by introducing structured JSON logging (using `rs/zerolog`) and surfacing critical errors in the TUI.
 
 ## Phase 1: Logging Foundation
 - [ ] Task: Create `internal/logger` package
     - [ ] Write tests for the JSON logger (verify output format and file writing)
-    - [ ] Implement `internal/logger` using a structured JSON approach
+    - [ ] Implement `internal/logger` using `rs/zerolog` for structured JSON logging
     - [ ] Support log levels: DEBUG, INFO, WARN, ERROR
     - [ ] Ensure logs are written to `~/.cleat/cleat.log` (handle directory creation)
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Logging Foundation' (Protocol in workflow.md)
