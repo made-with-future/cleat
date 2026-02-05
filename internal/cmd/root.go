@@ -80,38 +80,6 @@ func run(args []string) {
 				logger.Debug("no command selected in TUI, exiting", nil)
 				return
 			}
-
-			if strings.HasPrefix(selected, "workflow:") {
-				logger.Info("workflow selected", map[string]interface{}{"workflow": selected})
-				history.UpdateStats(selected)
-
-				name := strings.TrimPrefix(selected, "workflow:")
-				cfg, err := config.LoadDefaultConfig()
-				if err != nil {
-					logger.Warn("failed to load config for workflow resolution", map[string]interface{}{"error": err.Error()})
-				}
-				workflows, _ := history.LoadWorkflows(cfg)
-				var workflow *config.Workflow
-				for i := range workflows {
-					if workflows[i].Name == name {
-						workflow = &workflows[i]
-						break
-					}
-				}
-				if workflow != nil {
-					runID := fmt.Sprintf("wf-%d", time.Now().UnixNano())
-					for _, workflowCmd := range workflow.Commands {
-						commandQueue = append(commandQueue, struct {
-							selected      string
-							inputs        map[string]string
-							workflowRunID string
-						}{workflowCmd, nil, runID})
-					}
-					continue
-				} else {
-					logger.Error("workflow not found", nil, map[string]interface{}{"name": name})
-				}
-			}
 		}
 
 		if selected != "" {
@@ -122,6 +90,9 @@ func run(args []string) {
 				cmdArgs = []string{"build"}
 			} else if selected == "run" {
 				cmdArgs = []string{"run"}
+			} else if strings.HasPrefix(selected, "workflow:") {
+				// Let the dispatcher handle it
+				cmdArgs = []string{"run-workflow", strings.TrimPrefix(selected, "workflow:")}
 			} else if strings.HasPrefix(selected, "docker ") || strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
 				cmdArgs = strings.Fields(selected)
 				if strings.Contains(selected, ":") {
