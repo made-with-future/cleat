@@ -266,28 +266,26 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 // GetProviders returns the prioritized list of command providers
 func GetProviders() []CommandProvider {
 	return []CommandProvider{
+		&NpmProvider{},
 		&LegacyProvider{},
 		&RegistryProvider{},
 	}
 }
 
-// LegacyProvider contains the original monolithic routing logic
-type LegacyProvider struct{}
+// NpmProvider handles NPM related commands
+type NpmProvider struct{}
 
-func (p *LegacyProvider) CanHandle(command string) bool {
-	// The legacy logic handles everything by default for now
-	return true
+func (p *NpmProvider) CanHandle(command string) bool {
+	return strings.HasPrefix(command, "npm install") || strings.HasPrefix(command, "npm run ")
 }
 
-func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+func (p *NpmProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 	if cfg == nil {
 		return nil
 	}
 
 	if strings.HasPrefix(command, "npm install") {
-		if s := GetNpmInstallStrategy(command, cfg); s != nil {
-			return s
-		}
+		return GetNpmInstallStrategy(command, cfg)
 	}
 
 	if strings.HasPrefix(command, "npm run ") {
@@ -301,12 +299,9 @@ func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strateg
 			for i := range cfg.Services {
 				if cfg.Services[i].Name == svcName {
 					svc := &cfg.Services[i]
-					// Find the NPM module in this service
 					for j := range svc.Modules {
 						mod := &svc.Modules[j]
 						if mod.Npm != nil {
-							// If there are multiple NPM modules, this might be ambiguous,
-							// but for now we'll take the first one or the one that has the script
 							for _, s := range mod.Npm.Scripts {
 								if s == script {
 									return NewNpmScriptStrategy(svc, mod.Npm, script)
@@ -314,7 +309,6 @@ func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strateg
 							}
 						}
 					}
-					// If no module has the script, try the first NPM module
 					for j := range svc.Modules {
 						if svc.Modules[j].Npm != nil {
 							return NewNpmScriptStrategy(svc, svc.Modules[j].Npm, script)
@@ -348,6 +342,21 @@ func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strateg
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+// LegacyProvider contains the original monolithic routing logic
+type LegacyProvider struct{}
+
+func (p *LegacyProvider) CanHandle(command string) bool {
+	return true
+}
+
+func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+	if cfg == nil {
+		return nil
 	}
 
 	// Handle service-specific docker commands from TUI: "docker down:backend"
