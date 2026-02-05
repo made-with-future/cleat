@@ -1,0 +1,1 @@
+Task: Increase test coverage for GetStrategyForCommand to >80%\nSummary: Added comprehensive unit tests in internal/strategy/coverage_test.go covering edge cases for NPM, Docker, Django, GCP, and Terraform routing.\nFiles: internal/strategy/coverage_test.go\nWhy: To establish a solid baseline and ensure no regressions during the dispatcher refactoring.
