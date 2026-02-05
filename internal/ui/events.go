@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/history"
+	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/task"
 )
@@ -454,13 +455,14 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 			m.updateTaskPreview()
 		} else {
 			m.selectedCommand = item.item.Command
-			s := strategy.GetStrategyForCommand(m.selectedCommand, m.cfg)
+			sess := session.NewSession(m.cfg, m.exec)
+			s := strategy.GetStrategyForCommand(m.selectedCommand, sess)
 			if s != nil {
-				plan, _ := s.ResolveTasks(m.cfg)
+				plan, _ := s.ResolveTasks(sess)
 				var reqs []task.InputRequirement
 				seen := make(map[string]bool)
 				for _, t := range plan {
-					for _, r := range t.Requirements(m.cfg) {
+					for _, r := range t.Requirements(sess) {
 						if !seen[r.Key] {
 							reqs = append(reqs, r)
 							seen[r.Key] = true

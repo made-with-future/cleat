@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
@@ -27,8 +26,9 @@ var gcpActivateCmd = &cobra.Command{
 			return fmt.Errorf("google_cloud_platform.project_name is not configured")
 		}
 
+		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPActivateStrategy()
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -45,8 +45,9 @@ var gcpInitCmd = &cobra.Command{
 			return fmt.Errorf("google_cloud_platform.project_name is not configured")
 		}
 
+		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPInitStrategy()
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -63,8 +64,9 @@ var gcpSetConfigCmd = &cobra.Command{
 			return fmt.Errorf("google_cloud_platform.project_name is not configured")
 		}
 
+		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPSetConfigStrategy()
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -81,8 +83,9 @@ var gcpADCLoginCmd = &cobra.Command{
 			return fmt.Errorf("google_cloud_platform.project_name is not configured")
 		}
 
+		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPADCLoginStrategy()
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -99,8 +102,9 @@ var gcpADCImpersonateLoginCmd = &cobra.Command{
 			return fmt.Errorf("google_cloud_platform.project_name is not configured")
 		}
 
+		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPADCImpersonateLoginStrategy()
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -141,8 +145,9 @@ var gcpAppEngineDeployCmd = &cobra.Command{
 			}
 		}
 
+		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPAppEngineDeployStrategy(appYaml)
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -164,8 +169,9 @@ var gcpAppEnginePromoteCmd = &cobra.Command{
 			service = args[0]
 		}
 
+		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPAppEnginePromoteStrategy(service)
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -182,8 +188,9 @@ var gcpConsoleCmd = &cobra.Command{
 			return fmt.Errorf("google_cloud_platform.project_name is not configured")
 		}
 
+		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPConsoleStrategy()
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 

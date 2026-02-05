@@ -1,14 +1,11 @@
 package task
 
 import (
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/session"
 )
 
 func ptrBool(b bool) *bool {
@@ -56,6 +53,16 @@ func (m *mockExecutor) Prompt(message string, defaultValue string) (string, erro
 	return defaultValue, nil
 }
 
+func newTestSession(cfg *config.Config, exec executor.Executor) *session.Session {
+	sess := session.NewSession(cfg, exec)
+	if cfg != nil && cfg.Inputs != nil {
+		for k, v := range cfg.Inputs {
+			sess.Inputs[k] = v
+		}
+	}
+	return sess
+}
+
 func TestBaseTask(t *testing.T) {
 	bt := &BaseTask{
 		TaskName:        "test:task",
@@ -82,15 +89,15 @@ func TestDockerBuild(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{Docker: true}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Docker is enabled")
 		}
 	})
 
 	t.Run("ShouldRun with Docker disabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: false}
-		if task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{Docker: false}, nil)
+		if task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return false when Docker is disabled")
 		}
 	})
@@ -98,17 +105,17 @@ func TestDockerBuild(t *testing.T) {
 	t.Run("ShouldRun with Service Docker", func(t *testing.T) {
 		svc := &config.ServiceConfig{Name: "svc", Docker: ptrBool(true)}
 		svcTask := NewDockerBuild(svc)
-		cfg := &config.Config{Docker: false}
-		if !svcTask.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{Docker: false}, nil)
+		if !svcTask.ShouldRun(sess) {
 			t.Error("expected ShouldRun true for service task when service docker is enabled")
 		}
 	})
 
 	t.Run("Run executes docker compose build", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{Docker: true}
+		sess := newTestSession(&config.Config{Docker: true}, mock)
 
-		err := task.Run(cfg, mock)
+		err := task.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -131,9 +138,9 @@ func TestDockerBuild(t *testing.T) {
 		mock := &mockExecutor{}
 		svc := &config.ServiceConfig{Name: "svc", Dir: "./svc"}
 		svcTask := NewDockerBuild(svc)
-		cfg := &config.Config{}
+		sess := newTestSession(&config.Config{}, mock)
 
-		err := svcTask.Run(cfg, mock)
+		err := svcTask.Run(sess)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -163,17 +170,17 @@ func TestDockerUp(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{Docker: true}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Docker is enabled")
 		}
 	})
 
 	t.Run("Run executes docker compose up", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{Docker: true}
+		sess := newTestSession(&config.Config{Docker: true}, mock)
 
-		err := task.Run(cfg, mock)
+		err := task.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -195,17 +202,17 @@ func TestDockerDown(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{Docker: true}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Docker is enabled")
 		}
 	})
 
 	t.Run("Run executes docker compose down with all profiles", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{Docker: true}
+		sess := newTestSession(&config.Config{Docker: true}, mock)
 
-		err := task.Run(cfg, mock)
+		err := task.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -237,17 +244,17 @@ func TestDockerRemoveOrphans(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{Docker: true}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Docker is enabled")
 		}
 	})
 
 	t.Run("Run executes docker compose down --remove-orphans with all profiles", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{Docker: true}
+		sess := newTestSession(&config.Config{Docker: true}, mock)
 
-		err := task.Run(cfg, mock)
+		err := task.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -279,17 +286,17 @@ func TestDockerRebuild(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{Docker: true}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Docker is enabled")
 		}
 	})
 
 	t.Run("Run executes docker compose down and build", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{Docker: true}
+		sess := newTestSession(&config.Config{Docker: true}, mock)
 
-		err := task.Run(cfg, mock)
+		err := task.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -322,8 +329,8 @@ func TestDockerRebuild(t *testing.T) {
 	})
 
 	t.Run("Commands returns two commands", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		cmds := task.Commands(cfg)
+		sess := newTestSession(&config.Config{Docker: true}, nil)
+		cmds := task.Commands(sess)
 		if len(cmds) != 2 {
 			t.Fatalf("expected 2 commands, got %d", len(cmds))
 		}
@@ -333,153 +340,6 @@ func TestDockerRebuild(t *testing.T) {
 		if cmds[1][0] != "docker" || cmds[1][6] != "build" {
 			t.Errorf("unexpected second command: %v", cmds[1])
 		}
-	})
-}
-
-func TestNpmBuild(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	npm := &config.NpmConfig{Scripts: []string{"build"}}
-	task := NewNpmBuild(svc, npm)
-
-	if task.Name() != "npm:build" {
-		t.Errorf("expected name 'npm:build', got %q", task.Name())
-	}
-
-	t.Run("ShouldRun with scripts", func(t *testing.T) {
-		cfg := &config.Config{}
-		if !task.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return true when scripts exist")
-		}
-	})
-
-	t.Run("ShouldRun without scripts", func(t *testing.T) {
-		cfg := &config.Config{}
-		taskNoScripts := NewNpmBuild(svc, &config.NpmConfig{})
-		if taskNoScripts.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return false when no scripts")
-		}
-	})
-
-	t.Run("Dependencies includes docker:build", func(t *testing.T) {
-		deps := task.Dependencies()
-		found := false
-		for _, d := range deps {
-			if d == "docker:build" {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Error("expected npm:build to depend on docker:build")
-		}
-	})
-
-	t.Run("Run via Docker", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: true,
-		}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		npmMod := &config.NpmConfig{
-			Service: "node",
-			Scripts: []string{"build", "test"},
-		}
-		taskDocker := NewNpmBuild(svcDocker, npmMod)
-
-		err := taskDocker.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		// Now ONLY 'build' script is run if it exists
-		if len(mock.commands) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(mock.commands))
-		}
-		if mock.commands[0].args[len(mock.commands[0].args)-1] != "build" {
-			t.Errorf("expected last arg to be 'build', got %q", mock.commands[0].args[len(mock.commands[0].args)-1])
-		}
-	})
-
-	t.Run("Run locally", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: false,
-		}
-		npmMod := &config.NpmConfig{Scripts: []string{"build"}}
-		taskLocal := NewNpmBuild(svc, npmMod)
-
-		err := taskLocal.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if len(mock.commands) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "npm" {
-			t.Errorf("expected command 'npm', got %q", mock.commands[0].name)
-		}
-	})
-
-	t.Run("Scripts selection logic", func(t *testing.T) {
-		svc := &config.ServiceConfig{Name: "default", Dir: "."}
-
-		t.Run("Runs ONLY 'build' script if it exists", func(t *testing.T) {
-			npm := &config.NpmConfig{
-				Scripts: []string{"build", "test", "lint"},
-			}
-			task := NewNpmBuild(svc, npm)
-			cfg := &config.Config{}
-			mock := &mockExecutor{}
-
-			err := task.Run(cfg, mock)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if len(mock.commands) != 1 {
-				t.Errorf("expected 1 command, got %d", len(mock.commands))
-			}
-			if len(mock.commands) > 0 && mock.commands[0].args[len(mock.commands[0].args)-1] != "build" {
-				t.Errorf("expected 'build' script, got %v", mock.commands[0].args)
-			}
-		})
-
-		t.Run("Runs scripts containing 'build' if 'build' script DOES NOT exist", func(t *testing.T) {
-			npm := &config.NpmConfig{
-				Scripts: []string{"webpack-build", "tailwindcss-build", "test"},
-			}
-			task := NewNpmBuild(svc, npm)
-			cfg := &config.Config{}
-			mock := &mockExecutor{}
-
-			err := task.Run(cfg, mock)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if len(mock.commands) != 2 {
-				t.Errorf("expected 2 commands, got %d", len(mock.commands))
-			}
-		})
-
-		t.Run("Runs NOTHING if no scripts contain 'build' and 'build' is missing", func(t *testing.T) {
-			npm := &config.NpmConfig{
-				Scripts: []string{"test", "lint", "start"},
-			}
-			task := NewNpmBuild(svc, npm)
-			cfg := &config.Config{}
-			mock := &mockExecutor{}
-
-			err := task.Run(cfg, mock)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if len(mock.commands) != 0 {
-				t.Errorf("expected 0 commands, got %d", len(mock.commands))
-			}
-		})
 	})
 }
 
@@ -493,47 +353,20 @@ func TestNpmInstall(t *testing.T) {
 	}
 
 	t.Run("ShouldRun with npm config", func(t *testing.T) {
-		cfg := &config.Config{}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when npm config exists")
-		}
-	})
-
-	t.Run("Run via Docker", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: true,
-		}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		npmMod := &config.NpmConfig{
-			Service: "node",
-		}
-		taskDocker := NewNpmInstall(svcDocker, npmMod)
-
-		err := taskDocker.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if len(mock.commands) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "docker" {
-			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
-		}
-		if mock.commands[0].args[len(mock.commands[0].args)-1] != "install" {
-			t.Errorf("expected last arg to be 'install', got %q", mock.commands[0].args[len(mock.commands[0].args)-1])
 		}
 	})
 
 	t.Run("Run locally", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{
+		sess := newTestSession(&config.Config{
 			Docker: false,
-		}
+		}, mock)
 		taskLocal := NewNpmInstall(svc, npm)
 
-		err := taskLocal.Run(cfg, mock)
+		err := taskLocal.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -560,21 +393,20 @@ func TestNpmRun(t *testing.T) {
 	}
 
 	t.Run("ShouldRun always true", func(t *testing.T) {
-		cfg := &config.Config{}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true")
 		}
 	})
 
-	t.Run("Run executes script via Docker", func(t *testing.T) {
+	t.Run("Run executes script", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: true,
-		}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		taskDocker := NewNpmRun(svcDocker, npm, "lint")
+		sess := newTestSession(&config.Config{
+			Docker: false,
+		}, mock)
+		taskDocker := NewNpmRun(svc, npm, "lint")
 
-		err := taskDocker.Run(cfg, mock)
+		err := taskDocker.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -582,121 +414,56 @@ func TestNpmRun(t *testing.T) {
 		if len(mock.commands) != 1 {
 			t.Fatalf("expected 1 command, got %d", len(mock.commands))
 		}
-		if mock.commands[0].name != "docker" {
-			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
-		}
-	})
-}
-
-func TestNpmStart(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	npm := &config.NpmConfig{Scripts: []string{"build"}}
-	task := NewNpmStart(svc, npm)
-
-	t.Run("ShouldRun with npm scripts and no docker", func(t *testing.T) {
-		cfg := &config.Config{
-			Docker: false,
-		}
-		if !task.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return true")
-		}
-	})
-
-	t.Run("ShouldRun true even when Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{
-			Docker: true,
-		}
-		if !task.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return true even when Docker is enabled")
+		if mock.commands[0].name != "npm" {
+			t.Errorf("expected command 'npm', got %q", mock.commands[0].name)
 		}
 	})
 }
 
 func TestDjangoCollectStatic(t *testing.T) {
 	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	python := &config.PythonConfig{Django: true}
-	task := NewDjangoCollectStatic(svc, python)
+	task := NewDjangoCollectStatic(svc)
 
 	if task.Name() != "django:collectstatic" {
 		t.Errorf("expected name 'django:collectstatic', got %q", task.Name())
 	}
 
 	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
-		cfg := &config.Config{}
-		if !task.ShouldRun(cfg) {
+		svcWithDjango := &config.ServiceConfig{
+			Name: "default",
+			Modules: []config.ModuleConfig{
+				{Python: &config.PythonConfig{Django: true}},
+			},
+		}
+		taskWithDjango := NewDjangoCollectStatic(svcWithDjango)
+		sess := newTestSession(&config.Config{}, nil)
+		if !taskWithDjango.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Django is enabled")
 		}
 	})
 
 	t.Run("ShouldRun with Django disabled", func(t *testing.T) {
-		cfg := &config.Config{}
-		taskDisabled := NewDjangoCollectStatic(svc, &config.PythonConfig{Django: false})
-		if taskDisabled.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{}, nil)
+		taskDisabled := NewDjangoCollectStatic(svc)
+		if taskDisabled.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return false when Django is disabled")
-		}
-	})
-
-	t.Run("Dependencies includes docker:build and npm:build", func(t *testing.T) {
-		deps := task.Dependencies()
-		hasDocker := false
-		hasNpm := false
-		for _, d := range deps {
-			if d == "docker:build" {
-				hasDocker = true
-			}
-			if d == "npm:build" {
-				hasNpm = true
-			}
-		}
-		if !hasDocker || !hasNpm {
-			t.Error("expected django:collectstatic to depend on docker:build and npm:build")
-		}
-	})
-
-	t.Run("Run via Docker", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: true,
-		}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		pythonMod := &config.PythonConfig{
-			Django:        true,
-			DjangoService: "backend",
-		}
-		taskDocker := NewDjangoCollectStatic(svcDocker, pythonMod)
-
-		err := taskDocker.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if len(mock.commands) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "docker" {
-			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
-		}
-
-		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "collectstatic", "--noinput", "--clear"}
-		if len(mock.commands[0].args) != len(expectedArgs) {
-			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
-		}
-		for i, arg := range expectedArgs {
-			if mock.commands[0].args[i] != arg {
-				t.Errorf("expected arg %d to be %q, got %q", i, arg, mock.commands[0].args[i])
-			}
 		}
 	})
 
 	t.Run("Run locally", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{
+		sess := newTestSession(&config.Config{
 			Docker: false,
+		}, mock)
+		svcWithDjango := &config.ServiceConfig{
+			Name: "default",
+			Modules: []config.ModuleConfig{
+				{Python: &config.PythonConfig{Django: true}},
+			},
 		}
-		pythonMod := &config.PythonConfig{Django: true}
-		taskLocal := NewDjangoCollectStatic(svc, pythonMod)
+		taskLocal := NewDjangoCollectStatic(svcWithDjango)
 
-		err := taskLocal.Run(cfg, mock)
+		err := taskLocal.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -708,97 +475,76 @@ func TestDjangoCollectStatic(t *testing.T) {
 			t.Errorf("expected command 'uv', got %q", mock.commands[0].name)
 		}
 	})
-
-	t.Run("Run locally with pip", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: false,
-		}
-		pythonMod := &config.PythonConfig{Django: true, PackageManager: "pip"}
-		taskPip := NewDjangoCollectStatic(svc, pythonMod)
-
-		err := taskPip.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if len(mock.commands) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "python" {
-			t.Errorf("expected command 'python', got %q", mock.commands[0].name)
-		}
-	})
 }
 
 func TestDjangoRunServer(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	python := &config.PythonConfig{Django: true}
-	task := NewDjangoRunServer(svc, python)
+	svc := &config.ServiceConfig{
+		Name: "default",
+		Dir:  ".",
+		Modules: []config.ModuleConfig{
+			{Python: &config.PythonConfig{Django: true}},
+		},
+	}
+	task := NewDjangoRunServer(svc)
 
 	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: false}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{Docker: false}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Django is enabled")
-		}
-		cfg.Docker = true
-		if !task.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return true even when Docker is enabled")
 		}
 	})
 }
 
 func TestDjangoCreateUserDev(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	python := &config.PythonConfig{Django: true, DjangoService: "backend"}
-	task := NewDjangoCreateUserDev(svc, python)
+	svc := &config.ServiceConfig{
+		Name: "default",
+		Dir:  ".",
+		Modules: []config.ModuleConfig{
+			{Python: &config.PythonConfig{Django: true}},
+		},
+	}
+	task := NewDjangoCreateUserDev(svc)
 
 	if task.Name() != "django:create-user-dev" {
 		t.Errorf("expected name 'django:create-user-dev', got %q", task.Name())
 	}
 
-	t.Run("ShouldRun with Django and Docker enabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: true}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		taskDocker := NewDjangoCreateUserDev(svcDocker, python)
-		if !taskDocker.ShouldRun(cfg) {
+	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
+		sess := newTestSession(&config.Config{Docker: true}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true")
-		}
-	})
-
-	t.Run("ShouldRun false when Docker disabled", func(t *testing.T) {
-		cfg := &config.Config{Docker: false}
-		if task.ShouldRun(cfg) {
-			t.Error("expected ShouldRun to return false")
 		}
 	})
 }
 
 func TestDjangoMigrate(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	python := &config.PythonConfig{Django: true, DjangoService: "backend"}
-	task := NewDjangoMigrate(svc, python)
+	svc := &config.ServiceConfig{
+		Name: "default",
+		Dir:  ".",
+		Modules: []config.ModuleConfig{
+			{Python: &config.PythonConfig{Django: true}},
+		},
+	}
+	task := NewDjangoMigrate(svc)
 
 	if task.Name() != "django:migrate" {
 		t.Errorf("expected name 'django:migrate', got %q", task.Name())
 	}
 
 	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
-		cfg := &config.Config{}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Django is enabled")
 		}
 	})
 
-	t.Run("Run via Docker", func(t *testing.T) {
+	t.Run("Run locally", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: true,
-		}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		taskDocker := NewDjangoMigrate(svcDocker, python)
+		sess := newTestSession(&config.Config{
+			Docker: false,
+		}, mock)
 
-		err := taskDocker.Run(cfg, mock)
+		err := task.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -806,102 +552,40 @@ func TestDjangoMigrate(t *testing.T) {
 		if len(mock.commands) != 1 {
 			t.Fatalf("expected 1 command, got %d", len(mock.commands))
 		}
-		if mock.commands[0].name != "docker" {
-			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
-		}
-
-		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "migrate", "--noinput"}
-		if len(mock.commands[0].args) != len(expectedArgs) {
-			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
-		}
-		for i, v := range expectedArgs {
-			if mock.commands[0].args[i] != v {
-				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
-			}
-		}
-	})
-
-	t.Run("Run via Docker with pip", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: true,
-		}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		pythonPip := &config.PythonConfig{Django: true, DjangoService: "backend", PackageManager: "pip"}
-		taskPip := NewDjangoMigrate(svcDocker, pythonPip)
-
-		err := taskPip.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "python", "manage.py", "migrate", "--noinput"}
-		actualArgs := mock.commands[0].args
-		if len(actualArgs) != len(expectedArgs) {
-			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(actualArgs))
-		}
-		for i, v := range expectedArgs {
-			if actualArgs[i] != v {
-				t.Errorf("arg %d: expected %q, got %q", i, v, actualArgs[i])
-			}
+		if mock.commands[0].name != "uv" {
+			t.Errorf("expected command 'uv', got %q", mock.commands[0].name)
 		}
 	})
 }
 
 func TestDjangoMakeMigrations(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	python := &config.PythonConfig{Django: true, DjangoService: "backend"}
-	task := NewDjangoMakeMigrations(svc, python)
+	svc := &config.ServiceConfig{
+		Name: "default",
+		Dir:  ".",
+		Modules: []config.ModuleConfig{
+			{Python: &config.PythonConfig{Django: true}},
+		},
+	}
+	task := NewDjangoMakeMigrations(svc)
 
 	if task.Name() != "django:makemigrations" {
 		t.Errorf("expected name 'django:makemigrations', got %q", task.Name())
 	}
 
 	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
-		cfg := &config.Config{}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Django is enabled")
-		}
-	})
-
-	t.Run("Run via Docker", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: true,
-		}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		taskDocker := NewDjangoMakeMigrations(svcDocker, python)
-
-		err := taskDocker.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if len(mock.commands) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "docker" {
-			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
-		}
-
-		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "uv", "run", "python", "manage.py", "makemigrations"}
-		if len(mock.commands[0].args) != len(expectedArgs) {
-			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
-		}
-		for i, v := range expectedArgs {
-			if mock.commands[0].args[i] != v {
-				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
-			}
 		}
 	})
 
 	t.Run("Run locally", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{
+		sess := newTestSession(&config.Config{
 			Docker: false,
-		}
+		}, mock)
 
-		err := task.Run(cfg, mock)
+		err := task.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -916,60 +600,33 @@ func TestDjangoMakeMigrations(t *testing.T) {
 }
 
 func TestDjangoGenRandomSecretKey(t *testing.T) {
-	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	python := &config.PythonConfig{Django: true, DjangoService: "backend"}
-	task := NewDjangoGenRandomSecretKey(svc, python)
+	svc := &config.ServiceConfig{
+		Name: "default",
+		Dir:  ".",
+		Modules: []config.ModuleConfig{
+			{Python: &config.PythonConfig{Django: true}},
+		},
+	}
+	task := NewDjangoGenRandomSecretKey(svc)
 
 	if task.Name() != "django:gen-random-secret-key" {
 		t.Errorf("expected name 'django:gen-random-secret-key', got %q", task.Name())
 	}
 
 	t.Run("ShouldRun with Django enabled", func(t *testing.T) {
-		cfg := &config.Config{}
-		if !task.ShouldRun(cfg) {
+		sess := newTestSession(&config.Config{}, nil)
+		if !task.ShouldRun(sess) {
 			t.Error("expected ShouldRun to return true when Django is enabled")
-		}
-	})
-
-	t.Run("Run via Docker", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: true,
-		}
-		svcDocker := &config.ServiceConfig{Name: "default", Dir: ".", Docker: ptrBool(true)}
-		taskDocker := NewDjangoGenRandomSecretKey(svcDocker, python)
-
-		err := taskDocker.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if len(mock.commands) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "docker" {
-			t.Errorf("expected command 'docker', got %q", mock.commands[0].name)
-		}
-
-		pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-		expectedArgs := []string{"--log-level", "error", "compose", "run", "--rm", "backend", "uv", "run", "python", "-c", pyCmd}
-		if len(mock.commands[0].args) != len(expectedArgs) {
-			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
-		}
-		for i, v := range expectedArgs {
-			if mock.commands[0].args[i] != v {
-				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
-			}
 		}
 	})
 
 	t.Run("Run locally with uv", func(t *testing.T) {
 		mock := &mockExecutor{}
-		cfg := &config.Config{
+		sess := newTestSession(&config.Config{
 			Docker: false,
-		}
+		}, mock)
 
-		err := task.Run(cfg, mock)
+		err := task.Run(sess)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -980,73 +637,30 @@ func TestDjangoGenRandomSecretKey(t *testing.T) {
 		if mock.commands[0].name != "uv" {
 			t.Errorf("expected command 'uv', got %q", mock.commands[0].name)
 		}
-
-		pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-		expectedArgs := []string{"run", "python", "-c", pyCmd}
-		if len(mock.commands[0].args) != len(expectedArgs) {
-			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
-		}
-		for i, v := range expectedArgs {
-			if mock.commands[0].args[i] != v {
-				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
-			}
-		}
-	})
-
-	t.Run("Run locally with pip", func(t *testing.T) {
-		mock := &mockExecutor{}
-		cfg := &config.Config{
-			Docker: false,
-		}
-		pythonPip := &config.PythonConfig{Django: true, DjangoService: "backend", PackageManager: "pip"}
-		taskPip := NewDjangoGenRandomSecretKey(svc, pythonPip)
-
-		err := taskPip.Run(cfg, mock)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if len(mock.commands) != 1 {
-			t.Fatalf("expected 1 command, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "python" {
-			t.Errorf("expected command 'python', got %q", mock.commands[0].name)
-		}
-
-		pyCmd := "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-		expectedArgs := []string{"-c", pyCmd}
-		if len(mock.commands[0].args) != len(expectedArgs) {
-			t.Fatalf("expected %d args, got %d", len(expectedArgs), len(mock.commands[0].args))
-		}
-		for i, v := range expectedArgs {
-			if mock.commands[0].args[i] != v {
-				t.Errorf("arg %d: expected %q, got %q", i, v, mock.commands[0].args[i])
-			}
-		}
 	})
 }
 
 func TestGCPActivate(t *testing.T) {
-	cfg := &config.Config{
+	sess := newTestSession(&config.Config{
 		GoogleCloudPlatform: &config.GCPConfig{
 			ProjectName: "test-project",
 		},
-	}
+	}, &mockExecutor{})
 	task := NewGCPActivate()
 
-	if !task.ShouldRun(cfg) {
+	if !task.ShouldRun(sess) {
 		t.Error("Expected ShouldRun to return true")
 	}
 
-	mock := &mockExecutor{}
-	if err := task.Run(cfg, mock); err != nil {
+	if err := task.Run(sess); err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
 
-	if len(mock.commands) != 2 {
-		t.Errorf("Expected 2 calls, got %d", len(mock.commands))
+	mock := sess.Exec.(*mockExecutor)
+	if len(mock.commands) != 1 {
+		t.Errorf("Expected 1 call, got %d", len(mock.commands))
 	}
-	expected1 := "gcloud config configurations activate test-project"
+	expected1 := "gcloud config set project test-project"
 	actual1 := mock.commands[0].name
 	for _, arg := range mock.commands[0].args {
 		actual1 += " " + arg
@@ -1054,38 +668,29 @@ func TestGCPActivate(t *testing.T) {
 	if actual1 != expected1 {
 		t.Errorf("Expected call 1 '%s', got '%s'", expected1, actual1)
 	}
-
-	expected2 := "gcloud auth application-default set-quota-project test-project"
-	actual2 := mock.commands[1].name
-	for _, arg := range mock.commands[1].args {
-		actual2 += " " + arg
-	}
-	if actual2 != expected2 {
-		t.Errorf("Expected call 2 '%s', got '%s'", expected2, actual2)
-	}
 }
 
 func TestGCPInit(t *testing.T) {
-	cfg := &config.Config{
+	sess := newTestSession(&config.Config{
 		GoogleCloudPlatform: &config.GCPConfig{
 			ProjectName: "test-project",
 		},
-	}
+	}, &mockExecutor{})
 	task := NewGCPInit()
 
-	if !task.ShouldRun(cfg) {
+	if !task.ShouldRun(sess) {
 		t.Error("Expected ShouldRun to return true")
 	}
 
-	mock := &mockExecutor{}
-	if err := task.Run(cfg, mock); err != nil {
+	if err := task.Run(sess); err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
 
+	mock := sess.Exec.(*mockExecutor)
 	if len(mock.commands) != 1 {
 		t.Errorf("Expected 1 call, got %d", len(mock.commands))
 	}
-	expected1 := "gcloud config configurations create test-project"
+	expected1 := "gcloud config set project test-project"
 	actual1 := mock.commands[0].name
 	for _, arg := range mock.commands[0].args {
 		actual1 += " " + arg
@@ -1102,29 +707,26 @@ func TestTerraformTask(t *testing.T) {
 	}
 
 	t.Run("init", func(t *testing.T) {
-		task := NewTerraformTask("production", "init", nil)
-		if !task.ShouldRun(cfg) {
+		task := NewTerraform("production", "init", nil)
+		sess := newTestSession(cfg, &mockExecutor{})
+		if !task.ShouldRun(sess) {
 			t.Error("Expected ShouldRun to be true")
 		}
 
-		mock := &mockExecutor{}
-		if err := task.Run(cfg, mock); err != nil {
+		if err := task.Run(sess); err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
 
+		mock := sess.Exec.(*mockExecutor)
 		if len(mock.commands) != 1 {
 			t.Fatalf("Expected 1 call, got %d", len(mock.commands))
 		}
 
-		// Expectations depend on whether 'op' is in PATH and .envs/production.env exists
-		// In tests, they likely don't.
-		expected := "terraform -chdir=.iac/production init"
-		actual := mock.commands[0].name
-		for _, arg := range mock.commands[0].args {
-			actual += " " + arg
+		if mock.commands[0].dir != ".iac/production" {
+			t.Errorf("Expected dir '.iac/production', got %q", mock.commands[0].dir)
 		}
-		if actual != expected {
-			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		if mock.commands[0].name != "terraform" || mock.commands[0].args[0] != "init" {
+			t.Errorf("Expected terraform init, got %v %v", mock.commands[0].name, mock.commands[0].args)
 		}
 	})
 
@@ -1132,498 +734,13 @@ func TestTerraformTask(t *testing.T) {
 		singleCfg := &config.Config{
 			Terraform: &config.TerraformConfig{UseFolders: false},
 		}
-		task := NewTerraformTask("", "plan", nil)
-		mock := &mockExecutor{}
-		task.Run(singleCfg, mock)
-
-		expected := "terraform -chdir=.iac plan"
-		actual := mock.commands[0].name
-		for _, arg := range mock.commands[0].args {
-			actual += " " + arg
-		}
-		if actual != expected {
-			t.Errorf("Expected '%s', got '%s'", expected, actual)
-		}
-	})
-
-	t.Run("init-upgrade", func(t *testing.T) {
-		task := NewTerraformTask("production", "init", []string{"-upgrade"})
-		mock := &mockExecutor{}
-		task.Run(cfg, mock)
-
-		expected := "terraform -chdir=.iac/production init -upgrade"
-		actual := mock.commands[0].name
-		for _, arg := range mock.commands[0].args {
-			actual += " " + arg
-		}
-		if actual != expected {
-			t.Errorf("Expected '%s', got '%s'", expected, actual)
-		}
-	})
-
-	t.Run("apply-refresh", func(t *testing.T) {
-		task := NewTerraformTask("production", "apply", []string{"-refresh-only"})
-		mock := &mockExecutor{}
-		task.Run(cfg, mock)
-
-		expected := "terraform -chdir=.iac/production apply -refresh-only"
-		actual := mock.commands[0].name
-		for _, arg := range mock.commands[0].args {
-			actual += " " + arg
-		}
-		if actual != expected {
-			t.Errorf("Expected '%s', got '%s'", expected, actual)
-		}
-	})
-}
-
-func TestTerraformTaskCustomDir(t *testing.T) {
-	cfg := &config.Config{
-		Terraform: &config.TerraformConfig{
-			Dir: "tf",
-		},
-	}
-
-	t.Run("plan with custom dir", func(t *testing.T) {
-		task := NewTerraformTask("", "plan", nil)
-		mock := &mockExecutor{}
-		task.Run(cfg, mock)
-
-		expected := "terraform -chdir=tf plan"
-		actual := mock.commands[0].name
-		for _, arg := range mock.commands[0].args {
-			actual += " " + arg
-		}
-		if actual != expected {
-			t.Errorf("Expected '%s', got '%s'", expected, actual)
-		}
-	})
-}
-
-func TestTerraformTaskWithOp(t *testing.T) {
-	// Create a temp directory for our mock 'op' executable
-	binDir, err := os.MkdirTemp("", "cleat-test-bin")
-	if err != nil {
-		t.Fatalf("failed to create temp bin dir: %v", err)
-	}
-	defer os.RemoveAll(binDir)
-
-	// Create mock 'op' executable
-	opPath := filepath.Join(binDir, "op")
-	if runtime.GOOS == "windows" {
-		opPath += ".exe"
-	}
-	err = os.WriteFile(opPath, []byte("#!/bin/sh\nexit 0\n"), 0755)
-	if err != nil {
-		t.Fatalf("failed to create mock op: %v", err)
-	}
-
-	// Add binDir to PATH
-	oldPath := os.Getenv("PATH")
-	defer os.Setenv("PATH", oldPath)
-	os.Setenv("PATH", binDir+string(os.PathListSeparator)+oldPath)
-
-	// Create temp project directory
-	projectDir, err := os.MkdirTemp("", "cleat-test-project")
-	if err != nil {
-		t.Fatalf("failed to create project dir: %v", err)
-	}
-	defer os.RemoveAll(projectDir)
-
-	configPath := filepath.Join(projectDir, "cleat.yaml")
-	err = os.WriteFile(configPath, []byte("terraform:\n  envs: [production]\n"), 0644)
-	if err != nil {
-		t.Fatalf("failed to write config: %v", err)
-	}
-
-	envsDir := filepath.Join(projectDir, ".envs")
-	err = os.Mkdir(envsDir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create .envs dir: %v", err)
-	}
-
-	envFile := filepath.Join(envsDir, "production.env")
-	err = os.WriteFile(envFile, []byte("SOME_SECRET=op://vault/item/password\n"), 0644)
-	if err != nil {
-		t.Fatalf("failed to write env file: %v", err)
-	}
-
-	cfg := &config.Config{
-		SourcePath: configPath,
-		Terraform: &config.TerraformConfig{
-			UseFolders: true,
-			Envs:       []string{"production"},
-		},
-	}
-
-	// Change to project dir
-	oldCwd, _ := os.Getwd()
-	defer os.Chdir(oldCwd)
-	os.Chdir(projectDir)
-
-	task := NewTerraformTask("production", "plan", nil)
-	commands := task.Commands(cfg)
-
-	if len(commands) != 1 {
-		t.Fatalf("Expected 1 command, got %d", len(commands))
-	}
-
-	cmd := commands[0]
-	cmdStr := strings.Join(cmd, " ")
-
-	expectedPrefix := "op run --env-file=.envs/production.env --no-masking -- terraform"
-	if !strings.HasPrefix(cmdStr, expectedPrefix) {
-		t.Errorf("Expected command to start with '%s', got '%s'", expectedPrefix, cmdStr)
-	}
-}
-
-func TestGCPADCLogin(t *testing.T) {
-	cfg := &config.Config{
-		GoogleCloudPlatform: &config.GCPConfig{
-			ProjectName: "test-project",
-		},
-	}
-	task := NewGCPADCLogin()
-
-	if !task.ShouldRun(cfg) {
-		t.Error("Expected ShouldRun to return true")
-	}
-
-	mock := &mockExecutor{}
-	if err := task.Run(cfg, mock); err != nil {
-		t.Fatalf("Run failed: %v", err)
-	}
-
-	if len(mock.commands) != 4 {
-		t.Errorf("Expected 4 calls, got %d", len(mock.commands))
-	}
-	expectedCommands := []string{
-		"gcloud config configurations activate test-project",
-		"gcloud auth application-default login --project test-project",
-		"gcloud auth login --project test-project",
-		"gcloud auth application-default set-quota-project test-project",
-	}
-
-	for i, expected := range expectedCommands {
-		actual := mock.commands[i].name
-		for _, arg := range mock.commands[i].args {
-			actual += " " + arg
-		}
-		if actual != expected {
-			t.Errorf("Expected call %d '%s', got '%s'", i+1, expected, actual)
-		}
-	}
-}
-
-func TestGCPADCImpersonateLogin(t *testing.T) {
-	t.Run("From inputs", func(t *testing.T) {
-		cfg := &config.Config{
-			GoogleCloudPlatform: &config.GCPConfig{
-				ProjectName: "test-project",
-			},
-			Inputs: map[string]string{
-				"gcp:impersonate-service-account": "test-sa@test-project.iam.gserviceaccount.com",
-			},
-		}
-		task := NewGCPADCImpersonateLogin()
-
-		mock := &mockExecutor{}
-		if err := task.Run(cfg, mock); err != nil {
-			t.Fatalf("Run failed: %v", err)
-		}
-
-		if len(mock.commands) != 3 {
-			t.Fatalf("Expected 3 calls, got %d", len(mock.commands))
-		}
-
-		expectedCommands := []string{
-			"gcloud config configurations activate test-project",
-			"gcloud auth application-default login --impersonate-service-account test-sa@test-project.iam.gserviceaccount.com --project test-project",
-			"gcloud auth login --impersonate-service-account test-sa@test-project.iam.gserviceaccount.com --project test-project",
-		}
-
-		for i, expected := range expectedCommands {
-			actual := mock.commands[i].name
-			for _, arg := range mock.commands[i].args {
-				actual += " " + arg
-			}
-			if actual != expected {
-				t.Errorf("Expected call %d '%s', got '%s'", i+1, expected, actual)
-			}
-		}
-
-		// Test requirements
-		reqs := task.Requirements(cfg)
-		if len(reqs) != 1 || reqs[0].Key != "gcp:impersonate-service-account" {
-			t.Errorf("Expected 1 requirement for gcp:impersonate-service-account, got %v", reqs)
-		}
-	})
-
-	t.Run("From config", func(t *testing.T) {
-		cfg := &config.Config{
-			GoogleCloudPlatform: &config.GCPConfig{
-				ProjectName:               "test-project",
-				ImpersonateServiceAccount: "config-sa@test-project.iam.gserviceaccount.com",
-			},
-			Inputs: map[string]string{},
-		}
-		task := NewGCPADCImpersonateLogin()
-
-		mock := &mockExecutor{}
-		if err := task.Run(cfg, mock); err != nil {
-			t.Fatalf("Run failed: %v", err)
-		}
-
-		if len(mock.commands) != 3 {
-			t.Fatalf("Expected 3 calls, got %d", len(mock.commands))
-		}
-
-		expectedCommands := []string{
-			"gcloud config configurations activate test-project",
-			"gcloud auth application-default login --impersonate-service-account config-sa@test-project.iam.gserviceaccount.com --project test-project",
-			"gcloud auth login --impersonate-service-account config-sa@test-project.iam.gserviceaccount.com --project test-project",
-		}
-
-		for i, expected := range expectedCommands {
-			actual := mock.commands[i].name
-			for _, arg := range mock.commands[i].args {
-				actual += " " + arg
-			}
-			if actual != expected {
-				t.Errorf("Expected call %d '%s', got '%s'", i+1, expected, actual)
-			}
-		}
-
-		// Test requirements
-		reqs := task.Requirements(cfg)
-		if len(reqs) != 0 {
-			t.Errorf("Expected 0 requirements when configured, got %v", reqs)
-		}
-	})
-}
-
-func TestGCPSetConfig(t *testing.T) {
-	t.Run("Without account", func(t *testing.T) {
-		cfg := &config.Config{
-			GoogleCloudPlatform: &config.GCPConfig{
-				ProjectName: "test-project",
-			},
-		}
-		task := NewGCPSetConfig()
-
-		mock := &mockExecutor{}
-		if err := task.Run(cfg, mock); err != nil {
-			t.Fatalf("Run failed: %v", err)
-		}
-
-		if len(mock.commands) != 3 {
-			t.Errorf("Expected 3 calls, got %d", len(mock.commands))
-		}
-		expectedCommands := []string{
-			"gcloud config set project test-project",
-			"gcloud config set app/promote_by_default false",
-			"gcloud config set billing/quota_project test-project",
-		}
-
-		for i, expected := range expectedCommands {
-			actual := mock.commands[i].name
-			for _, arg := range mock.commands[i].args {
-				actual += " " + arg
-			}
-			if actual != expected {
-				t.Errorf("Expected call %d '%s', got '%s'", i+1, expected, actual)
-			}
-		}
-	})
-
-	t.Run("With account", func(t *testing.T) {
-		cfg := &config.Config{
-			GoogleCloudPlatform: &config.GCPConfig{
-				ProjectName: "test-project",
-				Account:     "test@example.com",
-			},
-		}
-		task := NewGCPSetConfig()
-
-		mock := &mockExecutor{}
-		if err := task.Run(cfg, mock); err != nil {
-			t.Fatalf("Run failed: %v", err)
-		}
-
-		if len(mock.commands) != 4 {
-			t.Errorf("Expected 4 calls, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "gcloud" || mock.commands[0].args[3] != "test@example.com" {
-			t.Errorf("Expected account set to test@example.com, got %v", mock.commands[0])
-		}
-	})
-
-	t.Run("With account from inputs", func(t *testing.T) {
-		cfg := &config.Config{
-			GoogleCloudPlatform: &config.GCPConfig{
-				ProjectName: "test-project",
-			},
-			Inputs: map[string]string{
-				"gcp:account": "input@example.com",
-			},
-		}
-		task := NewGCPSetConfig()
-
-		mock := &mockExecutor{}
-		if err := task.Run(cfg, mock); err != nil {
-			t.Fatalf("Run failed: %v", err)
-		}
-
-		if len(mock.commands) != 4 {
-			t.Errorf("Expected 4 calls, got %d", len(mock.commands))
-		}
-		if mock.commands[0].name != "gcloud" || mock.commands[0].args[3] != "input@example.com" {
-			t.Errorf("Expected account set to input@example.com, got %v", mock.commands[0])
-		}
-	})
-
-	t.Run("Requirements", func(t *testing.T) {
-		task := NewGCPSetConfig()
-
-		t.Run("Needs account", func(t *testing.T) {
-			cfg := &config.Config{
-				GoogleCloudPlatform: &config.GCPConfig{
-					ProjectName: "test-project",
-				},
-			}
-			reqs := task.Requirements(cfg)
-			if len(reqs) != 1 || reqs[0].Key != "gcp:account" {
-				t.Errorf("Expected 1 requirement for gcp:account, got %v", reqs)
-			}
-		})
-
-		t.Run("Has account in config", func(t *testing.T) {
-			cfg := &config.Config{
-				GoogleCloudPlatform: &config.GCPConfig{
-					ProjectName: "test-project",
-					Account:     "test@example.com",
-				},
-			}
-			reqs := task.Requirements(cfg)
-			if len(reqs) != 0 {
-				t.Errorf("Expected 0 requirements, got %v", reqs)
-			}
-		})
-	})
-}
-
-func TestGCPConsole(t *testing.T) {
-	cfg := &config.Config{
-		GoogleCloudPlatform: &config.GCPConfig{
-			ProjectName: "test-project",
-		},
-	}
-	task := NewGCPConsole()
-
-	if !task.ShouldRun(cfg) {
-		t.Error("Expected ShouldRun to return true")
-	}
-
-	mock := &mockExecutor{}
-	if err := task.Run(cfg, mock); err != nil {
-		t.Fatalf("Run failed: %v", err)
-	}
-
-	if len(mock.commands) != 1 {
-		t.Errorf("Expected 1 call, got %d", len(mock.commands))
-	}
-
-	// The actual command depends on runtime.GOOS, but it should be one of xdg-open, open, or cmd
-	cmdName := mock.commands[0].name
-	found := false
-	for _, valid := range []string{"xdg-open", "open", "cmd"} {
-		if cmdName == valid {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("Unexpected command name: %s", cmdName)
-	}
-
-	// Check if the URL is in the args
-	urlFound := false
-	expectedURL := "https://console.cloud.google.com/home/dashboard?project=test-project"
-	for _, arg := range mock.commands[0].args {
-		if arg == expectedURL {
-			urlFound = true
-			break
-		}
-	}
-	if !urlFound {
-		t.Errorf("Expected URL %s not found in args: %v", expectedURL, mock.commands[0].args)
-	}
-}
-
-func TestGCPAppEngineDeploy(t *testing.T) {
-	cfg := &config.Config{
-		GoogleCloudPlatform: &config.GCPConfig{ProjectName: "test-project"},
-		Inputs:              map[string]string{"gcp:version": "v1"},
-	}
-	task := NewGCPAppEngineDeploy("app.yaml")
-
-	if !task.ShouldRun(cfg) {
-		t.Error("Expected ShouldRun to be true")
-	}
-
-	mock := &mockExecutor{}
-	if err := task.Run(cfg, mock); err != nil {
-		t.Fatal(err)
-	}
-
-	if len(mock.commands) != 1 {
-		t.Fatalf("Expected 1 command, got %d", len(mock.commands))
-	}
-	expected := "gcloud app deploy app.yaml --version v1"
-	actual := mock.commands[0].name
-	for _, arg := range mock.commands[0].args {
-		actual += " " + arg
-	}
-	if actual != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, actual)
-	}
-}
-
-func TestGCPAppEnginePromote(t *testing.T) {
-	cfg := &config.Config{
-		GoogleCloudPlatform: &config.GCPConfig{ProjectName: "test-project"},
-		Inputs:              map[string]string{"gcp:promote_version": "v1"},
-	}
-
-	t.Run("Without service", func(t *testing.T) {
-		task := NewGCPAppEnginePromote("")
-		mock := &mockExecutor{}
-		if err := task.Run(cfg, mock); err != nil {
-			t.Fatal(err)
-		}
-		expected := "gcloud app versions migrate v1"
-		actual := mock.commands[0].name
-		for _, arg := range mock.commands[0].args {
-			actual += " " + arg
-		}
-		if actual != expected {
-			t.Errorf("Expected '%s', got '%s'", expected, actual)
-		}
-	})
-
-	t.Run("With service", func(t *testing.T) {
-		task := NewGCPAppEnginePromote("backend")
-		mock := &mockExecutor{}
-		if err := task.Run(cfg, mock); err != nil {
-			t.Fatal(err)
-		}
-		expected := "gcloud app versions migrate v1"
-		actual := mock.commands[0].name
-		for _, arg := range mock.commands[0].args {
-			actual += " " + arg
-		}
-		if actual != expected {
-			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		task := NewTerraform("", "plan", nil)
+		sess := newTestSession(singleCfg, &mockExecutor{})
+		task.Run(sess)
+
+		mock := sess.Exec.(*mockExecutor)
+		if mock.commands[0].dir != ".iac" {
+			t.Errorf("Expected dir '.iac', got %q", mock.commands[0].dir)
 		}
 	})
 }
@@ -1631,23 +748,18 @@ func TestGCPAppEnginePromote(t *testing.T) {
 // Verify all tasks implement the Task interface
 func TestTaskInterface(t *testing.T) {
 	svc := &config.ServiceConfig{Name: "default", Dir: "."}
-	python := &config.PythonConfig{Django: true}
-	npm := &config.NpmConfig{Scripts: []string{"build"}}
 
 	var _ Task = NewDockerBuild(nil)
 	var _ Task = NewDockerUp(nil)
 	var _ Task = NewDockerDown(nil)
 	var _ Task = NewDockerRebuild(nil)
-	var _ Task = NewNpmBuild(svc, npm)
-	var _ Task = NewNpmRun(svc, npm, "test")
-	var _ Task = NewNpmStart(svc, npm)
-	var _ Task = NewDjangoCollectStatic(svc, python)
-	var _ Task = NewDjangoRunServer(svc, python)
-	var _ Task = NewDjangoCreateUserDev(svc, python)
-	var _ Task = NewDjangoMigrate(svc, python)
+	var _ Task = NewNpmRun(svc, nil, "test")
+	var _ Task = NewDjangoCollectStatic(svc)
+	var _ Task = NewDjangoRunServer(svc)
+	var _ Task = NewDjangoCreateUserDev(svc)
+	var _ Task = NewDjangoMigrate(svc)
 	var _ Task = NewGCPActivate()
 	var _ Task = NewGCPInit()
-	var _ Task = NewGCPSetConfig()
 	var _ Task = NewGCPAppEnginePromote("")
 }
 

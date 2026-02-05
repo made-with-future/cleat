@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
@@ -23,6 +22,7 @@ var dockerDownCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var s strategy.Strategy
 		if len(args) > 0 {
 			var targetSvc *config.ServiceConfig
@@ -39,7 +39,7 @@ var dockerDownCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDockerDownStrategy(cfg)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -52,6 +52,7 @@ var dockerRemoveOrphansCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var s strategy.Strategy
 		if len(args) > 0 {
 			var targetSvc *config.ServiceConfig
@@ -68,7 +69,7 @@ var dockerRemoveOrphansCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDockerRemoveOrphansStrategy(cfg)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -81,6 +82,7 @@ var dockerRebuildCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var s strategy.Strategy
 		if len(args) > 0 {
 			var targetSvc *config.ServiceConfig
@@ -97,7 +99,7 @@ var dockerRebuildCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDockerRebuildStrategy(cfg)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 

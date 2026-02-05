@@ -22,6 +22,8 @@ var (
 	Wait = waitForAnyKey
 )
 
+var preCollectedInputs map[string]string
+
 var rootCmd = &cobra.Command{
 	Use:   "cleat",
 	Short: "Cleat is a TUI-based CLI tool",
@@ -92,7 +94,7 @@ func run(args []string) {
 		}
 
 		if selected != "" {
-			config.SetTransientInputs(inputs)
+			preCollectedInputs = inputs
 
 			var cmdArgs []string
 			if selected == "build" {

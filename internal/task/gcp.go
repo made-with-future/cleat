@@ -2,52 +2,9 @@ package task
 
 import (
 	"fmt"
-	"runtime"
 
-	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/session"
 )
-
-type GCPActivate struct {
-	BaseTask
-}
-
-func NewGCPActivate() *GCPActivate {
-	return &GCPActivate{
-		BaseTask: BaseTask{
-			TaskName:        "gcp:activate",
-			TaskDescription: "Activate Google Cloud Platform project",
-		},
-	}
-}
-
-func (t *GCPActivate) ShouldRun(cfg *config.Config) bool {
-	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
-}
-
-func (t *GCPActivate) Run(cfg *config.Config, exec executor.Executor) error {
-	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
-		return fmt.Errorf("google_cloud_platform.project_name is not configured")
-	}
-
-	commands := t.Commands(cfg)
-	for _, cmd := range commands {
-		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *GCPActivate) Commands(cfg *config.Config) [][]string {
-	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
-		return [][]string{}
-	}
-	return [][]string{
-		{"gcloud", "config", "configurations", "activate", cfg.GoogleCloudPlatform.ProjectName},
-		{"gcloud", "auth", "application-default", "set-quota-project", cfg.GoogleCloudPlatform.ProjectName},
-	}
-}
 
 type GCPInit struct {
 	BaseTask
@@ -57,32 +14,77 @@ func NewGCPInit() *GCPInit {
 	return &GCPInit{
 		BaseTask: BaseTask{
 			TaskName:        "gcp:init",
-			TaskDescription: "Initialize Google Cloud Platform configuration",
+			TaskDescription: "Initialize Google Cloud SDK",
 		},
 	}
 }
 
-func (t *GCPInit) ShouldRun(cfg *config.Config) bool {
-	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+func (t *GCPInit) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil
 }
 
-func (t *GCPInit) Run(cfg *config.Config, exec executor.Executor) error {
-	commands := t.Commands(cfg)
-	for _, cmd := range commands {
-		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
+func (t *GCPInit) Run(sess *session.Session) error {
+	fmt.Println("==> Initializing Google Cloud SDK")
+	cmds := t.Commands(sess)
+	for _, cmd := range cmds {
+		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *GCPInit) Commands(cfg *config.Config) [][]string {
-	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
-		return [][]string{}
+func (t *GCPInit) Commands(sess *session.Session) [][]string {
+	if sess.Config.GoogleCloudPlatform == nil {
+		return nil
 	}
-	return [][]string{
-		{"gcloud", "config", "configurations", "create", cfg.GoogleCloudPlatform.ProjectName},
+	cmds := [][]string{{"gcloud", "config", "set", "project", sess.Config.GoogleCloudPlatform.ProjectName}}
+	if sess.Config.GoogleCloudPlatform.Account != "" {
+		cmds = append(cmds, []string{"gcloud", "config", "set", "account", sess.Config.GoogleCloudPlatform.Account})
 	}
+	return cmds
+}
+
+type GCPActivate struct {
+	BaseTask
+}
+
+func NewGCPActivate() *GCPActivate {
+	return &GCPActivate{
+		BaseTask: BaseTask{
+			TaskName:        "gcp:activate",
+			TaskDescription: "Activate GCP account and project",
+			TaskDeps:        nil,
+		},
+	}
+}
+
+func (t *GCPActivate) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil
+}
+
+func (t *GCPActivate) Run(sess *session.Session) error {
+	fmt.Printf("==> Activating project %s\n", sess.Config.GoogleCloudPlatform.ProjectName)
+	cmds := t.Commands(sess)
+	for _, cmd := range cmds {
+		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *GCPActivate) Commands(sess *session.Session) [][]string {
+	if sess.Config.GoogleCloudPlatform == nil {
+		return nil
+	}
+	cmds := [][]string{
+		{"gcloud", "config", "set", "project", sess.Config.GoogleCloudPlatform.ProjectName},
+	}
+	if sess.Config.GoogleCloudPlatform.Account != "" {
+		cmds = append(cmds, []string{"gcloud", "config", "set", "account", sess.Config.GoogleCloudPlatform.Account})
+	}
+	return cmds
 }
 
 type GCPSetConfig struct {
@@ -93,56 +95,58 @@ func NewGCPSetConfig() *GCPSetConfig {
 	return &GCPSetConfig{
 		BaseTask: BaseTask{
 			TaskName:        "gcp:set-config",
-			TaskDescription: "Set Google Cloud Platform configuration properties",
+			TaskDescription: "Set GCP project configuration",
 		},
 	}
 }
 
-func (t *GCPSetConfig) ShouldRun(cfg *config.Config) bool {
-	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+func (t *GCPSetConfig) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil
 }
 
-func (t *GCPSetConfig) Run(cfg *config.Config, exec executor.Executor) error {
-	commands := t.Commands(cfg)
-	for _, cmd := range commands {
-		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
+func (t *GCPSetConfig) Requirements(sess *session.Session) []InputRequirement {
+	var reqs []InputRequirement
+	if sess.Config.GoogleCloudPlatform != nil && sess.Config.GoogleCloudPlatform.Account == "" {
+		if _, ok := sess.Inputs["gcp:account"]; !ok {
+			reqs = append(reqs, InputRequirement{
+				Key:    "gcp:account",
+				Prompt: "Enter GCP account email",
+			})
+		}
+	}
+	return reqs
+}
+
+func (t *GCPSetConfig) Run(sess *session.Session) error {
+	fmt.Println("==> Setting GCP project configuration")
+	cmds := t.Commands(sess)
+	for _, cmd := range cmds {
+		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *GCPSetConfig) Requirements(cfg *config.Config) []InputRequirement {
-	if cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != "" && cfg.GoogleCloudPlatform.Account == "" {
-		return []InputRequirement{
-			{
-				Key:    "gcp:account",
-				Prompt: "Enter your GCP account email",
-			},
-		}
+func (t *GCPSetConfig) Commands(sess *session.Session) [][]string {
+	if sess.Config.GoogleCloudPlatform == nil {
+		return nil
 	}
-	return nil
-}
-
-func (t *GCPSetConfig) Commands(cfg *config.Config) [][]string {
-	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
-		return [][]string{}
-	}
-	commands := [][]string{}
-	account := cfg.GoogleCloudPlatform.Account
-	if account == "" {
-		account = cfg.Inputs["gcp:account"]
+	project := sess.Config.GoogleCloudPlatform.ProjectName
+	account := sess.Config.GoogleCloudPlatform.Account
+	if a, ok := sess.Inputs["gcp:account"]; ok && a != "" {
+		account = a
 	}
 
+	cmds := [][]string{
+		{"gcloud", "config", "set", "project", project},
+	}
 	if account != "" {
-		commands = append(commands, []string{"gcloud", "config", "set", "account", account})
+		cmds = append(cmds, []string{"gcloud", "config", "set", "account", account})
 	}
-	commands = append(commands, [][]string{
-		{"gcloud", "config", "set", "project", cfg.GoogleCloudPlatform.ProjectName},
-		{"gcloud", "config", "set", "app/promote_by_default", "false"},
-		{"gcloud", "config", "set", "billing/quota_project", cfg.GoogleCloudPlatform.ProjectName},
-	}...)
-	return commands
+	cmds = append(cmds, []string{"gcloud", "config", "set", "app/promote_by_default", "false"})
+	cmds = append(cmds, []string{"gcloud", "config", "set", "billing/quota_project", project})
+	return cmds
 }
 
 type GCPADCLogin struct {
@@ -153,93 +157,133 @@ func NewGCPADCLogin() *GCPADCLogin {
 	return &GCPADCLogin{
 		BaseTask: BaseTask{
 			TaskName:        "gcp:adc-login",
-			TaskDescription: "Login to Google Cloud Platform and set application default credentials",
+			TaskDescription: "Login to GCP and set Application Default Credentials",
 		},
 	}
 }
 
-func (t *GCPADCLogin) ShouldRun(cfg *config.Config) bool {
-	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+func (t *GCPADCLogin) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil
 }
 
-func (t *GCPADCLogin) Run(cfg *config.Config, exec executor.Executor) error {
-	commands := t.Commands(cfg)
-	for _, cmd := range commands {
-		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
+func (t *GCPADCLogin) Run(sess *session.Session) error {
+	fmt.Println("==> Logging in to GCP")
+	cmds := t.Commands(sess)
+	for _, cmd := range cmds {
+		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *GCPADCLogin) Commands(cfg *config.Config) [][]string {
-	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
-		return [][]string{}
+func (t *GCPADCLogin) Commands(sess *session.Session) [][]string {
+	if sess.Config.GoogleCloudPlatform == nil {
+		return nil
 	}
+	project := sess.Config.GoogleCloudPlatform.ProjectName
 	return [][]string{
-		{"gcloud", "config", "configurations", "activate", cfg.GoogleCloudPlatform.ProjectName},
-		{"gcloud", "auth", "application-default", "login", "--project", cfg.GoogleCloudPlatform.ProjectName},
-		{"gcloud", "auth", "login", "--project", cfg.GoogleCloudPlatform.ProjectName},
-		{"gcloud", "auth", "application-default", "set-quota-project", cfg.GoogleCloudPlatform.ProjectName},
+		{"gcloud", "config", "configurations", "activate", project},
+		{"gcloud", "auth", "application-default", "login", "--project", project},
+		{"gcloud", "auth", "login", "--project", project},
+		{"gcloud", "auth", "application-default", "set-quota-project", project},
 	}
 }
 
-type GCPADCImpersonateLogin struct {
+type GCPAdcImpersonateLogin struct {
 	BaseTask
 }
 
-func NewGCPADCImpersonateLogin() *GCPADCImpersonateLogin {
-	return &GCPADCImpersonateLogin{
+func NewGCPAdcImpersonateLogin() *GCPAdcImpersonateLogin {
+	return &GCPAdcImpersonateLogin{
 		BaseTask: BaseTask{
 			TaskName:        "gcp:adc-impersonate-login",
-			TaskDescription: "Login to Google Cloud Platform with service account impersonation (ADC)",
+			TaskDescription: "Login with Application Default Credentials and service account impersonation",
 		},
 	}
 }
 
-func (t *GCPADCImpersonateLogin) ShouldRun(cfg *config.Config) bool {
-	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+func (t *GCPAdcImpersonateLogin) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil && (sess.Config.GoogleCloudPlatform.ImpersonateServiceAccount != "" || sess.Inputs["gcp:impersonate-service-account"] != "")
 }
 
-func (t *GCPADCImpersonateLogin) Run(cfg *config.Config, exec executor.Executor) error {
-	commands := t.Commands(cfg)
-	for _, cmd := range commands {
-		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
+func (t *GCPAdcImpersonateLogin) Requirements(sess *session.Session) []InputRequirement {
+	var reqs []InputRequirement
+	if sess.Config.GoogleCloudPlatform != nil && sess.Config.GoogleCloudPlatform.ImpersonateServiceAccount == "" {
+		if _, ok := sess.Inputs["gcp:impersonate-service-account"]; !ok {
+			reqs = append(reqs, InputRequirement{
+				Key:    "gcp:impersonate-service-account",
+				Prompt: "Enter service account to impersonate",
+			})
+		}
+	}
+	return reqs
+}
+
+func (t *GCPAdcImpersonateLogin) Run(sess *session.Session) error {
+	sa := sess.Config.GoogleCloudPlatform.ImpersonateServiceAccount
+	if a, ok := sess.Inputs["gcp:impersonate-service-account"]; ok && a != "" {
+		sa = a
+	}
+	fmt.Printf("==> Logging in with impersonation: %s\n", sa)
+	cmds := t.Commands(sess)
+	for _, cmd := range cmds {
+		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *GCPADCImpersonateLogin) Requirements(cfg *config.Config) []InputRequirement {
-	if cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ImpersonateServiceAccount != "" {
+func (t *GCPAdcImpersonateLogin) Commands(sess *session.Session) [][]string {
+	if sess.Config.GoogleCloudPlatform == nil {
 		return nil
 	}
-	return []InputRequirement{
-		{
-			Key:    "gcp:impersonate-service-account",
-			Prompt: "Enter service account email to impersonate",
+	project := sess.Config.GoogleCloudPlatform.ProjectName
+	sa := sess.Config.GoogleCloudPlatform.ImpersonateServiceAccount
+	if a, ok := sess.Inputs["gcp:impersonate-service-account"]; ok && a != "" {
+		sa = a
+	}
+	if sa == "" {
+		return nil
+	}
+
+	return [][]string{
+		{"gcloud", "config", "configurations", "activate", project},
+		{"gcloud", "auth", "application-default", "login", "--impersonate-service-account", sa, "--project", project},
+		{"gcloud", "auth", "login", "--impersonate-service-account", sa, "--project", project},
+	}
+}
+
+type GCPConsole struct {
+	BaseTask
+}
+
+func NewGCPConsole() *GCPConsole {
+	return &GCPConsole{
+		BaseTask: BaseTask{
+			TaskName:        "gcp:console",
+			TaskDescription: "Open Google Cloud Console",
 		},
 	}
 }
 
-func (t *GCPADCImpersonateLogin) Commands(cfg *config.Config) [][]string {
-	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
-		return [][]string{}
-	}
-	email := cfg.Inputs["gcp:impersonate-service-account"]
-	if email == "" && cfg.GoogleCloudPlatform.ImpersonateServiceAccount != "" {
-		email = cfg.GoogleCloudPlatform.ImpersonateServiceAccount
-	}
-	if email == "" {
-		return [][]string{}
-	}
+func (t *GCPConsole) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil
+}
 
-	return [][]string{
-		{"gcloud", "config", "configurations", "activate", cfg.GoogleCloudPlatform.ProjectName},
-		{"gcloud", "auth", "application-default", "login", "--impersonate-service-account", email, "--project", cfg.GoogleCloudPlatform.ProjectName},
-		{"gcloud", "auth", "login", "--impersonate-service-account", email, "--project", cfg.GoogleCloudPlatform.ProjectName},
+func (t *GCPConsole) Run(sess *session.Session) error {
+	fmt.Println("==> Opening Google Cloud Console")
+	cmds := t.Commands(sess)
+	return sess.Exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *GCPConsole) Commands(sess *session.Session) [][]string {
+	if sess.Config.GoogleCloudPlatform == nil {
+		return nil
 	}
+	url := fmt.Sprintf("https://console.cloud.google.com/home/dashboard?project=%s", sess.Config.GoogleCloudPlatform.ProjectName)
+	return [][]string{{"open", url}}
 }
 
 type GCPAppEngineDeploy struct {
@@ -251,27 +295,17 @@ func NewGCPAppEngineDeploy(appYaml string) *GCPAppEngineDeploy {
 	return &GCPAppEngineDeploy{
 		BaseTask: BaseTask{
 			TaskName:        "gcp:app-engine-deploy",
-			TaskDescription: fmt.Sprintf("Deploy to Google App Engine using %s", appYaml),
+			TaskDescription: "Deploy to App Engine",
 		},
 		AppYaml: appYaml,
 	}
 }
 
-func (t *GCPAppEngineDeploy) ShouldRun(cfg *config.Config) bool {
-	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+func (t *GCPAppEngineDeploy) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil && t.AppYaml != ""
 }
 
-func (t *GCPAppEngineDeploy) Run(cfg *config.Config, exec executor.Executor) error {
-	commands := t.Commands(cfg)
-	for _, cmd := range commands {
-		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *GCPAppEngineDeploy) Requirements(cfg *config.Config) []InputRequirement {
+func (t *GCPAppEngineDeploy) Requirements(sess *session.Session) []InputRequirement {
 	return []InputRequirement{
 		{
 			Key:    "gcp:version",
@@ -280,9 +314,19 @@ func (t *GCPAppEngineDeploy) Requirements(cfg *config.Config) []InputRequirement
 	}
 }
 
-func (t *GCPAppEngineDeploy) Commands(cfg *config.Config) [][]string {
-	version := cfg.Inputs["gcp:version"]
+func (t *GCPAppEngineDeploy) Run(sess *session.Session) error {
+	fmt.Printf("==> Deploying %s to App Engine\n", t.AppYaml)
+	version := sess.Inputs["gcp:version"]
+	if version != "" {
+		fmt.Printf("--> Version: %s\n", version)
+	}
+	cmds := t.Commands(sess)
+	return sess.Exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *GCPAppEngineDeploy) Commands(sess *session.Session) [][]string {
 	cmd := []string{"gcloud", "app", "deploy", t.AppYaml}
+	version := sess.Inputs["gcp:version"]
 	if version != "" {
 		cmd = append(cmd, "--version", version)
 	}
@@ -295,11 +339,11 @@ type GCPAppEnginePromote struct {
 }
 
 func NewGCPAppEnginePromote(service string) *GCPAppEnginePromote {
-	name := "gcp:app-engine-promote"
 	desc := "Promote a version to receive all traffic"
-	if service != "" && service != "default" {
-		name = fmt.Sprintf("gcp:app-engine-promote:%s", service)
+	name := "gcp:app-engine-promote"
+	if service != "" {
 		desc = fmt.Sprintf("Promote a version to receive all traffic for service %s", service)
+		name = fmt.Sprintf("gcp:app-engine-promote:%s", service)
 	}
 	return &GCPAppEnginePromote{
 		BaseTask: BaseTask{
@@ -310,21 +354,11 @@ func NewGCPAppEnginePromote(service string) *GCPAppEnginePromote {
 	}
 }
 
-func (t *GCPAppEnginePromote) ShouldRun(cfg *config.Config) bool {
-	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+func (t *GCPAppEnginePromote) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil
 }
 
-func (t *GCPAppEnginePromote) Run(cfg *config.Config, exec executor.Executor) error {
-	commands := t.Commands(cfg)
-	for _, cmd := range commands {
-		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *GCPAppEnginePromote) Requirements(cfg *config.Config) []InputRequirement {
+func (t *GCPAppEnginePromote) Requirements(sess *session.Session) []InputRequirement {
 	return []InputRequirement{
 		{
 			Key:    "gcp:promote_version",
@@ -333,58 +367,24 @@ func (t *GCPAppEnginePromote) Requirements(cfg *config.Config) []InputRequiremen
 	}
 }
 
-func (t *GCPAppEnginePromote) Commands(cfg *config.Config) [][]string {
-	version := cfg.Inputs["gcp:promote_version"]
+func (t *GCPAppEnginePromote) Run(sess *session.Session) error {
+	version := sess.Inputs["gcp:promote_version"]
+	if version == "" {
+		return fmt.Errorf("no version specified for promotion")
+	}
+	fmt.Printf("==> Promoting App Engine version %s\n", version)
+	cmds := t.Commands(sess)
+	return sess.Exec.Run(cmds[0][0], cmds[0][1:]...)
+}
+
+func (t *GCPAppEnginePromote) Commands(sess *session.Session) [][]string {
+	version := sess.Inputs["gcp:promote_version"]
 	if version == "" {
 		return nil
 	}
 	cmd := []string{"gcloud", "app", "versions", "migrate", version}
+	if t.Service != "" {
+		cmd = append(cmd, "--service", t.Service)
+	}
 	return [][]string{cmd}
-}
-
-type GCPConsole struct {
-	BaseTask
-}
-
-func NewGCPConsole() *GCPConsole {
-	return &GCPConsole{
-		BaseTask: BaseTask{
-			TaskName:        "gcp:console",
-			TaskDescription: "Open Google Cloud Console in browser",
-		},
-	}
-}
-
-func (t *GCPConsole) ShouldRun(cfg *config.Config) bool {
-	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
-}
-
-func (t *GCPConsole) Run(cfg *config.Config, exec executor.Executor) error {
-	url := fmt.Sprintf("https://console.cloud.google.com/home/dashboard?project=%s", cfg.GoogleCloudPlatform.ProjectName)
-	fmt.Printf("Opening %s\n", url)
-
-	cmds := t.Commands(cfg)
-	if len(cmds) == 0 {
-		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
-	}
-
-	return exec.Run(cmds[0][0], cmds[0][1:]...)
-}
-
-func (t *GCPConsole) Commands(cfg *config.Config) [][]string {
-	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
-		return nil
-	}
-	url := fmt.Sprintf("https://console.cloud.google.com/home/dashboard?project=%s", cfg.GoogleCloudPlatform.ProjectName)
-
-	switch runtime.GOOS {
-	case "linux":
-		return [][]string{{"xdg-open", url}}
-	case "darwin":
-		return [][]string{{"open", url}}
-	case "windows":
-		return [][]string{{"cmd", "/c", "start", url}}
-	default:
-		return nil
-	}
 }

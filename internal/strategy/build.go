@@ -27,13 +27,30 @@ func NewBuildStrategy(cfg *config.Config) Strategy {
 				tasks = append(tasks, task.NewDockerBuild(svc))
 				dockerAdded = true
 			}
+		}
+
+		// Add NPM build tasks
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
 			for j := range svc.Modules {
 				mod := &svc.Modules[j]
 				if mod.Npm != nil {
-					tasks = append(tasks, task.NewNpmBuild(svc, mod.Npm))
+					for _, s := range mod.Npm.Scripts {
+						if s == "build" {
+							tasks = append(tasks, task.NewNpmRun(svc, mod.Npm, "build"))
+						}
+					}
 				}
+			}
+		}
+
+		// Add Django collectstatic tasks
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
+			for j := range svc.Modules {
+				mod := &svc.Modules[j]
 				if mod.Python != nil {
-					tasks = append(tasks, task.NewDjangoCollectStatic(svc, mod.Python))
+					tasks = append(tasks, task.NewDjangoCollectStatic(svc))
 				}
 			}
 		}

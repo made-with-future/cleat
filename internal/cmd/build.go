@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
@@ -17,8 +18,14 @@ var buildCmd = &cobra.Command{
 			return err
 		}
 
+		sess := session.NewSession(cfg, executor.Default)
+		if preCollectedInputs != nil {
+			for k, v := range preCollectedInputs {
+				sess.Inputs[k] = v
+			}
+		}
 		s := strategy.NewBuildStrategy(cfg)
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
