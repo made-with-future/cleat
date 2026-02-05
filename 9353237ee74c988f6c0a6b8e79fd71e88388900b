@@ -1,0 +1,1 @@
+Task: Extract GCP Strategy Logic\nSummary: Extracted GCP App Engine deploy and promote routing logic from LegacyProvider into GcpProvider. Registered GcpProvider in GetProviders.\nFiles: internal/strategy/strategy.go\nWhy: To modularize the dispatcher and isolate GCP-specific command resolution.
