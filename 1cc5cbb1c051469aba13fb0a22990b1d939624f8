@@ -1,0 +1,1 @@
+Phase: Phase 1: Foundation and Extraction\nAutomated Test Command: go test ./internal/detector/...\nManual Verification: User confirmed extraction and tests meet expectations.\nStatus: Verified and Checkpointed
