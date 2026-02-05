@@ -1,0 +1,1 @@
+Task: Update internal/config to use internal/detector\nSummary: Integrated the new detector package into LoadConfig. Resolved a circular dependency by moving configuration structs to internal/config/schema.\nFiles: internal/config/config.go, internal/config/schema/schema.go, internal/detector/*.go\nWhy: To finalize the separation of concerns and enable extensible auto-discovery.
