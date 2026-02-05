@@ -1,0 +1,1 @@
+Task: Create internal/detector package structure and interface\nSummary: Created internal/detector package with Detector interface and global registry for auto-discovery.\nFiles: internal/detector/detector.go, internal/detector/detector_test.go\nWhy: To separate auto-detection logic from configuration schema and parsing.
