@@ -7,7 +7,7 @@ Restore the missing `WorkflowProvider` to the strategy dispatcher to fix the reg
     - [x] Create test cases in `internal/strategy/strategy_test.go` that attempt to resolve `workflow:test-workflow`.
     - [x] Define a sample workflow in the test configuration.
     - [x] Verify that `GetStrategyForCommand` currently returns `nil` for these commands.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Setup & Command Resolution (Red Phase)' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Test Setup & Command Resolution (Red Phase)' (Protocol in workflow.md)
 
 ## Phase 2: Implementation of WorkflowProvider (Green Phase) [checkpoint: 63e6f63]
 - [x] Task: Implement the `WorkflowProvider` [3be00d1]
@@ -19,7 +19,7 @@ Restore the missing `WorkflowProvider` to the strategy dispatcher to fix the reg
     - [x] Add `&WorkflowProvider{}` to the `GetProviders()` slice.
     - [x] Run tests and ensure the previously failing cases now pass.
     - [x] Verify code coverage for the new provider is >80%.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Implementation of WorkflowProvider (Green Phase)' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Implementation of WorkflowProvider (Green Phase)' (Protocol in workflow.md)
 
 ## Phase 3: Advanced Execution & TUI Verification
 - [x] Task: Support dynamic inputs and error handling [caa5bc3]
@@ -27,4 +27,4 @@ Restore the missing `WorkflowProvider` to the strategy dispatcher to fix the reg
     - [x] Verify that a failure in one step stops the workflow (Fail Fast).
 - [x] Task: Final verification and TUI check [d0ce479]
     - [x] Perform manual verification in the TUI to ensure workflows can be triggered without the "unknown command" error.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Advanced Execution & TUI Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Advanced Execution & TUI Verification' (Protocol in workflow.md)
