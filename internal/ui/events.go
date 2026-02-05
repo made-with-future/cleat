@@ -458,7 +458,11 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 			sess := session.NewSession(m.cfg, m.exec)
 			s := strategy.GetStrategyForCommand(m.selectedCommand, sess)
 			if s != nil {
-				plan, _ := s.ResolveTasks(sess)
+				plan, err := s.ResolveTasks(sess)
+				if err != nil {
+					m.fatalError = fmt.Errorf("failed to resolve tasks: %w", err)
+					return m, nil
+				}
 				var reqs []task.InputRequirement
 				seen := make(map[string]bool)
 				for _, t := range plan {
@@ -478,6 +482,9 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 					m.textInput.CursorEnd()
 					return m, nil
 				}
+			} else {
+				m.fatalError = fmt.Errorf("unknown command: %s", m.selectedCommand)
+				return m, nil
 			}
 			m.quitting = true
 			return m, tea.Quit
