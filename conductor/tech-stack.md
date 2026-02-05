@@ -12,6 +12,7 @@
 - **YAML:** `gopkg.in/yaml.v3` for parsing and generating the declarative `cleat.yaml` configuration files, as well as managing internal history and usage statistics.
 - **Auto-Detection Engine:** A custom extensible detector package (`internal/detector`) for project auto-discovery.
 - **Configuration Schema:** A centralized schema package (`internal/config/schema`) to maintain a clean separation between data structures and logic.
+- **Command Dispatcher:** A modular routing system (`CommandProvider` interface) in `internal/strategy` for extensible command-to-strategy resolution.
 
 ## Utilities & Terminal Handling
 - **Terminal Management:** `golang.org/x/term`, `github.com/muesli/termenv`, and `github.com/charmbracelet/x/ansi` for handling terminal resizing, raw mode, and cross-platform ANSI escapes.
