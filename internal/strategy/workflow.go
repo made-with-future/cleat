@@ -49,9 +49,9 @@ func (s *WorkflowStrategy) Name() string {
 }
 
 func (s *WorkflowStrategy) Tasks() []task.Task {
-	// This is a bit tricky because WorkflowStrategy doesn't own the tasks directly,
-	// it delegates to other strategies. For the sake of the interface, we'll
-	// return an empty slice here as ResolveTasks will be used for execution.
+	// We can't easily return all possible tasks without a session,
+	// but the interface requires it. We'll return nil here and 
+	// rely on ResolveTasks when a session is available.
 	return nil
 }
 
@@ -70,6 +70,32 @@ func (s *WorkflowStrategy) ResolveTasks(sess *session.Session) ([]task.Task, err
 func (s *WorkflowStrategy) Execute(sess *session.Session) error {
 	logger.Info("executing workflow strategy", map[string]interface{}{"workflow": s.name})
 
+	// 1. Resolve all tasks to collect requirements upfront
+	allTasks, err := s.ResolveTasks(sess)
+	if err != nil {
+		return err
+	}
+
+	// 2. Collect requirements from all tasks
+	requirements := make(map[string]task.InputRequirement)
+	for _, t := range allTasks {
+		for _, req := range t.Requirements(sess) {
+			requirements[req.Key] = req
+		}
+	}
+
+	// 3. Prompt for missing inputs
+	for key, req := range requirements {
+		if _, ok := sess.Inputs[key]; !ok {
+			val, err := sess.Exec.Prompt(req.Prompt, req.Default)
+			if err != nil {
+				return fmt.Errorf("failed to get input for %s: %w", key, err)
+			}
+			sess.Inputs[key] = val
+		}
+	}
+
+	// 4. Execute steps sequentially
 	for _, cmd := range s.commands {
 		logger.Debug("workflow step", map[string]interface{}{"workflow": s.name, "command": cmd})
 		strat := GetStrategyForCommand(cmd, sess)
@@ -77,8 +103,17 @@ func (s *WorkflowStrategy) Execute(sess *session.Session) error {
 			return fmt.Errorf("workflow '%s' step '%s' failed: unknown command", s.name, cmd)
 		}
 
-		if err := strat.Execute(sess); err != nil {
-			return fmt.Errorf("workflow '%s' step '%s' failed: %w", s.name, cmd, err)
+		// Note: We don't call strat.Execute(sess) because that would re-prompt for inputs.
+		// Instead, we resolve tasks for this step and run them.
+		tasks, err := strat.ResolveTasks(sess)
+		if err != nil {
+			return fmt.Errorf("workflow '%s' step '%s' failed to resolve tasks: %w", s.name, cmd, err)
+		}
+
+		for _, t := range tasks {
+			if err := t.Run(sess); err != nil {
+				return fmt.Errorf("workflow '%s' step '%s' task '%s' failed: %w", s.name, cmd, t.Name(), err)
+			}
 		}
 	}
 
