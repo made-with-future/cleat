@@ -1,0 +1,1 @@
+Task: Extract Docker auto-detection logic\nSummary: Moved Docker Compose detection and service population logic from internal/config to internal/detector/docker.go.\nFiles: internal/detector/docker.go, internal/detector/docker_test.go\nWhy: To modularize auto-discovery and simplify configuration loading.
