@@ -10,6 +10,7 @@ import (
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/history"
+	"github.com/madewithfuture/cleat/internal/logger"
 	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/task"
@@ -106,8 +107,17 @@ func InitialModel(cfg *config.Config, cfgFound bool, version string, exec execut
 		selectedWorkflowIndices: []int{},
 		textInput:               ti,
 	}
-	m.history, _ = history.Load()
-	m.workflows, _ = history.LoadWorkflows(cfg)
+	var err error
+	m.history, err = history.Load()
+	if err != nil {
+		logger.Warn("failed to load history during UI init", map[string]interface{}{"error": err.Error()})
+	}
+
+	m.workflows, err = history.LoadWorkflows(cfg)
+	if err != nil {
+		logger.Warn("failed to load workflows during UI init", map[string]interface{}{"error": err.Error()})
+	}
+
 	m.tree = buildCommandTree(cfg, m.workflows)
 	m.updateVisibleItems()
 	m.updateTaskPreview()
@@ -354,7 +364,10 @@ func (m model) visibleCommandCount() int {
 		return len(m.visibleItems)
 	}
 	titleLines := 2
-	helpLines := 3
+	helpLines := 2
+	if m.fatalError != nil {
+		helpLines = 3
+	}
 	paneHeight := (m.height - helpLines - titleLines) / 2
 	// Subtract: 2 for borders, 0 for title (now on border), 0 for blank line (now removed), 1 for potential scroll indicator
 	availableLines := paneHeight - 2 - 0 - 0 - 1
@@ -387,7 +400,10 @@ func (m model) visibleHistoryCount() int {
 		return len(m.history)
 	}
 	titleLines := 2
-	helpLines := 3
+	helpLines := 2
+	if m.fatalError != nil {
+		helpLines = 3
+	}
 	paneHeight := (m.height - helpLines - titleLines) / 2
 	// Subtract: 2 for borders, 1 for potential scroll indicator, 1 for padding/alignment consistency
 	availableLines := paneHeight - 2 - 1 - 1
@@ -402,7 +418,10 @@ func (m model) visibleTasksCount() int {
 		return len(m.taskPreview)
 	}
 	titleLines := 2
-	helpLines := 3
+	helpLines := 2
+	if m.fatalError != nil {
+		helpLines = 3
+	}
 	paneHeight := (m.height - helpLines - titleLines) - ((m.height - helpLines - titleLines) / 2)
 	// Subtract: 2 for borders, 1 for potential scroll indicator
 	availableLines := paneHeight - 2 - 1

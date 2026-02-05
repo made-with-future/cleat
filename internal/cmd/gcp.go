@@ -19,7 +19,7 @@ var gcpActivateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -28,7 +28,10 @@ var gcpActivateCmd = &cobra.Command{
 
 		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPActivateStrategy()
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("gcp activate failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -38,7 +41,7 @@ var gcpInitCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -47,7 +50,10 @@ var gcpInitCmd = &cobra.Command{
 
 		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPInitStrategy()
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("gcp init failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -57,7 +63,7 @@ var gcpSetConfigCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -66,7 +72,10 @@ var gcpSetConfigCmd = &cobra.Command{
 
 		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPSetConfigStrategy()
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("gcp set-config failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -76,7 +85,7 @@ var gcpADCLoginCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -85,7 +94,10 @@ var gcpADCLoginCmd = &cobra.Command{
 
 		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPADCLoginStrategy()
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("gcp adc-login failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -95,7 +107,7 @@ var gcpADCImpersonateLoginCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -104,7 +116,10 @@ var gcpADCImpersonateLoginCmd = &cobra.Command{
 
 		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPADCImpersonateLoginStrategy()
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("gcp adc-impersonate-login failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -119,7 +134,7 @@ var gcpAppEngineDeployCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -147,7 +162,10 @@ var gcpAppEngineDeployCmd = &cobra.Command{
 
 		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPAppEngineDeployStrategy(appYaml)
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("gcp app-engine deploy failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -157,7 +175,7 @@ var gcpAppEnginePromoteCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -171,7 +189,10 @@ var gcpAppEnginePromoteCmd = &cobra.Command{
 
 		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPAppEnginePromoteStrategy(service)
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("gcp app-engine promote failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -181,7 +202,7 @@ var gcpConsoleCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
@@ -190,7 +211,10 @@ var gcpConsoleCmd = &cobra.Command{
 
 		sess := createSessionAndMerge(cfg)
 		s := strategy.NewGCPConsoleStrategy()
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("gcp console failed: %w", err)
+		}
+		return nil
 	},
 }
 

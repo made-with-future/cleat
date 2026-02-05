@@ -33,7 +33,10 @@ func (t *NpmRun) ShouldRun(sess *session.Session) bool {
 func (t *NpmRun) Run(sess *session.Session) error {
 	fmt.Printf("==> Running NPM script %s for service %s\n", t.Script, t.Service.Name)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("npm run %s failed for service %s: %w", t.Script, t.Service.Name, err)
+	}
+	return nil
 }
 
 func (t *NpmRun) Commands(sess *session.Session) [][]string {
@@ -64,7 +67,10 @@ func (t *NpmInstall) ShouldRun(sess *session.Session) bool {
 func (t *NpmInstall) Run(sess *session.Session) error {
 	fmt.Printf("==> Installing dependencies for service %s\n", t.Service.Name)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("npm install failed for service %s: %w", t.Service.Name, err)
+	}
+	return nil
 }
 
 func (t *NpmInstall) Commands(sess *session.Session) [][]string {

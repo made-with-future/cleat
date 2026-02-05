@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/history"
+	"github.com/madewithfuture/cleat/internal/logger"
+	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -28,6 +31,16 @@ var rootCmd = &cobra.Command{
 	Use:   "cleat",
 	Short: "Cleat is a TUI-based CLI tool",
 	Long:  `Cleat is a tool that provides both a terminal user interface and command line actions.`,
+}
+
+func createSessionAndMerge(cfg *config.Config) *session.Session {
+	sess := session.NewSession(cfg, executor.Default)
+	if preCollectedInputs != nil {
+		for k, v := range preCollectedInputs {
+			sess.Inputs[k] = v
+		}
+	}
+	return sess
 }
 
 func Execute() {
@@ -52,25 +65,31 @@ func run(args []string) {
 			selected = item.selected
 			inputs = item.inputs
 			workflowRunID = item.workflowRunID
+			logger.Info("running command from workflow queue", map[string]interface{}{"command": selected, "run_id": workflowRunID})
 		} else if tuiMode {
 			var err error
 			selected, inputs, err = UIStart(Version)
 			if err != nil {
+				logger.Error("failed to start TUI", err, nil)
 				fmt.Printf("Error starting TUI: %v\n", err)
 				Exit(1)
 				return
 			}
 
 			if selected == "" {
+				logger.Debug("no command selected in TUI, exiting", nil)
 				return
 			}
 
 			if strings.HasPrefix(selected, "workflow:") {
-				// Update stats for the workflow itself
+				logger.Info("workflow selected", map[string]interface{}{"workflow": selected})
 				history.UpdateStats(selected)
 
 				name := strings.TrimPrefix(selected, "workflow:")
-				cfg, _ := config.LoadDefaultConfig()
+				cfg, err := config.LoadDefaultConfig()
+				if err != nil {
+					logger.Warn("failed to load config for workflow resolution", map[string]interface{}{"error": err.Error()})
+				}
 				workflows, _ := history.LoadWorkflows(cfg)
 				var workflow *config.Workflow
 				for i := range workflows {
@@ -89,6 +108,8 @@ func run(args []string) {
 						}{workflowCmd, nil, runID})
 					}
 					continue
+				} else {
+					logger.Error("workflow not found", nil, map[string]interface{}{"name": name})
 				}
 			}
 		}
@@ -123,7 +144,6 @@ func run(args []string) {
 				scriptPart := strings.TrimPrefix(selected, "npm run ")
 				parts := strings.SplitN(scriptPart, ":", 2)
 				if len(parts) == 2 {
-					// npm run svc:script -> cleat npm script svc
 					cmdArgs = []string{"npm", parts[1], parts[0]}
 				} else {
 					cmdArgs = []string{"npm", scriptPart}
@@ -137,6 +157,7 @@ func run(args []string) {
 				rootCmd.SetArgs(cmdArgs)
 			} else {
 				if tuiMode {
+					logger.Warn("could not map selected command to CLI args", map[string]interface{}{"command": selected})
 					continue
 				}
 				return
@@ -148,12 +169,12 @@ func run(args []string) {
 		for {
 			err := rootCmd.Execute()
 			if err != nil {
+				logger.Error("command execution failed", err, map[string]interface{}{"selected": selected})
 				fmt.Fprintln(os.Stderr, err)
 				if !tuiMode {
 					Exit(1)
 					return
 				}
-				// If in a workflow, maybe we should stop?
 				if len(commandQueue) > 0 {
 					fmt.Println("Workflow failed. Stopping.")
 					commandQueue = nil
@@ -161,7 +182,6 @@ func run(args []string) {
 			}
 
 			if tuiMode && selected != "" {
-				// Save to history
 				history.Save(history.HistoryEntry{
 					Timestamp:     time.Now(),
 					Command:       selected,
@@ -169,13 +189,11 @@ func run(args []string) {
 					Success:       err == nil,
 					WorkflowRunID: workflowRunID,
 				})
-				// Update stats, but only if not part of a workflow run
 				if workflowRunID == "" {
 					history.UpdateStats(selected)
 				}
 			}
 
-			// If there are more commands in the queue, don't wait yet
 			if len(commandQueue) > 0 {
 				fmt.Println("\nRunning next command in workflow...")
 				time.Sleep(1 * time.Second)
@@ -205,7 +223,6 @@ func run(args []string) {
 }
 
 func init() {
-	// Add flags or subcommands here
 }
 
 func waitForAnyKey() bool {

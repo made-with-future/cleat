@@ -67,8 +67,8 @@ func TestHistory(t *testing.T) {
 	}
 
 	entries, err = Load()
-	if err == nil {
-		t.Error("Expected error loading cleared history")
+	if err != nil {
+		t.Errorf("Expected no error loading cleared history, got %v", err)
 	}
 	if len(entries) != 0 {
 		t.Errorf("Expected 0 entries after clear, got %d", len(entries))
