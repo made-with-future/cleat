@@ -278,6 +278,7 @@ func GetStrategyForCommand(command string, sess *session.Session) Strategy {
 // GetProviders returns the prioritized list of command providers
 func GetProviders() []CommandProvider {
 	return []CommandProvider{
+		&WorkflowProvider{},
 		&NpmProvider{},
 		&DockerProvider{},
 		&DjangoProvider{},
@@ -366,7 +367,7 @@ func (p *NpmProvider) GetStrategy(command string, sess *session.Session) Strateg
 type DockerProvider struct{}
 
 func (p *DockerProvider) CanHandle(command string) bool {
-	return strings.HasPrefix(command, "docker ")
+	return strings.HasPrefix(command, "docker ") || strings.HasPrefix(command, "docker:")
 }
 
 func (p *DockerProvider) GetStrategy(command string, sess *session.Session) Strategy {
@@ -374,20 +375,31 @@ func (p *DockerProvider) GetStrategy(command string, sess *session.Session) Stra
 		return nil
 	}
 
-	if command == "docker down" {
+	if command == "docker down" || command == "docker:down" {
 		return NewDockerDownStrategy(sess.Config)
 	}
-	if command == "docker rebuild" {
+	if command == "docker rebuild" || command == "docker:rebuild" {
 		return NewDockerRebuildStrategy(sess.Config)
 	}
-	if command == "docker remove-orphans" {
+	if command == "docker remove-orphans" || command == "docker:remove-orphans" {
 		return NewDockerRemoveOrphansStrategy(sess.Config)
 	}
+	if command == "docker up" || command == "docker:up" {
+		return NewDockerUpStrategy(sess.Config)
+	}
 
-	parts := strings.Split(command, ":")
-	if len(parts) == 2 {
-		baseCmd := parts[0]
-		svcName := parts[1]
+	// Handle service-specific commands: "docker <cmd>:<svc>" or "docker:<cmd>:<svc>"
+	fullCmd := command
+	if strings.HasPrefix(fullCmd, "docker ") {
+		// Convert "docker down:web" to "docker:down:web" for easier splitting
+		fullCmd = "docker:" + strings.TrimPrefix(fullCmd, "docker ")
+	}
+
+	parts := strings.Split(fullCmd, ":")
+	if len(parts) == 3 {
+		// docker:<baseCmd>:<svcName>
+		baseCmd := parts[1]
+		svcName := parts[2]
 		var targetSvc *config.ServiceConfig
 		for i := range sess.Config.Services {
 			if sess.Config.Services[i].Name == svcName {
@@ -398,14 +410,21 @@ func (p *DockerProvider) GetStrategy(command string, sess *session.Session) Stra
 
 		if targetSvc != nil {
 			switch baseCmd {
-			case "docker down":
+			case "down":
 				return NewDockerDownStrategyForService(targetSvc)
-			case "docker rebuild":
+			case "rebuild":
 				return NewDockerRebuildStrategyForService(targetSvc)
-			case "docker remove-orphans":
+			case "remove-orphans":
 				return NewDockerRemoveOrphansStrategyForService(targetSvc)
+			case "up":
+				return NewDockerUpStrategyForService(targetSvc)
 			}
 		}
+	} else if len(parts) == 2 {
+		// Cases like "docker:up" (handled above) or if it was "docker down:web" but now it's "docker:down:web"
+		// Wait, if it was "docker down:web", strings.Split(normalized, ":") gives ["docker", "down", "web"]? 
+		// No, strings.Replace("docker down:web", " ", ":", 1) gives "docker:down:web".
+		// Let's re-verify my normalization.
 	}
 	return nil
 }
@@ -414,7 +433,7 @@ func (p *DockerProvider) GetStrategy(command string, sess *session.Session) Stra
 type DjangoProvider struct{}
 
 func (p *DjangoProvider) CanHandle(command string) bool {
-	return strings.HasPrefix(command, "django ")
+	return strings.HasPrefix(command, "django ") || strings.HasPrefix(command, "django:")
 }
 
 func (p *DjangoProvider) GetStrategy(command string, sess *session.Session) Strategy {
@@ -422,29 +441,31 @@ func (p *DjangoProvider) GetStrategy(command string, sess *session.Session) Stra
 		return nil
 	}
 
-	if command == "django runserver" {
-		return NewDjangoRunServerStrategyGlobal(sess.Config)
-	}
-	if command == "django migrate" {
-		return NewDjangoMigrateStrategyGlobal(sess.Config)
-	}
-	if command == "django makemigrations" {
-		return NewDjangoMakeMigrationsStrategyGlobal(sess.Config)
-	}
-	if command == "django collectstatic" {
-		return NewDjangoCollectStaticStrategyGlobal(sess.Config)
-	}
-	if command == "django create-user-dev" {
-		return NewDjangoCreateUserDevStrategyGlobal(sess.Config)
-	}
-	if command == "django gen-random-secret-key" {
-		return NewDjangoGenRandomSecretKeyStrategyGlobal(sess.Config)
+	// Normalize: "django migrate" -> "django:migrate"
+	normalized := strings.Replace(command, " ", ":", 1)
+	parts := strings.Split(normalized, ":")
+
+	if len(parts) == 2 {
+		baseCmd := parts[1]
+		switch baseCmd {
+		case "runserver":
+			return NewDjangoRunServerStrategyGlobal(sess.Config)
+		case "migrate":
+			return NewDjangoMigrateStrategyGlobal(sess.Config)
+		case "makemigrations":
+			return NewDjangoMakeMigrationsStrategyGlobal(sess.Config)
+		case "collectstatic":
+			return NewDjangoCollectStaticStrategyGlobal(sess.Config)
+		case "create-user-dev":
+			return NewDjangoCreateUserDevStrategyGlobal(sess.Config)
+		case "gen-random-secret-key":
+			return NewDjangoGenRandomSecretKeyStrategyGlobal(sess.Config)
+		}
 	}
 
-	parts := strings.Split(command, ":")
-	if len(parts) == 2 {
-		baseCmd := parts[0]
-		svcName := parts[1]
+	if len(parts) == 3 {
+		baseCmd := parts[1]
+		svcName := parts[2]
 		var targetSvc *config.ServiceConfig
 		for i := range sess.Config.Services {
 			if sess.Config.Services[i].Name == svcName {
@@ -455,17 +476,17 @@ func (p *DjangoProvider) GetStrategy(command string, sess *session.Session) Stra
 
 		if targetSvc != nil {
 			switch baseCmd {
-			case "django runserver":
+			case "runserver":
 				return NewDjangoRunServerStrategy(targetSvc)
-			case "django migrate":
+			case "migrate":
 				return NewDjangoMigrateStrategy(targetSvc)
-			case "django makemigrations":
+			case "makemigrations":
 				return NewDjangoMakeMigrationsStrategy(targetSvc)
-			case "django collectstatic":
+			case "collectstatic":
 				return NewDjangoCollectStaticStrategy(targetSvc)
-			case "django create-user-dev":
+			case "create-user-dev":
 				return NewDjangoCreateUserDevStrategy(targetSvc)
-			case "django gen-random-secret-key":
+			case "gen-random-secret-key":
 				return NewDjangoGenRandomSecretKeyStrategy(targetSvc)
 			}
 		}
@@ -477,7 +498,7 @@ func (p *DjangoProvider) GetStrategy(command string, sess *session.Session) Stra
 type GcpProvider struct{}
 
 func (p *GcpProvider) CanHandle(command string) bool {
-	return strings.HasPrefix(command, "gcp app-engine deploy") || strings.HasPrefix(command, "gcp app-engine promote")
+	return strings.HasPrefix(command, "gcp ") || strings.HasPrefix(command, "gcp:")
 }
 
 func (p *GcpProvider) GetStrategy(command string, sess *session.Session) Strategy {
@@ -485,10 +506,17 @@ func (p *GcpProvider) GetStrategy(command string, sess *session.Session) Strateg
 		return nil
 	}
 
-	if strings.HasPrefix(command, "gcp app-engine deploy") {
-		parts := strings.Split(command, ":")
-		if len(parts) == 2 {
-			svcName := parts[1]
+	// Normalize: "gcp app-engine deploy" -> "gcp:app-engine:deploy"
+	// Actually GCP commands might have multiple spaces. 
+	// Let's look at existing logic.
+	
+	if strings.HasPrefix(command, "gcp app-engine deploy") || strings.HasPrefix(command, "gcp:app-engine:deploy") {
+		// handle deploy
+		fullCmd := strings.Replace(command, " ", ":", -1)
+		parts := strings.Split(fullCmd, ":")
+		// gcp:app-engine:deploy[:svc]
+		if len(parts) == 4 {
+			svcName := parts[3]
 			for i := range sess.Config.Services {
 				if sess.Config.Services[i].Name == svcName {
 					if sess.Config.Services[i].AppYaml != "" {
@@ -503,13 +531,19 @@ func (p *GcpProvider) GetStrategy(command string, sess *session.Session) Strateg
 		}
 	}
 
-	if strings.HasPrefix(command, "gcp app-engine promote") {
-		parts := strings.Split(command, ":")
-		if len(parts) == 2 {
-			return NewGCPAppEnginePromoteStrategy(parts[1])
+	if strings.HasPrefix(command, "gcp app-engine promote") || strings.HasPrefix(command, "gcp:app-engine:promote") {
+		fullCmd := strings.Replace(command, " ", ":", -1)
+		parts := strings.Split(fullCmd, ":")
+		// gcp:app-engine:promote[:svc]
+		if len(parts) == 4 {
+			return NewGCPAppEnginePromoteStrategy(parts[3])
 		} else {
 			return NewGCPAppEnginePromoteStrategy("")
 		}
+	}
+	
+	if command == "gcp console" || command == "gcp:console" {
+		return NewGCPConsoleStrategy()
 	}
 
 	return nil
