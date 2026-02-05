@@ -3,9 +3,9 @@
 This plan outlines the refactoring of configuration and auto-detection logic.
 
 ## Phase 1: Foundation and Extraction
-- [ ] Task: Create `internal/detector` package structure and interface
-    - [ ] Write tests for the base detector interface
-    - [ ] Implement the base detector interface
+- [x] Task: Create \`internal/detector\` package structure and interface (c10d6f8)
+    - [x] Write tests for the base detector interface
+    - [x] Implement the base detector interface
 - [ ] Task: Extract Docker auto-detection logic
     - [ ] Write tests for Docker detector
     - [ ] Move Docker detection logic from `internal/config` to `internal/detector`
