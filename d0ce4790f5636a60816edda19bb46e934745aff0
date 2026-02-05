@@ -1,0 +1,1 @@
+Refactored internal/cmd/root.go to remove redundant manual workflow resolution. Introduced internal/cmd/workflow.go with a run-workflow command that leverages the strategy dispatcher. This fixes the issue where workflows only ran after exiting the TUI.
