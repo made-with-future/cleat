@@ -27,9 +27,9 @@ Refactor the strategy routing logic to use a modular dispatcher pattern, ensurin
 - [x] Task: Extract Docker Strategy Logic (cde0765)
     - [x] Write tests for \`DockerProvider\`
     - [x] Move Docker routing logic to \`DockerProvider\` and register it
-- [ ] Task: Extract Django Strategy Logic
-    - [ ] Write tests for `DjangoProvider`
-    - [ ] Move Django routing logic to `DjangoProvider` and register it
+- [x] Task: Extract Django Strategy Logic (8f5304d)
+    - [x] Write tests for \`DjangoProvider\`
+    - [x] Move Django routing logic to \`DjangoProvider\` and register it
 - [ ] Task: Extract GCP Strategy Logic
     - [ ] Write tests for `GcpProvider`
     - [ ] Move GCP routing logic to `GcpProvider` and register it
