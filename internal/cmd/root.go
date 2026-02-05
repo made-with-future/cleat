@@ -15,9 +15,11 @@ import (
 )
 
 var (
-	UIStart = ui.Start
-	Exit    = os.Exit
-	Wait    = waitForAnyKey
+	UIStart = func(version string) (string, map[string]string, error) {
+		return ui.Start(version)
+	}
+	Exit = os.Exit
+	Wait = waitForAnyKey
 )
 
 var rootCmd = &cobra.Command{
@@ -50,7 +52,7 @@ func run(args []string) {
 			workflowRunID = item.workflowRunID
 		} else if tuiMode {
 			var err error
-			selected, inputs, err = UIStart()
+			selected, inputs, err = UIStart(Version)
 			if err != nil {
 				fmt.Printf("Error starting TUI: %v\n", err)
 				Exit(1)

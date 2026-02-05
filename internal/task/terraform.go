@@ -141,7 +141,7 @@ func (t *TerraformTask) Commands(cfg *config.Config) [][]string {
 		if envFile != "" && FileUsesOp(envFile) {
 			useOp = true
 			cmd = []string{
-				"op", "run", "--env-file=" + envFile, "--",
+				"op", "run", "--env-file=" + envFile, "--no-masking", "--",
 				"terraform",
 			}
 		}

@@ -26,7 +26,7 @@ func TestFiltering(t *testing.T) {
 			},
 		},
 	}
-	m := InitialModel(cfg, true)
+	m := InitialModel(cfg, true, "0.1.0")
 
 	// Initial count: build, run, docker (down, rebuild), backend (django (create-user-dev, collectstatic, migrate)), frontend (npm (run dev))
 	// Total: 1 (build) + 1 (run) + 1 (docker) + 2 (docker children) + 1 (backend) + 1 (django) + 3 (django children) + 1 (frontend) + 1 (npm) + 1 (npm child) = 13 items
@@ -113,7 +113,7 @@ func TestFiltering(t *testing.T) {
 }
 
 func TestFilterView(t *testing.T) {
-	m := InitialModel(&config.Config{}, true)
+	m := InitialModel(&config.Config{}, true, "0.1.0")
 	m.width = 100
 	m.height = 40
 

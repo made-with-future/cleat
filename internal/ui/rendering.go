@@ -70,6 +70,9 @@ func (m model) renderMainUI() string {
 
 	// Build title bar
 	title := " Cleat "
+	if m.version != "" {
+		title = fmt.Sprintf(" Cleat %s ", m.version)
+	}
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(purple)
 	borderStyle := lipgloss.NewStyle().Foreground(comment)
 

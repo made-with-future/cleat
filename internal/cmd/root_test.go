@@ -43,7 +43,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns build", func(t *testing.T) {
 		calls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
 				return "build", nil, nil
@@ -62,7 +62,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns error", func(t *testing.T) {
 		exitCode = 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			return "", nil, errors.New("TUI error")
 		}
 		run([]string{"cleat"})
@@ -73,7 +73,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns empty (quit)", func(t *testing.T) {
 		exitCode = 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			return "", nil, nil
 		}
 		run([]string{"cleat"})
@@ -84,7 +84,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns npm run", func(t *testing.T) {
 		calls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
 				return "npm run test", nil, nil
@@ -97,7 +97,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns gcp init", func(t *testing.T) {
 		calls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
 				return "gcp init", nil, nil
@@ -109,7 +109,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns gcp console", func(t *testing.T) {
 		calls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
 				return "gcp console", nil, nil
@@ -121,7 +121,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("No args, TUI returns gcp promote", func(t *testing.T) {
 		calls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
 				return "gcp app-engine promote:svc", nil, nil
@@ -170,7 +170,7 @@ workflows:
 		defer os.Chdir(oldWd)
 
 		uiCalls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			uiCalls++
 			if uiCalls == 1 {
 				return "workflow:my-workflow", nil, nil
@@ -221,7 +221,7 @@ func TestRunLoop(t *testing.T) {
 	t.Run("Loop for run command", func(t *testing.T) {
 		waitCalls = 0
 		calls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
 				return "run", nil, nil
@@ -244,7 +244,7 @@ func TestRunLoop(t *testing.T) {
 	t.Run("Loop for gcp init command", func(t *testing.T) {
 		waitCalls = 0
 		calls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
 				return "gcp init", nil, nil
@@ -265,7 +265,7 @@ func TestRunLoop(t *testing.T) {
 	t.Run("Loop for build command", func(t *testing.T) {
 		waitCalls = 0
 		calls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
 				return "build", nil, nil
@@ -286,7 +286,7 @@ func TestRunLoop(t *testing.T) {
 	t.Run("Re-run command with 'r'", func(t *testing.T) {
 		waitCalls = 0
 		uiCalls := 0
-		UIStart = func() (string, map[string]string, error) {
+		UIStart = func(string) (string, map[string]string, error) {
 			uiCalls++
 			if uiCalls == 1 {
 				return "build", nil, nil

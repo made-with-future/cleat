@@ -239,7 +239,6 @@ func (t *GCPADCImpersonateLogin) Commands(cfg *config.Config) [][]string {
 		{"gcloud", "config", "configurations", "activate", cfg.GoogleCloudPlatform.ProjectName},
 		{"gcloud", "auth", "application-default", "login", "--impersonate-service-account", email, "--project", cfg.GoogleCloudPlatform.ProjectName},
 		{"gcloud", "auth", "login", "--impersonate-service-account", email, "--project", cfg.GoogleCloudPlatform.ProjectName},
-		{"gcloud", "auth", "application-default", "set-quota-project", cfg.GoogleCloudPlatform.ProjectName},
 	}
 }
 

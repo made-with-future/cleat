@@ -8,7 +8,7 @@ import (
 )
 
 // Start launches the TUI and returns the selected command and collected inputs
-func Start() (string, map[string]string, error) {
+func Start(version string) (string, map[string]string, error) {
 	cfg, err := config.LoadDefaultConfig()
 	cfgFound := true
 	if err != nil {
@@ -20,7 +20,7 @@ func Start() (string, map[string]string, error) {
 		}
 	}
 
-	m := InitialModel(cfg, cfgFound)
+	m := InitialModel(cfg, cfgFound, version)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
