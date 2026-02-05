@@ -9,9 +9,9 @@ This plan outlines the refactoring of configuration and auto-detection logic.
 - [x] Task: Extract Docker auto-detection logic (6601538)
     - [x] Write tests for Docker detector
     - [x] Move Docker detection logic from \`internal/config\` to \`internal/detector\`
-- [ ] Task: Extract Django and NPM auto-detection logic
-    - [ ] Write tests for Django and NPM detectors
-    - [ ] Move Django/NPM detection logic to `internal/detector`
+- [x] Task: Extract Django and NPM auto-detection logic (a2dcc96)
+    - [x] Write tests for Django and NPM detectors
+    - [x] Move Django/NPM detection logic to \`internal/detector\`
 - [ ] Task: Extract GCP and Terraform auto-detection logic
     - [ ] Write tests for GCP and Terraform detectors
     - [ ] Move GCP/Terraform detection logic to `internal/detector`
