@@ -1,0 +1,1 @@
+Task: Extract Django Strategy Logic\nSummary: Extracted Django service-specific routing logic from LegacyProvider into DjangoProvider. Registered DjangoProvider in GetProviders.\nFiles: internal/strategy/strategy.go\nWhy: To modularize the dispatcher and isolate Django-specific command resolution.
