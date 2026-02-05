@@ -6,6 +6,7 @@ import (
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/task"
 )
 
@@ -56,11 +57,11 @@ type requirementTask struct {
 	reqs []task.InputRequirement
 }
 
-func (t *requirementTask) Requirements(cfg *config.Config) []task.InputRequirement {
+func (t *requirementTask) Requirements(sess *session.Session) []task.InputRequirement {
 	return t.reqs
 }
 
-func (t *requirementTask) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *requirementTask) Run(sess *session.Session) error {
 	t.runCalled = true
 	return nil
 }
@@ -79,11 +80,10 @@ func TestExecuteWithRequirements(t *testing.T) {
 	mock := &mockExecutorWithPrompts{
 		promptResponses: map[string]string{"Test Prompt": "test-value"},
 	}
-	cfg := &config.Config{
-		Inputs: make(map[string]string),
-	}
+	cfg := &config.Config{}
+	sess := session.NewSession(cfg, mock)
 
-	err := s.Execute(cfg, mock)
+	err := s.Execute(sess)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -94,8 +94,8 @@ func TestExecuteWithRequirements(t *testing.T) {
 	if mock.promptsCalled[0] != "Test Prompt" {
 		t.Errorf("expected prompt 'Test Prompt', got %q", mock.promptsCalled[0])
 	}
-	if cfg.Inputs["test:key"] != "test-value" {
-		t.Errorf("expected input 'test-value', got %q", cfg.Inputs["test:key"])
+	if sess.Inputs["test:key"] != "test-value" {
+		t.Errorf("expected input 'test-value', got %q", sess.Inputs["test:key"])
 	}
 	if !task1.runCalled {
 		t.Error("expected task1 to be run")
@@ -110,17 +110,21 @@ type mockTask struct {
 	runErr    error
 }
 
-func (t *mockTask) ShouldRun(cfg *config.Config) bool {
+func (t *mockTask) ShouldRun(sess *session.Session) bool {
 	return t.shouldRun
 }
 
-func (t *mockTask) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *mockTask) Run(sess *session.Session) error {
 	t.runCalled = true
 	return t.runErr
 }
 
-func (t *mockTask) Commands(cfg *config.Config) [][]string {
+func (t *mockTask) Commands(sess *session.Session) [][]string {
 	return [][]string{{"mock", "command"}}
+}
+
+func (t *mockTask) Requirements(sess *session.Session) []task.InputRequirement {
+	return nil
 }
 
 func TestBaseStrategy(t *testing.T) {
@@ -147,8 +151,9 @@ func TestExecuteRunsTasks(t *testing.T) {
 	s := NewBaseStrategy("test", []task.Task{task1, task2})
 	mock := &mockExecutor{}
 	cfg := &config.Config{}
+	sess := session.NewSession(cfg, mock)
 
-	err := s.Execute(cfg, mock)
+	err := s.Execute(sess)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -168,8 +173,9 @@ func TestExecuteSkipsTasksThatShouldNotRun(t *testing.T) {
 	s := NewBaseStrategy("test", []task.Task{task1, task2})
 	mock := &mockExecutor{}
 	cfg := &config.Config{}
+	sess := session.NewSession(cfg, mock)
 
-	err := s.Execute(cfg, mock)
+	err := s.Execute(sess)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -193,8 +199,9 @@ func TestExecuteStopsOnError(t *testing.T) {
 	s := NewBaseStrategy("test", []task.Task{task1, task2})
 	mock := &mockExecutor{}
 	cfg := &config.Config{}
+	sess := session.NewSession(cfg, mock)
 
-	err := s.Execute(cfg, mock)
+	err := s.Execute(sess)
 	if err == nil {
 		t.Error("expected error, got nil")
 	}
@@ -213,8 +220,9 @@ func TestExecuteWithNoApplicableTasks(t *testing.T) {
 	s := NewBaseStrategy("test", []task.Task{task1})
 	mock := &mockExecutor{}
 	cfg := &config.Config{}
+	sess := session.NewSession(cfg, mock)
 
-	err := s.Execute(cfg, mock)
+	err := s.Execute(sess)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -224,7 +232,6 @@ func TestExecuteWithNoApplicableTasks(t *testing.T) {
 	}
 }
 
-// ... existing code ...
 func TestDependencyOrder(t *testing.T) {
 	cfg := &config.Config{}
 	executionOrder := []string{}
@@ -242,8 +249,9 @@ func TestDependencyOrder(t *testing.T) {
 	// Add in reverse order to test dependency resolution
 	s := NewBaseStrategy("test", []task.Task{orderedTask2, orderedTask1})
 	mock := &mockExecutor{}
+	sess := session.NewSession(cfg, mock)
 
-	err := s.Execute(cfg, mock)
+	err := s.Execute(sess)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -264,7 +272,7 @@ type orderTrackingTask struct {
 	order *[]string
 }
 
-func (t *orderTrackingTask) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *orderTrackingTask) Run(sess *session.Session) error {
 	*t.order = append(*t.order, t.Name())
 	return nil
 }
@@ -280,27 +288,28 @@ func TestGetStrategyForCommand(t *testing.T) {
 			},
 		},
 	}
+	sess := session.NewSession(cfg, nil)
 
 	// run strategy
-	s := GetStrategyForCommand("run", cfg)
+	s := GetStrategyForCommand("run", sess)
 	if s == nil {
 		t.Fatal("expected to get run strategy")
 	}
 
 	// build strategy
-	s = GetStrategyForCommand("build", cfg)
+	s = GetStrategyForCommand("build", sess)
 	if s == nil {
 		t.Fatal("expected to get build strategy")
 	}
 
 	// gcp init strategy
-	s = GetStrategyForCommand("gcp init", cfg)
+	s = GetStrategyForCommand("gcp init", sess)
 	if s == nil {
 		t.Fatal("expected to get gcp init strategy")
 	}
 
 	// gcp adc-impersonate-login strategy
-	s = GetStrategyForCommand("gcp adc-impersonate-login", cfg)
+	s = GetStrategyForCommand("gcp adc-impersonate-login", sess)
 	if s == nil {
 		t.Fatal("expected to get gcp adc-impersonate-login strategy")
 	}
@@ -309,7 +318,7 @@ func TestGetStrategyForCommand(t *testing.T) {
 	}
 
 	// docker remove-orphans strategy
-	s = GetStrategyForCommand("docker remove-orphans", cfg)
+	s = GetStrategyForCommand("docker remove-orphans", sess)
 	if s == nil {
 		t.Fatal("expected to get docker remove-orphans strategy")
 	}
@@ -317,7 +326,7 @@ func TestGetStrategyForCommand(t *testing.T) {
 	// terraform strategy
 	cfg.Terraform = &config.TerraformConfig{}
 	cfg.Envs = []string{"production"}
-	s = GetStrategyForCommand("terraform plan:production", cfg)
+	s = GetStrategyForCommand("terraform plan:production", sess)
 	if s == nil {
 		t.Fatal("expected to get terraform strategy")
 	}
@@ -333,7 +342,7 @@ func TestGetStrategyForCommand(t *testing.T) {
 	}
 
 	// npm run should work
-	s = GetStrategyForCommand("npm run build", cfg)
+	s = GetStrategyForCommand("npm run build", sess)
 	if s == nil {
 		t.Fatal("expected to get npm strategy")
 	}
@@ -356,8 +365,9 @@ func TestCircularDependencyDetection(t *testing.T) {
 	s := NewBaseStrategy("test", []task.Task{task1, task2})
 	mock := &mockExecutor{}
 	cfg := &config.Config{}
+	sess := session.NewSession(cfg, mock)
 
-	err := s.Execute(cfg, mock)
+	err := s.Execute(sess)
 	if err == nil {
 		t.Error("expected circular dependency error, got nil")
 	}
@@ -426,7 +436,7 @@ func TestBuildStrategy(t *testing.T) {
 		taskNames[task.Name()] = true
 	}
 
-	expectedTasks := []string{"docker:build", "npm:build", "django:collectstatic"}
+	expectedTasks := []string{"docker:build", "npm:run:build", "django:collectstatic"}
 	for _, name := range expectedTasks {
 		if !taskNames[name] {
 			t.Errorf("expected build strategy to contain task %q", name)
@@ -467,10 +477,6 @@ func TestNpmScriptStrategy(t *testing.T) {
 var _ executor.Executor = &mockExecutor{}
 var _ task.Task = &mockTask{}
 
-func ptrBool(b bool) *bool {
-	return &b
-}
-
 func TestResolveCommandTasks(t *testing.T) {
 	cfg := &config.Config{
 		Docker:    true,
@@ -495,7 +501,7 @@ func TestResolveCommandTasks(t *testing.T) {
 		command string
 		want    []string
 	}{
-		{"build", []string{"docker:build", "npm:build", "django:collectstatic"}},
+		{"build", []string{"docker:build", "npm:run:build", "django:collectstatic"}},
 		{"run", []string{"docker:up"}},
 		{"django runserver", []string{"django:runserver"}},
 		{"docker down", []string{"docker:down"}},
@@ -519,7 +525,7 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"gcp app-engine deploy", []string{"gcp:activate", "gcp:app-engine-deploy"}},
 		{"gcp app-engine deploy:default", []string{"gcp:activate", "gcp:app-engine-deploy"}},
 		{"gcp app-engine promote", []string{"gcp:activate", "gcp:app-engine-promote"}},
-		{"gcp app-engine promote:default", []string{"gcp:activate", "gcp:app-engine-promote"}},
+		{"gcp app-engine promote:default", []string{"gcp:activate", "gcp:app-engine-promote:default"}},
 		{"gcp app-engine promote:backend", []string{"gcp:activate", "gcp:app-engine-promote:backend"}},
 		{"gcp console", []string{"gcp:console"}},
 	}
@@ -527,10 +533,11 @@ func TestResolveCommandTasks(t *testing.T) {
 	cfg.AppYaml = "app.yaml"
 	cfg.Services[0].AppYaml = "default/app.yaml"
 	cfg.GoogleCloudPlatform = &config.GCPConfig{ProjectName: "test-project"}
+	sess := session.NewSession(cfg, &mockExecutor{})
 
 	for _, tt := range tests {
 		t.Run(tt.command, func(t *testing.T) {
-			tasks, err := ResolveCommandTasks(tt.command, cfg)
+			tasks, err := ResolveCommandTasks(tt.command, sess)
 			if err != nil {
 				t.Fatalf("ResolveCommandTasks(%q) error: %v", tt.command, err)
 			}

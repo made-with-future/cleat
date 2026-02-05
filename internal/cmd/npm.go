@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +19,7 @@ var npmCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var command string
 		if len(args) == 2 {
 			command = fmt.Sprintf("npm run %s:%s", args[1], args[0])
@@ -27,11 +27,11 @@ var npmCmd = &cobra.Command{
 			command = "npm run " + args[0]
 		}
 
-		s := strategy.GetStrategyForCommand(command, cfg)
+		s := strategy.GetStrategyForCommand(command, sess)
 		if s == nil {
 			return fmt.Errorf("no strategy found for %s", command)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -45,6 +45,7 @@ var npmInstallCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var command string
 		if len(args) == 1 {
 			command = "npm install:" + args[0]
@@ -52,11 +53,11 @@ var npmInstallCmd = &cobra.Command{
 			command = "npm install"
 		}
 
-		s := strategy.GetStrategyForCommand(command, cfg)
+		s := strategy.GetStrategyForCommand(command, sess)
 		if s == nil {
 			return fmt.Errorf("no strategy found for %s", command)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 

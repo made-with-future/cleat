@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/executor"
 )
 
 // Start launches the TUI and returns the selected command and collected inputs
@@ -20,7 +21,8 @@ func Start(version string) (string, map[string]string, error) {
 		}
 	}
 
-	m := InitialModel(cfg, cfgFound, version)
+	exec := executor.Default
+	m := InitialModel(cfg, cfgFound, version, exec)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {

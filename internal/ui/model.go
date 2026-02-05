@@ -8,7 +8,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/history"
+	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/task"
 )
@@ -54,6 +56,7 @@ type editorFinishedMsg struct{ err error }
 // model holds all the TUI state
 type model struct {
 	cfg                     *config.Config
+	exec                    executor.Executor
 	cfgFound                bool
 	quitting                bool
 	width                   int
@@ -87,12 +90,13 @@ type model struct {
 }
 
 // InitialModel creates a new model with the given config
-func InitialModel(cfg *config.Config, cfgFound bool, version string) model {
+func InitialModel(cfg *config.Config, cfgFound bool, version string, exec executor.Executor) model {
 	ti := textinput.New()
 	ti.Focus()
 
 	m := model{
 		cfg:                     cfg,
+		exec:                    exec,
 		cfgFound:                cfgFound,
 		version:                 version,
 		focus:                   focusCommands,
@@ -148,12 +152,12 @@ func (m *model) updateTaskPreview() {
 		command = item.item.Command
 	}
 
-	type taskWithConfig struct {
+	type taskWithSess struct {
 		t       task.Task
-		cfg     *config.Config
+		sess    *session.Session
 		cmdName string
 	}
-	var tasksToPreview []taskWithConfig
+	var tasksToPreview []taskWithSess
 
 	if strings.HasPrefix(command, "workflow:") {
 		name := strings.TrimPrefix(command, "workflow:")
@@ -167,38 +171,31 @@ func (m *model) updateTaskPreview() {
 
 		if workflow != nil {
 			for _, workflowCmd := range workflow.Commands {
-				cfgForCmd := m.cfg
-				tasks, err := strategy.ResolveCommandTasks(workflowCmd, cfgForCmd)
+				sessForCmd := session.NewSession(m.cfg, m.exec)
+				tasks, err := strategy.ResolveCommandTasks(workflowCmd, sessForCmd)
 				if err == nil {
 					for _, t := range tasks {
-						tasksToPreview = append(tasksToPreview, taskWithConfig{t, cfgForCmd, workflowCmd})
+						tasksToPreview = append(tasksToPreview, taskWithSess{t, sessForCmd, workflowCmd})
 					}
 				}
 			}
 		}
 	} else {
 		// Use saved inputs for history items if available
-		cfg := m.cfg
+		sess := session.NewSession(m.cfg, m.exec)
 		if len(inputs) > 0 {
-			// Create a temporary config with the saved inputs merged in
-			tempCfg := *m.cfg
-			tempCfg.Inputs = make(map[string]string)
-			for k, v := range m.cfg.Inputs {
-				tempCfg.Inputs[k] = v
-			}
 			for k, v := range inputs {
-				tempCfg.Inputs[k] = v
+				sess.Inputs[k] = v
 			}
-			cfg = &tempCfg
 		}
 
-		tasks, err := strategy.ResolveCommandTasks(command, cfg)
+		tasks, err := strategy.ResolveCommandTasks(command, sess)
 		if err != nil {
 			m.taskPreview = []string{fmt.Sprintf("Error: %v", err)}
 			return
 		}
 		for _, t := range tasks {
-			tasksToPreview = append(tasksToPreview, taskWithConfig{t, cfg, ""})
+			tasksToPreview = append(tasksToPreview, taskWithSess{t, sess, ""})
 		}
 	}
 
@@ -253,7 +250,7 @@ func (m *model) updateTaskPreview() {
 		}
 
 		// Commands
-		for _, cmd := range tc.t.Commands(tc.cfg) {
+		for _, cmd := range tc.t.Commands(tc.sess) {
 			cmdLines := wrapLines(cmd, taskWidth, indent+"    $ ", indent+"        ", commentStyle)
 			preview = append(preview, cmdLines...)
 		}

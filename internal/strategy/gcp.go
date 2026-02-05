@@ -26,135 +26,52 @@ func init() {
 	})
 }
 
-type GCPActivateStrategy struct {
-	BaseStrategy
+func NewGCPActivateStrategy() Strategy {
+	return NewBaseStrategy("gcp:activate", []task.Task{
+		task.NewGCPActivate(),
+	})
 }
 
-func NewGCPActivateStrategy() *GCPActivateStrategy {
-	return &GCPActivateStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:activate", []task.Task{
-			task.NewGCPActivate(),
-		}),
-	}
+func NewGCPInitStrategy() Strategy {
+	return NewBaseStrategy("gcp:init", []task.Task{
+		task.NewGCPInit(),
+	})
 }
 
-func (s *GCPActivateStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
+func NewGCPSetConfigStrategy() Strategy {
+	return NewBaseStrategy("gcp:set-config", []task.Task{
+		task.NewGCPSetConfig(),
+	})
 }
 
-type GCPInitStrategy struct {
-	BaseStrategy
+func NewGCPADCLoginStrategy() Strategy {
+	return NewBaseStrategy("gcp:adc-login", []task.Task{
+		task.NewGCPADCLogin(),
+	})
 }
 
-func NewGCPInitStrategy() *GCPInitStrategy {
-	s := &GCPInitStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:init", []task.Task{
-			task.NewGCPInit(),
-			task.NewGCPSetConfig(),
-		}),
-	}
-	return s
+func NewGCPADCImpersonateLoginStrategy() Strategy {
+	return NewBaseStrategy("gcp:adc-impersonate-login", []task.Task{
+		task.NewGCPAdcImpersonateLogin(),
+	})
 }
 
-func (s *GCPInitStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
+func NewGCPConsoleStrategy() Strategy {
+	return NewBaseStrategy("gcp:console", []task.Task{
+		task.NewGCPConsole(),
+	})
 }
 
-type GCPSetConfigStrategy struct {
-	BaseStrategy
+func NewGCPAppEngineDeployStrategy(appYaml string) Strategy {
+	return NewBaseStrategy("gcp:app-engine-deploy", []task.Task{
+		task.NewGCPActivate(),
+		task.NewGCPAppEngineDeploy(appYaml),
+	})
 }
 
-func NewGCPSetConfigStrategy() *GCPSetConfigStrategy {
-	return &GCPSetConfigStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:set-config", []task.Task{
-			task.NewGCPActivate(),
-			task.NewGCPSetConfig(),
-		}),
-	}
-}
-
-func (s *GCPSetConfigStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
-}
-
-type GCPADCLoginStrategy struct {
-	BaseStrategy
-}
-
-func NewGCPADCLoginStrategy() *GCPADCLoginStrategy {
-	return &GCPADCLoginStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:adc-login", []task.Task{
-			task.NewGCPADCLogin(),
-		}),
-	}
-}
-
-func (s *GCPADCLoginStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
-}
-
-type GCPADCImpersonateLoginStrategy struct {
-	BaseStrategy
-}
-
-func NewGCPADCImpersonateLoginStrategy() *GCPADCImpersonateLoginStrategy {
-	return &GCPADCImpersonateLoginStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:adc-impersonate-login", []task.Task{
-			task.NewGCPADCImpersonateLogin(),
-		}),
-	}
-}
-
-func (s *GCPADCImpersonateLoginStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
-}
-
-type GCPAppEngineDeployStrategy struct {
-	BaseStrategy
-}
-
-func NewGCPAppEngineDeployStrategy(appYaml string) *GCPAppEngineDeployStrategy {
-	return &GCPAppEngineDeployStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:app-engine-deploy", []task.Task{
-			task.NewGCPActivate(),
-			task.NewGCPAppEngineDeploy(appYaml),
-		}),
-	}
-}
-
-func (s *GCPAppEngineDeployStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
-}
-
-type GCPAppEnginePromoteStrategy struct {
-	BaseStrategy
-}
-
-func NewGCPAppEnginePromoteStrategy(service string) *GCPAppEnginePromoteStrategy {
-	return &GCPAppEnginePromoteStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:app-engine-promote", []task.Task{
-			task.NewGCPActivate(),
-			task.NewGCPAppEnginePromote(service),
-		}),
-	}
-}
-
-func (s *GCPAppEnginePromoteStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
-}
-
-type GCPConsoleStrategy struct {
-	BaseStrategy
-}
-
-func NewGCPConsoleStrategy() *GCPConsoleStrategy {
-	return &GCPConsoleStrategy{
-		BaseStrategy: *NewBaseStrategy("gcp:console", []task.Task{
-			task.NewGCPConsole(),
-		}),
-	}
-}
-
-func (s *GCPConsoleStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
+func NewGCPAppEnginePromoteStrategy(service string) Strategy {
+	return NewBaseStrategy("gcp:app-engine-promote", []task.Task{
+		task.NewGCPActivate(),
+		task.NewGCPAppEnginePromote(service),
+	})
 }

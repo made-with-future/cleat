@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
@@ -68,8 +67,9 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 				}
 			}
 
+			sess := createSessionAndMerge(cfg)
 			s := strategy.NewTerraformStrategy(env, tfAction, tfArgs)
-			return s.Execute(cfg, executor.Default)
+			return s.Execute(sess)
 		},
 	}
 }

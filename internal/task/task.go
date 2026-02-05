@@ -6,8 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/session"
 )
 
 // Task represents an atomic unit of work
@@ -21,17 +20,17 @@ type Task interface {
 	// Dependencies returns task names that must run before this task
 	Dependencies() []string
 
-	// ShouldRun determines if this task applies given the config
-	ShouldRun(cfg *config.Config) bool
+	// ShouldRun determines if this task applies given the session context
+	ShouldRun(sess *session.Session) bool
 
-	// Run executes the task
-	Run(cfg *config.Config, exec executor.Executor) error
+	// Run executes the task using session context
+	Run(sess *session.Session) error
 
 	// Commands returns the actual CLI commands that will be executed
-	Commands(cfg *config.Config) [][]string
+	Commands(sess *session.Session) [][]string
 
 	// Requirements returns the input requirements for this task
-	Requirements(cfg *config.Config) []InputRequirement
+	Requirements(sess *session.Session) []InputRequirement
 }
 
 // InputRequirement represents a piece of information needed from the user
@@ -51,7 +50,7 @@ type BaseTask struct {
 func (t *BaseTask) Name() string           { return t.TaskName }
 func (t *BaseTask) Description() string    { return t.TaskDescription }
 func (t *BaseTask) Dependencies() []string { return t.TaskDeps }
-func (t *BaseTask) Requirements(cfg *config.Config) []InputRequirement {
+func (t *BaseTask) Requirements(sess *session.Session) []InputRequirement {
 	return nil
 }
 

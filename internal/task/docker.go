@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/session"
 )
 
 // DockerBuild builds Docker containers
@@ -28,14 +28,14 @@ func NewDockerBuild(svc *config.ServiceConfig) *DockerBuild {
 	}
 }
 
-func (t *DockerBuild) ShouldRun(cfg *config.Config) bool {
+func (t *DockerBuild) ShouldRun(sess *session.Session) bool {
 	if t.Service != nil {
 		return t.Service.IsDocker()
 	}
-	return cfg.Docker
+	return sess.Config.Docker
 }
 
-func (t *DockerBuild) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *DockerBuild) Run(sess *session.Session) error {
 	fmt.Println("==> Building Docker containers")
 
 	// 1Password integration
@@ -47,15 +47,15 @@ func (t *DockerBuild) Run(cfg *config.Config, exec executor.Executor) error {
 		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
 	}
 
-	cmds := t.Commands(cfg)
+	cmds := t.Commands(sess)
 	dir := ""
 	if t.Service != nil {
 		dir = t.Service.Dir
 	}
-	return exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
 }
 
-func (t *DockerBuild) Commands(cfg *config.Config) [][]string {
+func (t *DockerBuild) Commands(sess *session.Session) [][]string {
 	cmdName := "docker"
 	args := []string{"--log-level", "error", "compose"}
 	if t.Service == nil {
@@ -97,14 +97,14 @@ func NewDockerUp(svc *config.ServiceConfig) *DockerUp {
 	}
 }
 
-func (t *DockerUp) ShouldRun(cfg *config.Config) bool {
+func (t *DockerUp) ShouldRun(sess *session.Session) bool {
 	if t.Service != nil {
 		return t.Service.IsDocker()
 	}
-	return cfg.Docker
+	return sess.Config.Docker
 }
 
-func (t *DockerUp) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *DockerUp) Run(sess *session.Session) error {
 	fmt.Println("==> Running project via Docker")
 
 	// 1Password integration
@@ -116,15 +116,15 @@ func (t *DockerUp) Run(cfg *config.Config, exec executor.Executor) error {
 		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
 	}
 
-	cmds := t.Commands(cfg)
+	cmds := t.Commands(sess)
 	dir := ""
 	if t.Service != nil {
 		dir = t.Service.Dir
 	}
-	return exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
 }
 
-func (t *DockerUp) Commands(cfg *config.Config) [][]string {
+func (t *DockerUp) Commands(sess *session.Session) [][]string {
 	cmdName := "docker"
 	args := []string{"--log-level", "error", "compose"}
 	args = append(args, "up", "--remove-orphans")
@@ -163,14 +163,14 @@ func NewDockerDown(svc *config.ServiceConfig) *DockerDown {
 	}
 }
 
-func (t *DockerDown) ShouldRun(cfg *config.Config) bool {
+func (t *DockerDown) ShouldRun(sess *session.Session) bool {
 	if t.Service != nil {
 		return t.Service.IsDocker()
 	}
-	return cfg.Docker
+	return sess.Config.Docker
 }
 
-func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *DockerDown) Run(sess *session.Session) error {
 	fmt.Println("==> Stopping Docker containers (all profiles)")
 
 	// 1Password integration
@@ -182,15 +182,15 @@ func (t *DockerDown) Run(cfg *config.Config, exec executor.Executor) error {
 		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
 	}
 
-	cmds := t.Commands(cfg)
+	cmds := t.Commands(sess)
 	dir := ""
 	if t.Service != nil {
 		dir = t.Service.Dir
 	}
-	return exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
 }
 
-func (t *DockerDown) Commands(cfg *config.Config) [][]string {
+func (t *DockerDown) Commands(sess *session.Session) [][]string {
 	cmdName := "docker"
 	args := []string{"compose"}
 	args = append(args, "--profile", "*", "down", "--remove-orphans")
@@ -229,14 +229,14 @@ func NewDockerRebuild(svc *config.ServiceConfig) *DockerRebuild {
 	}
 }
 
-func (t *DockerRebuild) ShouldRun(cfg *config.Config) bool {
+func (t *DockerRebuild) ShouldRun(sess *session.Session) bool {
 	if t.Service != nil {
 		return t.Service.IsDocker()
 	}
-	return cfg.Docker
+	return sess.Config.Docker
 }
 
-func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *DockerRebuild) Run(sess *session.Session) error {
 	fmt.Println("==> Rebuilding Docker containers (all profiles, no cache)")
 
 	// 1Password integration check for logging
@@ -248,7 +248,7 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
 	}
 
-	cmds := t.Commands(cfg)
+	cmds := t.Commands(sess)
 	dir := ""
 	if t.Service != nil {
 		dir = t.Service.Dir
@@ -256,16 +256,16 @@ func (t *DockerRebuild) Run(cfg *config.Config, exec executor.Executor) error {
 
 	// 1. Down with --rmi all --volumes
 	fmt.Println("--> Cleaning up: stopping containers and removing images/volumes")
-	if err := exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
+	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
 		return err
 	}
 
 	// 2. Build with --no-cache
 	fmt.Println("--> Rebuilding: build without cache")
-	return exec.RunWithDir(dir, cmds[1][0], cmds[1][1:]...)
+	return sess.Exec.RunWithDir(dir, cmds[1][0], cmds[1][1:]...)
 }
 
-func (t *DockerRebuild) Commands(cfg *config.Config) [][]string {
+func (t *DockerRebuild) Commands(sess *session.Session) [][]string {
 	// 1. Down
 	downCmd := "docker"
 	downArgs := []string{"compose"}
@@ -317,14 +317,14 @@ func NewDockerRemoveOrphans(svc *config.ServiceConfig) *DockerRemoveOrphans {
 	}
 }
 
-func (t *DockerRemoveOrphans) ShouldRun(cfg *config.Config) bool {
+func (t *DockerRemoveOrphans) ShouldRun(sess *session.Session) bool {
 	if t.Service != nil {
 		return t.Service.IsDocker()
 	}
-	return cfg.Docker
+	return sess.Config.Docker
 }
 
-func (t *DockerRemoveOrphans) Run(cfg *config.Config, exec executor.Executor) error {
+func (t *DockerRemoveOrphans) Run(sess *session.Session) error {
 	fmt.Println("==> Removing orphan Docker containers (all profiles)")
 
 	// 1Password integration
@@ -336,15 +336,15 @@ func (t *DockerRemoveOrphans) Run(cfg *config.Config, exec executor.Executor) er
 		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
 	}
 
-	cmds := t.Commands(cfg)
+	cmds := t.Commands(sess)
 	dir := ""
 	if t.Service != nil {
 		dir = t.Service.Dir
 	}
-	return exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
 }
 
-func (t *DockerRemoveOrphans) Commands(cfg *config.Config) [][]string {
+func (t *DockerRemoveOrphans) Commands(sess *session.Session) [][]string {
 	cmdName := "docker"
 	args := []string{"compose"}
 	args = append(args, "--profile", "*", "down", "--remove-orphans")

@@ -14,7 +14,6 @@ func NewRunStrategy(cfg *config.Config) Strategy {
 	var tasks []task.Task
 
 	// We only want to run docker compose up once.
-	// We prefer the root one if enabled, otherwise the first service-level one we find.
 	dockerAdded := false
 	if cfg != nil && cfg.Docker {
 		tasks = append(tasks, task.NewDockerUp(nil))
@@ -31,17 +30,20 @@ func NewRunStrategy(cfg *config.Config) Strategy {
 			for j := range svc.Modules {
 				mod := &svc.Modules[j]
 				if mod.Python != nil && !cfg.Docker {
-					tasks = append(tasks, task.NewDjangoRunServer(svc, mod.Python))
+					tasks = append(tasks, task.NewDjangoRunServer(svc))
 				}
 				if mod.Npm != nil && !cfg.Docker {
-					tasks = append(tasks, task.NewNpmStart(svc, mod.Npm))
+					// We'll use NewNpmRun for start if it's standardized
+					for _, s := range mod.Npm.Scripts {
+						if s == "start" {
+							tasks = append(tasks, task.NewNpmRun(svc, mod.Npm, "start"))
+						}
+					}
 				}
 			}
 		}
 	}
 
-	// If no docker task was added, add the default one (it won't run if cfg.Docker is false)
-	// This maintains compatibility with existing tests that expect at least one task.
 	if !dockerAdded {
 		tasks = append(tasks, task.NewDockerUp(nil))
 	}

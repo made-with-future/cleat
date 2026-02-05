@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/task"
 )
 
@@ -18,10 +18,10 @@ type Strategy interface {
 	Tasks() []task.Task
 
 	// Execute runs the strategy with dependency resolution
-	Execute(cfg *config.Config, exec executor.Executor) error
+	Execute(sess *session.Session) error
 
 	// ResolveTasks returns the list of tasks to be executed in order
-	ResolveTasks(cfg *config.Config) ([]task.Task, error)
+	ResolveTasks(sess *session.Session) ([]task.Task, error)
 }
 
 // CommandProvider handles the mapping of command strings to strategies
@@ -29,7 +29,7 @@ type CommandProvider interface {
 	// CanHandle returns true if this provider can resolve the given command
 	CanHandle(command string) bool
 	// GetStrategy returns the appropriate strategy for the command
-	GetStrategy(command string, cfg *config.Config) Strategy
+	GetStrategy(command string, sess *session.Session) Strategy
 }
 
 // RegistryProvider handles strategies registered via the global Registry
@@ -40,10 +40,14 @@ func (p *RegistryProvider) CanHandle(command string) bool {
 	return ok
 }
 
-func (p *RegistryProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+func (p *RegistryProvider) GetStrategy(command string, sess *session.Session) Strategy {
 	constructor, ok := Registry[command]
 	if !ok {
 		return nil
+	}
+	var cfg *config.Config
+	if sess != nil {
+		cfg = sess.Config
 	}
 	return constructor(cfg)
 }
@@ -76,14 +80,14 @@ func NewBaseStrategy(name string, tasks []task.Task) *BaseStrategy {
 func (s *BaseStrategy) Name() string       { return s.name }
 func (s *BaseStrategy) Tasks() []task.Task { return s.tasks }
 
-func (s *BaseStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
-	return s.buildExecutionPlan(cfg)
+func (s *BaseStrategy) ResolveTasks(sess *session.Session) ([]task.Task, error) {
+	return s.buildExecutionPlan(sess)
 }
 
 // Execute runs tasks in dependency order
-func (s *BaseStrategy) Execute(cfg *config.Config, exec executor.Executor) error {
+func (s *BaseStrategy) Execute(sess *session.Session) error {
 	// Build execution plan respecting dependencies
-	plan, err := s.buildExecutionPlan(cfg)
+	plan, err := s.buildExecutionPlan(sess)
 	if err != nil {
 		return err
 	}
@@ -96,25 +100,25 @@ func (s *BaseStrategy) Execute(cfg *config.Config, exec executor.Executor) error
 	// Collect requirements from all tasks
 	requirements := make(map[string]task.InputRequirement)
 	for _, t := range plan {
-		for _, req := range t.Requirements(cfg) {
+		for _, req := range t.Requirements(sess) {
 			requirements[req.Key] = req
 		}
 	}
 
 	// Prompt for missing inputs
 	for key, req := range requirements {
-		if _, ok := cfg.Inputs[key]; !ok {
-			val, err := exec.Prompt(req.Prompt, req.Default)
+		if _, ok := sess.Inputs[key]; !ok {
+			val, err := sess.Exec.Prompt(req.Prompt, req.Default)
 			if err != nil {
 				return fmt.Errorf("failed to get input for %s: %w", key, err)
 			}
-			cfg.Inputs[key] = val
+			sess.Inputs[key] = val
 		}
 	}
 
 	// Execute tasks
 	for _, t := range plan {
-		if err := t.Run(cfg, exec); err != nil {
+		if err := t.Run(sess); err != nil {
 			return fmt.Errorf("task '%s' failed: %w", t.Name(), err)
 		}
 	}
@@ -124,7 +128,7 @@ func (s *BaseStrategy) Execute(cfg *config.Config, exec executor.Executor) error
 }
 
 // buildExecutionPlan returns tasks in dependency order, filtering by ShouldRun
-func (s *BaseStrategy) buildExecutionPlan(cfg *config.Config) ([]task.Task, error) {
+func (s *BaseStrategy) buildExecutionPlan(sess *session.Session) ([]task.Task, error) {
 	// Build lookup map
 	taskMap := make(map[string]task.Task)
 	for _, t := range s.tasks {
@@ -134,17 +138,17 @@ func (s *BaseStrategy) buildExecutionPlan(cfg *config.Config) ([]task.Task, erro
 	// Filter to tasks that should run
 	var candidates []task.Task
 	for _, t := range s.tasks {
-		if t.ShouldRun(cfg) {
+		if t.ShouldRun(sess) {
 			candidates = append(candidates, t)
 		}
 	}
 
 	// Topological sort for dependency order
-	return topologicalSort(candidates, taskMap, cfg)
+	return topologicalSort(candidates, taskMap, sess)
 }
 
 // topologicalSort orders tasks respecting dependencies
-func topologicalSort(tasks []task.Task, allTasks map[string]task.Task, cfg *config.Config) ([]task.Task, error) {
+func topologicalSort(tasks []task.Task, allTasks map[string]task.Task, sess *session.Session) ([]task.Task, error) {
 	// Track which tasks we need to run
 	needed := make(map[string]bool)
 	for _, t := range tasks {
@@ -163,7 +167,7 @@ func topologicalSort(tasks []task.Task, allTasks map[string]task.Task, cfg *conf
 
 		for _, dep := range t.Dependencies() {
 			// Only count dependency if the dep task exists AND should run
-			if depTask, exists := allTasks[dep]; exists && depTask.ShouldRun(cfg) {
+			if depTask, exists := allTasks[dep]; exists && depTask.ShouldRun(sess) {
 				inDegree[name]++
 				dependents[dep] = append(dependents[dep], name)
 				// Ensure dependency is in our needed set
@@ -174,7 +178,7 @@ func topologicalSort(tasks []task.Task, allTasks map[string]task.Task, cfg *conf
 
 	// Add any dependencies we discovered that weren't in original candidates
 	for name := range needed {
-		if t, exists := allTasks[name]; exists && t.ShouldRun(cfg) {
+		if t, exists := allTasks[name]; exists && t.ShouldRun(sess) {
 			found := false
 			for _, existing := range tasks {
 				if existing.Name() == name {
@@ -244,18 +248,18 @@ func Get(name string, cfg *config.Config) (Strategy, bool) {
 }
 
 // ResolveCommandTasks returns the execution plan for a command string
-func ResolveCommandTasks(command string, cfg *config.Config) ([]task.Task, error) {
-	s := GetStrategyForCommand(command, cfg)
+func ResolveCommandTasks(command string, sess *session.Session) ([]task.Task, error) {
+	s := GetStrategyForCommand(command, sess)
 	if s == nil {
 		return nil, fmt.Errorf("unknown command: %s", command)
 	}
-	return s.ResolveTasks(cfg)
+	return s.ResolveTasks(sess)
 }
 
-func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
+func GetStrategyForCommand(command string, sess *session.Session) Strategy {
 	for _, p := range GetProviders() {
 		if p.CanHandle(command) {
-			if s := p.GetStrategy(command, cfg); s != nil {
+			if s := p.GetStrategy(command, sess); s != nil {
 				return s
 			}
 		}
@@ -282,13 +286,13 @@ func (p *NpmProvider) CanHandle(command string) bool {
 	return strings.HasPrefix(command, "npm install") || strings.HasPrefix(command, "npm run ")
 }
 
-func (p *NpmProvider) GetStrategy(command string, cfg *config.Config) Strategy {
-	if cfg == nil {
+func (p *NpmProvider) GetStrategy(command string, sess *session.Session) Strategy {
+	if sess == nil {
 		return nil
 	}
 
 	if strings.HasPrefix(command, "npm install") {
-		return GetNpmInstallStrategy(command, cfg)
+		return GetNpmInstallStrategy(command, sess.Config)
 	}
 
 	if strings.HasPrefix(command, "npm run ") {
@@ -299,9 +303,9 @@ func (p *NpmProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 			svcName := fullScript[:colonIdx]
 			script := fullScript[colonIdx+1:]
 
-			for i := range cfg.Services {
-				if cfg.Services[i].Name == svcName {
-					svc := &cfg.Services[i]
+			for i := range sess.Config.Services {
+				if sess.Config.Services[i].Name == svcName {
+					svc := &sess.Config.Services[i]
 					for j := range svc.Modules {
 						mod := &svc.Modules[j]
 						if mod.Npm != nil {
@@ -322,8 +326,8 @@ func (p *NpmProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 		}
 
 		// 2. No service prefix match, search for the script name in all NPM modules
-		for i := range cfg.Services {
-			svc := &cfg.Services[i]
+		for i := range sess.Config.Services {
+			svc := &sess.Config.Services[i]
 			for j := range svc.Modules {
 				mod := &svc.Modules[j]
 				if mod.Npm != nil {
@@ -337,8 +341,8 @@ func (p *NpmProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 		}
 
 		// 3. Last resort: use the first service that has an NPM module
-		for i := range cfg.Services {
-			svc := &cfg.Services[i]
+		for i := range sess.Config.Services {
+			svc := &sess.Config.Services[i]
 			for j := range svc.Modules {
 				if svc.Modules[j].Npm != nil {
 					return NewNpmScriptStrategy(svc, svc.Modules[j].Npm, fullScript)
@@ -357,9 +361,19 @@ func (p *DockerProvider) CanHandle(command string) bool {
 	return strings.HasPrefix(command, "docker ")
 }
 
-func (p *DockerProvider) GetStrategy(command string, cfg *config.Config) Strategy {
-	if cfg == nil {
+func (p *DockerProvider) GetStrategy(command string, sess *session.Session) Strategy {
+	if sess == nil {
 		return nil
+	}
+
+	if command == "docker down" {
+		return NewDockerDownStrategy(sess.Config)
+	}
+	if command == "docker rebuild" {
+		return NewDockerRebuildStrategy(sess.Config)
+	}
+	if command == "docker remove-orphans" {
+		return NewDockerRemoveOrphansStrategy(sess.Config)
 	}
 
 	parts := strings.Split(command, ":")
@@ -367,9 +381,9 @@ func (p *DockerProvider) GetStrategy(command string, cfg *config.Config) Strateg
 		baseCmd := parts[0]
 		svcName := parts[1]
 		var targetSvc *config.ServiceConfig
-		for i := range cfg.Services {
-			if cfg.Services[i].Name == svcName {
-				targetSvc = &cfg.Services[i]
+		for i := range sess.Config.Services {
+			if sess.Config.Services[i].Name == svcName {
+				targetSvc = &sess.Config.Services[i]
 				break
 			}
 		}
@@ -395,9 +409,28 @@ func (p *DjangoProvider) CanHandle(command string) bool {
 	return strings.HasPrefix(command, "django ")
 }
 
-func (p *DjangoProvider) GetStrategy(command string, cfg *config.Config) Strategy {
-	if cfg == nil {
+func (p *DjangoProvider) GetStrategy(command string, sess *session.Session) Strategy {
+	if sess == nil {
 		return nil
+	}
+
+	if command == "django runserver" {
+		return NewDjangoRunServerStrategyGlobal(sess.Config)
+	}
+	if command == "django migrate" {
+		return NewDjangoMigrateStrategyGlobal(sess.Config)
+	}
+	if command == "django makemigrations" {
+		return NewDjangoMakeMigrationsStrategyGlobal(sess.Config)
+	}
+	if command == "django collectstatic" {
+		return NewDjangoCollectStaticStrategyGlobal(sess.Config)
+	}
+	if command == "django create-user-dev" {
+		return NewDjangoCreateUserDevStrategyGlobal(sess.Config)
+	}
+	if command == "django gen-random-secret-key" {
+		return NewDjangoGenRandomSecretKeyStrategyGlobal(sess.Config)
 	}
 
 	parts := strings.Split(command, ":")
@@ -405,9 +438,9 @@ func (p *DjangoProvider) GetStrategy(command string, cfg *config.Config) Strateg
 		baseCmd := parts[0]
 		svcName := parts[1]
 		var targetSvc *config.ServiceConfig
-		for i := range cfg.Services {
-			if cfg.Services[i].Name == svcName {
-				targetSvc = &cfg.Services[i]
+		for i := range sess.Config.Services {
+			if sess.Config.Services[i].Name == svcName {
+				targetSvc = &sess.Config.Services[i]
 				break
 			}
 		}
@@ -439,8 +472,8 @@ func (p *GcpProvider) CanHandle(command string) bool {
 	return strings.HasPrefix(command, "gcp app-engine deploy") || strings.HasPrefix(command, "gcp app-engine promote")
 }
 
-func (p *GcpProvider) GetStrategy(command string, cfg *config.Config) Strategy {
-	if cfg == nil {
+func (p *GcpProvider) GetStrategy(command string, sess *session.Session) Strategy {
+	if sess == nil {
 		return nil
 	}
 
@@ -448,16 +481,16 @@ func (p *GcpProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 		parts := strings.Split(command, ":")
 		if len(parts) == 2 {
 			svcName := parts[1]
-			for i := range cfg.Services {
-				if cfg.Services[i].Name == svcName {
-					if cfg.Services[i].AppYaml != "" {
-						return NewGCPAppEngineDeployStrategy(cfg.Services[i].AppYaml)
+			for i := range sess.Config.Services {
+				if sess.Config.Services[i].Name == svcName {
+					if sess.Config.Services[i].AppYaml != "" {
+						return NewGCPAppEngineDeployStrategy(sess.Config.Services[i].AppYaml)
 					}
 				}
 			}
 		} else {
-			if cfg.AppYaml != "" {
-				return NewGCPAppEngineDeployStrategy(cfg.AppYaml)
+			if sess.Config.AppYaml != "" {
+				return NewGCPAppEngineDeployStrategy(sess.Config.AppYaml)
 			}
 		}
 	}
@@ -481,8 +514,8 @@ func (p *TerraformProvider) CanHandle(command string) bool {
 	return strings.HasPrefix(command, "terraform ")
 }
 
-func (p *TerraformProvider) GetStrategy(command string, cfg *config.Config) Strategy {
-	if cfg == nil {
+func (p *TerraformProvider) GetStrategy(command string, sess *session.Session) Strategy {
+	if sess == nil {
 		return nil
 	}
 

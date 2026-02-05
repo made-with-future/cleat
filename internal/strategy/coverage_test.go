@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/session"
 )
 
 func TestGetStrategyForCommand_AdditionalCoverage(t *testing.T) {
@@ -34,9 +35,9 @@ func TestGetStrategyForCommand_AdditionalCoverage(t *testing.T) {
 		{"npm run with service prefix", "npm run web:test", "npm:test"},
 		{"npm run matching script in any service", "npm run test", "npm:test"},
 		{"npm run fallback to first npm service", "npm run missing-script", "npm:missing-script"},
-		{"docker down with service", "docker down:web", "docker down:web"},
-		{"docker rebuild with service", "docker rebuild:web", "docker rebuild:web"},
-		{"docker remove-orphans with service", "docker remove-orphans:web", "docker remove-orphans:web"},
+		{"docker down with service", "docker down:web", "docker down"},
+		{"docker rebuild with service", "docker rebuild:web", "docker rebuild"},
+		{"docker remove-orphans with service", "docker remove-orphans:web", "docker remove-orphans"},
 		{"django runserver with service", "django runserver:api", "django runserver"},
 		{"django migrate with service", "django migrate:api", "django migrate"},
 		{"django makemigrations with service", "django makemigrations:api", "django makemigrations"},
@@ -53,11 +54,11 @@ func TestGetStrategyForCommand_AdditionalCoverage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var currentCfg *config.Config
+			var currentSess *session.Session
 			if tt.name != "nil config uses registry" {
-				currentCfg = cfg
+				currentSess = session.NewSession(cfg, nil)
 			}
-			s := GetStrategyForCommand(tt.command, currentCfg)
+			s := GetStrategyForCommand(tt.command, currentSess)
 			if s == nil {
 				t.Fatalf("expected strategy for %q, got nil", tt.command)
 			}
@@ -68,33 +69,38 @@ func TestGetStrategyForCommand_AdditionalCoverage(t *testing.T) {
 	}
 }
 
+func ptrBool(b bool) *bool {
+	return &b
+}
+
 func TestGetStrategyForCommand_EdgeCases(t *testing.T) {
 	cfg := &config.Config{
 		Services: []config.ServiceConfig{
 			{Name: "only-docker", Docker: ptrBool(true)},
 		},
 	}
+	sess := session.NewSession(cfg, nil)
 
 	// Unknown command
-	s := GetStrategyForCommand("unknown-cmd", cfg)
+	s := GetStrategyForCommand("unknown-cmd", sess)
 	if s != nil {
 		t.Errorf("expected nil for unknown command, got %v", s)
 	}
 
 	// Docker command with missing service
-	s = GetStrategyForCommand("docker down:nonexistent", cfg)
+	s = GetStrategyForCommand("docker down:nonexistent", sess)
 	if s != nil {
 		t.Errorf("expected nil for docker down with missing service, got %v", s)
 	}
 
 	// Django command with missing service
-	s = GetStrategyForCommand("django migrate:nonexistent", cfg)
+	s = GetStrategyForCommand("django migrate:nonexistent", sess)
 	if s != nil {
 		t.Errorf("expected nil for django migrate with missing service, got %v", s)
 	}
 
 	// GCP deploy without app.yaml or service match
-	s = GetStrategyForCommand("gcp app-engine deploy", cfg)
+	s = GetStrategyForCommand("gcp app-engine deploy", sess)
 	if s != nil {
 		t.Errorf("expected nil for gcp deploy without app.yaml, got %v", s)
 	}

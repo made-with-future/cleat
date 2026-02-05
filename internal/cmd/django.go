@@ -5,9 +5,20 @@ import (
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
+
+func createSessionAndMerge(cfg *config.Config) *session.Session {
+	sess := session.NewSession(cfg, executor.Default)
+	if preCollectedInputs != nil {
+		for k, v := range preCollectedInputs {
+			sess.Inputs[k] = v
+		}
+	}
+	return sess
+}
 
 var djangoCmd = &cobra.Command{
 	Use:   "django",
@@ -23,6 +34,7 @@ var djangoCreateUserDevCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var s strategy.Strategy
 		if len(args) > 0 {
 			var targetSvc *config.ServiceConfig
@@ -39,7 +51,7 @@ var djangoCreateUserDevCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoCreateUserDevStrategyGlobal(cfg)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -52,6 +64,7 @@ var djangoCollectStaticCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var s strategy.Strategy
 		if len(args) > 0 {
 			var targetSvc *config.ServiceConfig
@@ -68,7 +81,7 @@ var djangoCollectStaticCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoCollectStaticStrategyGlobal(cfg)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -81,6 +94,7 @@ var djangoMigrateCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var s strategy.Strategy
 		if len(args) > 0 {
 			var targetSvc *config.ServiceConfig
@@ -97,7 +111,7 @@ var djangoMigrateCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoMigrateStrategyGlobal(cfg)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -110,6 +124,7 @@ var djangoMakeMigrationsCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var s strategy.Strategy
 		if len(args) > 0 {
 			var targetSvc *config.ServiceConfig
@@ -126,7 +141,7 @@ var djangoMakeMigrationsCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoMakeMigrationsStrategyGlobal(cfg)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
@@ -139,6 +154,7 @@ var djangoGenRandomSecretKeyCmd = &cobra.Command{
 			return err
 		}
 
+		sess := createSessionAndMerge(cfg)
 		var s strategy.Strategy
 		if len(args) > 0 {
 			var targetSvc *config.ServiceConfig
@@ -155,7 +171,7 @@ var djangoGenRandomSecretKeyCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoGenRandomSecretKeyStrategyGlobal(cfg)
 		}
-		return s.Execute(cfg, executor.Default)
+		return s.Execute(sess)
 	},
 }
 
