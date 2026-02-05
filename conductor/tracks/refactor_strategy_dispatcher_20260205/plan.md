@@ -10,8 +10,8 @@ Refactor the strategy routing logic to use a modular dispatcher pattern, ensurin
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Baseline and Coverage' (Protocol in workflow.md) (6710c53)
 
 ## Phase 2: Dispatcher Foundation
-- [ ] Task: Define `CommandProvider` interface
-    - [ ] Add `CommandProvider` interface to `internal/strategy/strategy.go`
+- [x] Task: Define \`CommandProvider\` interface (c013111)
+    - [x] Add \`CommandProvider\` interface to \`internal/strategy/strategy.go\`
 - [ ] Task: Implement `RegistryProvider`
     - [ ] Write tests for the `RegistryProvider`
     - [ ] Implement `RegistryProvider` to handle strategies registered via `Register()`
