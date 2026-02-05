@@ -4,16 +4,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
-
-func init() {
-	Register(&GcpDetector{})
-}
 
 type GcpDetector struct{}
 
-func (d *GcpDetector) Detect(baseDir string, cfg *config.Config) error {
+func (d *GcpDetector) Detect(baseDir string, cfg *schema.Config) error {
 	if cfg.GoogleCloudPlatform == nil {
 		return nil
 	}
@@ -41,7 +37,7 @@ func (d *GcpDetector) Detect(baseDir string, cfg *config.Config) error {
 						}
 					}
 					if !found && entry.Name() != ".git" && entry.Name() != ".envs" && entry.Name() != ".iac" && entry.Name() != "terraform" {
-						cfg.Services = append(cfg.Services, config.ServiceConfig{
+						cfg.Services = append(cfg.Services, schema.ServiceConfig{
 							Name:    entry.Name(),
 							Dir:     entry.Name(),
 							AppYaml: appYamlPath,

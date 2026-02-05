@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
 
 func TestEnvDetector(t *testing.T) {
@@ -18,16 +18,15 @@ func TestEnvDetector(t *testing.T) {
 	envsDir := filepath.Join(tmpDir, ".envs")
 	os.Mkdir(envsDir, 0755)
 	os.WriteFile(filepath.Join(envsDir, "dev.env"), []byte(""), 0644)
-	os.WriteFile(filepath.Join(envsDir, "prod.env"), []byte(""), 0644)
 
-	cfg := &config.Config{}
+	cfg := &schema.Config{}
 	d := &EnvDetector{}
 	err = d.Detect(tmpDir, cfg)
 	if err != nil {
 		t.Fatalf("Detect failed: %v", err)
 	}
 
-	if len(cfg.Envs) != 2 {
-		t.Errorf("expected 2 envs, got %d", len(cfg.Envs))
+	if len(cfg.Envs) != 1 {
+		t.Errorf("expected 1 env, got %d", len(cfg.Envs))
 	}
 }

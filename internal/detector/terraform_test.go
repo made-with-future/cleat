@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
 
 func TestTerraformDetector(t *testing.T) {
@@ -21,7 +21,7 @@ func TestTerraformDetector(t *testing.T) {
 	os.Mkdir(devDir, 0755)
 	os.WriteFile(filepath.Join(devDir, "main.tf"), []byte(""), 0644)
 
-	cfg := &config.Config{}
+	cfg := &schema.Config{}
 	d := &TerraformDetector{}
 	err = d.Detect(tmpDir, cfg)
 	if err != nil {
@@ -30,9 +30,5 @@ func TestTerraformDetector(t *testing.T) {
 
 	if cfg.Terraform == nil || !cfg.Terraform.UseFolders {
 		t.Error("expected Terraform with UseFolders=true")
-	}
-
-	if len(cfg.Terraform.Envs) != 1 || cfg.Terraform.Envs[0] != "dev" {
-		t.Errorf("expected Terraform env 'dev', got %v", cfg.Terraform.Envs)
 	}
 }

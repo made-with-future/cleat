@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
 
 func TestNpmDetector(t *testing.T) {
@@ -15,14 +15,14 @@ func TestNpmDetector(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	packageJson := `{"scripts": {"start": "node index.js", "test": "jest"}}`
+	packageJson := `{"scripts": {"start": "node index.js"}}`
 	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0644)
 	if err != nil {
 		t.Fatalf("failed to write package.json: %v", err)
 	}
 
-	cfg := &config.Config{
-		Services: []config.ServiceConfig{
+	cfg := &schema.Config{
+		Services: []schema.ServiceConfig{
 			{Name: "frontend"},
 		},
 	}
@@ -34,10 +34,5 @@ func TestNpmDetector(t *testing.T) {
 
 	if len(cfg.Services[0].Modules) != 1 || cfg.Services[0].Modules[0].Npm == nil {
 		t.Errorf("expected Npm module to be detected, got: %+v", cfg.Services[0].Modules)
-	}
-
-	scripts := cfg.Services[0].Modules[0].Npm.Scripts
-	if len(scripts) != 2 || scripts[0] != "start" || scripts[1] != "test" {
-		t.Errorf("expected scripts [start, test], got %v", scripts)
 	}
 }

@@ -5,16 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
-
-func init() {
-	Register(&TerraformDetector{})
-}
 
 type TerraformDetector struct{}
 
-func (d *TerraformDetector) Detect(baseDir string, cfg *config.Config) error {
+func (d *TerraformDetector) Detect(baseDir string, cfg *schema.Config) error {
 	iacDirName := ".iac"
 	if cfg.Terraform != nil && cfg.Terraform.Dir != "" {
 		iacDirName = cfg.Terraform.Dir
@@ -26,10 +22,9 @@ func (d *TerraformDetector) Detect(baseDir string, cfg *config.Config) error {
 	}
 
 	if cfg.Terraform == nil {
-		cfg.Terraform = &config.TerraformConfig{}
+		cfg.Terraform = &schema.TerraformConfig{}
 	}
 
-	// Check for subdirectories (multiple envs) or .tf files (single env)
 	entries, err := os.ReadDir(iacDir)
 	if err == nil {
 		useFolders := false
@@ -38,7 +33,6 @@ func (d *TerraformDetector) Detect(baseDir string, cfg *config.Config) error {
 
 		for _, entry := range entries {
 			if entry.IsDir() {
-				// Check if subdirectory contains .tf files
 				subDir := filepath.Join(iacDir, entry.Name())
 				subEntries, _ := os.ReadDir(subDir)
 				hasTfInSubDir := false
@@ -63,7 +57,6 @@ func (d *TerraformDetector) Detect(baseDir string, cfg *config.Config) error {
 			if cfg.Terraform.Envs == nil {
 				cfg.Terraform.Envs = detectedEnvs
 			}
-			// Ensure detected terraform envs are also in global envs
 			for _, env := range cfg.Terraform.Envs {
 				found := false
 				for _, existing := range cfg.Envs {
