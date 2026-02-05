@@ -269,6 +269,7 @@ func GetProviders() []CommandProvider {
 		&NpmProvider{},
 		&DockerProvider{},
 		&DjangoProvider{},
+		&GcpProvider{},
 		&LegacyProvider{},
 		&RegistryProvider{},
 	}
@@ -431,6 +432,48 @@ func (p *DjangoProvider) GetStrategy(command string, cfg *config.Config) Strateg
 	return nil
 }
 
+// GcpProvider handles Google Cloud Platform commands
+type GcpProvider struct{}
+
+func (p *GcpProvider) CanHandle(command string) bool {
+	return strings.HasPrefix(command, "gcp app-engine deploy") || strings.HasPrefix(command, "gcp app-engine promote")
+}
+
+func (p *GcpProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+	if cfg == nil {
+		return nil
+	}
+
+	if strings.HasPrefix(command, "gcp app-engine deploy") {
+		parts := strings.Split(command, ":")
+		if len(parts) == 2 {
+			svcName := parts[1]
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == svcName {
+					if cfg.Services[i].AppYaml != "" {
+						return NewGCPAppEngineDeployStrategy(cfg.Services[i].AppYaml)
+					}
+				}
+			}
+		} else {
+			if cfg.AppYaml != "" {
+				return NewGCPAppEngineDeployStrategy(cfg.AppYaml)
+			}
+		}
+	}
+
+	if strings.HasPrefix(command, "gcp app-engine promote") {
+		parts := strings.Split(command, ":")
+		if len(parts) == 2 {
+			return NewGCPAppEnginePromoteStrategy(parts[1])
+		} else {
+			return NewGCPAppEnginePromoteStrategy("")
+		}
+	}
+
+	return nil
+}
+
 // LegacyProvider contains the original monolithic routing logic
 type LegacyProvider struct{}
 
@@ -441,37 +484,6 @@ func (p *LegacyProvider) CanHandle(command string) bool {
 func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 	if cfg == nil {
 		return nil
-	}
-
-	if strings.HasPrefix(command, "gcp app-engine deploy") {
-		parts := strings.Split(command, ":")
-		if len(parts) == 2 {
-			// gcp app-engine deploy:svcName
-			svcName := parts[1]
-			for i := range cfg.Services {
-				if cfg.Services[i].Name == svcName {
-					if cfg.Services[i].AppYaml != "" {
-						return NewGCPAppEngineDeployStrategy(cfg.Services[i].AppYaml)
-					}
-				}
-			}
-		} else {
-			// gcp app-engine deploy (root)
-			if cfg.AppYaml != "" {
-				return NewGCPAppEngineDeployStrategy(cfg.AppYaml)
-			}
-		}
-	}
-
-	if strings.HasPrefix(command, "gcp app-engine promote") {
-		parts := strings.Split(command, ":")
-		if len(parts) == 2 {
-			// gcp app-engine promote:svcName
-			return NewGCPAppEnginePromoteStrategy(parts[1])
-		} else {
-			// gcp app-engine promote (root)
-			return NewGCPAppEnginePromoteStrategy("")
-		}
 	}
 
 	if strings.HasPrefix(command, "terraform ") {
