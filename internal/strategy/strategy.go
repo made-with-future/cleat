@@ -270,7 +270,7 @@ func GetProviders() []CommandProvider {
 		&DockerProvider{},
 		&DjangoProvider{},
 		&GcpProvider{},
-		&LegacyProvider{},
+		&TerraformProvider{},
 		&RegistryProvider{},
 	}
 }
@@ -474,37 +474,33 @@ func (p *GcpProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 	return nil
 }
 
-// LegacyProvider contains the original monolithic routing logic
-type LegacyProvider struct{}
+// TerraformProvider handles Terraform related commands
+type TerraformProvider struct{}
 
-func (p *LegacyProvider) CanHandle(command string) bool {
-	return true
+func (p *TerraformProvider) CanHandle(command string) bool {
+	return strings.HasPrefix(command, "terraform ")
 }
 
-func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+func (p *TerraformProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 	if cfg == nil {
 		return nil
 	}
 
-	if strings.HasPrefix(command, "terraform ") {
-		parts := strings.Split(command, ":")
-		baseCmd := parts[0]
-		var env string
-		if len(parts) == 2 {
-			env = parts[1]
-		}
-		action := strings.TrimPrefix(baseCmd, "terraform ")
-		var args []string
-		switch action {
-		case "init-upgrade":
-			action = "init"
-			args = []string{"-upgrade"}
-		case "apply-refresh":
-			action = "apply"
-			args = []string{"-refresh-only"}
-		}
-		return NewTerraformStrategy(env, action, args)
+	parts := strings.Split(command, ":")
+	baseCmd := parts[0]
+	var env string
+	if len(parts) == 2 {
+		env = parts[1]
 	}
-
-	return nil
+	action := strings.TrimPrefix(baseCmd, "terraform ")
+	var args []string
+	switch action {
+	case "init-upgrade":
+		action = "init"
+		args = []string{"-upgrade"}
+	case "apply-refresh":
+		action = "apply"
+		args = []string{"-refresh-only"}
+	}
+	return NewTerraformStrategy(env, action, args)
 }
