@@ -1,0 +1,1 @@
+Updated WorkflowStrategy.Execute to collect requirements from all steps upfront and prompt for missing inputs. Implemented sequential execution with fail-fast behavior.
