@@ -1,0 +1,1 @@
+Phase: Phase 2: UI Error Notification Support\nAutomated Test Command: go test ./internal/ui/...\nManual Verification: Verified error bar rendering and height adjustment in TUI.\nStatus: Verified and Checkpointed
