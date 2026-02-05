@@ -268,6 +268,7 @@ func GetProviders() []CommandProvider {
 	return []CommandProvider{
 		&NpmProvider{},
 		&DockerProvider{},
+		&DjangoProvider{},
 		&LegacyProvider{},
 		&RegistryProvider{},
 	}
@@ -386,6 +387,50 @@ func (p *DockerProvider) GetStrategy(command string, cfg *config.Config) Strateg
 	return nil
 }
 
+// DjangoProvider handles service-specific django commands
+type DjangoProvider struct{}
+
+func (p *DjangoProvider) CanHandle(command string) bool {
+	return strings.HasPrefix(command, "django ")
+}
+
+func (p *DjangoProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+	if cfg == nil {
+		return nil
+	}
+
+	parts := strings.Split(command, ":")
+	if len(parts) == 2 {
+		baseCmd := parts[0]
+		svcName := parts[1]
+		var targetSvc *config.ServiceConfig
+		for i := range cfg.Services {
+			if cfg.Services[i].Name == svcName {
+				targetSvc = &cfg.Services[i]
+				break
+			}
+		}
+
+		if targetSvc != nil {
+			switch baseCmd {
+			case "django runserver":
+				return NewDjangoRunServerStrategy(targetSvc)
+			case "django migrate":
+				return NewDjangoMigrateStrategy(targetSvc)
+			case "django makemigrations":
+				return NewDjangoMakeMigrationsStrategy(targetSvc)
+			case "django collectstatic":
+				return NewDjangoCollectStaticStrategy(targetSvc)
+			case "django create-user-dev":
+				return NewDjangoCreateUserDevStrategy(targetSvc)
+			case "django gen-random-secret-key":
+				return NewDjangoGenRandomSecretKeyStrategy(targetSvc)
+			}
+		}
+	}
+	return nil
+}
+
 // LegacyProvider contains the original monolithic routing logic
 type LegacyProvider struct{}
 
@@ -396,39 +441,6 @@ func (p *LegacyProvider) CanHandle(command string) bool {
 func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 	if cfg == nil {
 		return nil
-	}
-
-	// Handle service-specific django commands from TUI: "django migrate:backend"
-	if strings.HasPrefix(command, "django ") {
-		parts := strings.Split(command, ":")
-		if len(parts) == 2 {
-			baseCmd := parts[0]
-			svcName := parts[1]
-			var targetSvc *config.ServiceConfig
-			for i := range cfg.Services {
-				if cfg.Services[i].Name == svcName {
-					targetSvc = &cfg.Services[i]
-					break
-				}
-			}
-
-			if targetSvc != nil {
-				switch baseCmd {
-				case "django runserver":
-					return NewDjangoRunServerStrategy(targetSvc)
-				case "django migrate":
-					return NewDjangoMigrateStrategy(targetSvc)
-				case "django makemigrations":
-					return NewDjangoMakeMigrationsStrategy(targetSvc)
-				case "django collectstatic":
-					return NewDjangoCollectStaticStrategy(targetSvc)
-				case "django create-user-dev":
-					return NewDjangoCreateUserDevStrategy(targetSvc)
-				case "django gen-random-secret-key":
-					return NewDjangoGenRandomSecretKeyStrategy(targetSvc)
-				}
-			}
-		}
 	}
 
 	if strings.HasPrefix(command, "gcp app-engine deploy") {
