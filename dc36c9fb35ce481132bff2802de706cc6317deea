@@ -1,0 +1,1 @@
+Added a regression test for workflow command resolution. The test fails as expected because the WorkflowProvider is missing.
