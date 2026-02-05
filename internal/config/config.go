@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,6 +52,24 @@ func FindProjectRoot() string {
 	}
 
 	return cwd
+}
+
+// GetProjectID returns a unique identifier for the current project based on its absolute path.
+func GetProjectID() string {
+	root := FindProjectRoot()
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "unknown"
+	}
+
+	hash := sha256.Sum256([]byte(absRoot))
+	projectDirName := filepath.Base(absRoot)
+	if projectDirName == "/" || projectDirName == "." || projectDirName == "" {
+		projectDirName = "root"
+	}
+
+	// Use project directory name + 8 bytes of hash
+	return fmt.Sprintf("%s-%x", projectDirName, hash[:8])
 }
 
 // LoadDefaultConfig searches upwards for cleat.yaml/cleat.yml and loads it.
