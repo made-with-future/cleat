@@ -4,17 +4,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 	"gopkg.in/yaml.v3"
 )
 
-func init() {
-	Register(&DockerDetector{})
-}
-
 type DockerDetector struct{}
 
-func (d *DockerDetector) Detect(baseDir string, cfg *config.Config) error {
+func (d *DockerDetector) Detect(baseDir string, cfg *schema.Config) error {
 	dockerComposeFile := ""
 	if _, err := os.Stat(filepath.Join(baseDir, "docker-compose.yaml")); err == nil {
 		dockerComposeFile = "docker-compose.yaml"
@@ -30,7 +26,7 @@ func (d *DockerDetector) Detect(baseDir string, cfg *config.Config) error {
 	dcPath := filepath.Join(baseDir, dockerComposeFile)
 	dcData, err := os.ReadFile(dcPath)
 	if err != nil {
-		return nil // Non-fatal if we can't read it
+		return nil
 	}
 
 	type dcService struct {
@@ -40,7 +36,7 @@ func (d *DockerDetector) Detect(baseDir string, cfg *config.Config) error {
 		Services map[string]dcService `yaml:"services"`
 	}
 	if err := yaml.Unmarshal(dcData, &dc); err != nil {
-		return nil // Non-fatal if malformed
+		return nil
 	}
 
 	for name, s := range dc.Services {
@@ -69,7 +65,7 @@ func (d *DockerDetector) Detect(baseDir string, cfg *config.Config) error {
 			}
 		}
 		if !found {
-			cfg.Services = append(cfg.Services, config.ServiceConfig{
+			cfg.Services = append(cfg.Services, schema.ServiceConfig{
 				Name:   name,
 				Docker: ptrBool(true),
 				Dir:    buildContext,

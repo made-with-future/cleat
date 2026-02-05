@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
 
 func TestDjangoDetector(t *testing.T) {
@@ -20,8 +20,8 @@ func TestDjangoDetector(t *testing.T) {
 		t.Fatalf("failed to write manage.py: %v", err)
 	}
 
-	cfg := &config.Config{
-		Services: []config.ServiceConfig{
+	cfg := &schema.Config{
+		Services: []schema.ServiceConfig{
 			{Name: "api"},
 		},
 	}

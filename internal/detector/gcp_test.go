@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
 
 func TestGcpDetector(t *testing.T) {
@@ -17,8 +17,8 @@ func TestGcpDetector(t *testing.T) {
 
 	os.WriteFile(filepath.Join(tmpDir, "app.yaml"), []byte(""), 0644)
 
-	cfg := &config.Config{
-		GoogleCloudPlatform: &config.GCPConfig{ProjectName: "test"},
+	cfg := &schema.Config{
+		GoogleCloudPlatform: &schema.GCPConfig{ProjectName: "test"},
 	}
 	d := &GcpDetector{}
 	err = d.Detect(tmpDir, cfg)

@@ -1,24 +1,26 @@
 package detector
 
 import (
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
 
 // Detector is the interface for project auto-discovery
 type Detector interface {
-	Detect(baseDir string, cfg *config.Config) error
+	Detect(baseDir string, cfg *schema.Config) error
 }
 
-var registry []Detector
+// DetectAll runs all registered detectors against the provided config in a specific order
+func DetectAll(baseDir string, cfg *schema.Config) error {
+	detectors := []Detector{
+		&EnvDetector{},
+		&DockerDetector{},
+		&DjangoDetector{},
+		&NpmDetector{},
+		&GcpDetector{},
+		&TerraformDetector{},
+	}
 
-// Register adds a detector to the global registry
-func Register(d Detector) {
-	registry = append(registry, d)
-}
-
-// DetectAll runs all registered detectors against the provided config
-func DetectAll(baseDir string, cfg *config.Config) error {
-	for _, d := range registry {
+	for _, d := range detectors {
 		if err := d.Detect(baseDir, cfg); err != nil {
 			return err
 		}

@@ -7,18 +7,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
-
-func init() {
-	Register(&NpmDetector{})
-}
 
 type NpmDetector struct{}
 
-func (d *NpmDetector) Detect(baseDir string, cfg *config.Config) error {
-	// Group services by directory for smarter auto-detection
-	servicesByDir := make(map[string][]*config.ServiceConfig)
+func (d *NpmDetector) Detect(baseDir string, cfg *schema.Config) error {
+	servicesByDir := make(map[string][]*schema.ServiceConfig)
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
 		searchDir := baseDir
@@ -37,8 +32,8 @@ func (d *NpmDetector) Detect(baseDir string, cfg *config.Config) error {
 		}
 
 		if hasPackageJson {
-			var matches []*config.ServiceConfig
-			var others []*config.ServiceConfig
+			var matches []*schema.ServiceConfig
+			var others []*schema.ServiceConfig
 			for _, s := range svcs {
 				explicit := false
 				for _, m := range s.Modules {
@@ -60,17 +55,16 @@ func (d *NpmDetector) Detect(baseDir string, cfg *config.Config) error {
 
 			if len(matches) > 0 {
 				for _, s := range matches {
-					s.Modules = append(s.Modules, config.ModuleConfig{Npm: &config.NpmConfig{}})
+					s.Modules = append(s.Modules, schema.ModuleConfig{Npm: &schema.NpmConfig{}})
 				}
 			} else if len(others) > 0 {
 				for _, s := range others {
-					s.Modules = append(s.Modules, config.ModuleConfig{Npm: &config.NpmConfig{}})
+					s.Modules = append(s.Modules, schema.ModuleConfig{Npm: &schema.NpmConfig{}})
 				}
 			}
 		}
 	}
 
-	// Apply defaults
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
 		searchDir := baseDir

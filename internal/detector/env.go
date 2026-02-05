@@ -5,21 +5,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/config/schema"
 )
-
-func init() {
-	Register(&EnvDetector{})
-}
 
 type EnvDetector struct{}
 
-func (d *EnvDetector) Detect(baseDir string, cfg *config.Config) error {
+func (d *EnvDetector) Detect(baseDir string, cfg *schema.Config) error {
 	if cfg.Envs != nil {
 		return nil
 	}
 
-	// Auto-detect envs from .envs/*.env
 	envsDir := filepath.Join(baseDir, ".envs")
 	if entries, err := os.ReadDir(envsDir); err == nil {
 		for _, entry := range entries {
