@@ -208,7 +208,7 @@ func (m *model) updateTaskPreview() {
 	}
 
 	var preview []string
-	commentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#6272a4"))
+	commentStyle := lipgloss.NewStyle().Foreground(themeComment)
 
 	// Calculate available width for wrapping
 	availableWidth := 0
@@ -220,7 +220,7 @@ func (m *model) updateTaskPreview() {
 	}
 
 	lastCmd := ""
-	orange := lipgloss.Color("#ffb86c")
+	orange := themeOrange
 
 	for _, tc := range tasksToPreview {
 		taskWidth := availableWidth

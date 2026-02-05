@@ -655,10 +655,10 @@ func TestCursorDimmedWhenUnfocused(t *testing.T) {
 	m.history = []history.HistoryEntry{{Command: "build", Success: true, Timestamp: time.Now()}}
 	m.updateTaskPreview()
 
-	// When commands pane is focused, cursor should be cyan (#8be9fd)
+	// When commands pane is focused, cursor should be cyan (ANSI 6)
 	view1 := m.View()
-	// TrueColor ANSI for #8be9fd is 139;233;253
-	if !strings.Contains(view1, "139;233;253") {
+	// ANSI 6 is often rendered as \x1b[36m or \x1b[38;5;6m or \x1b[96m
+	if !strings.Contains(view1, "36m") && !strings.Contains(view1, ";6m") && !strings.Contains(view1, "96m") {
 		t.Error("expected cyan cursor color when commands pane is focused")
 	}
 
@@ -668,7 +668,7 @@ func TestCursorDimmedWhenUnfocused(t *testing.T) {
 
 	// When history pane is focused, its cursor should be cyan
 	viewHistory := m.View()
-	if !strings.Contains(viewHistory, "139;233;253") {
+	if !strings.Contains(viewHistory, "36m") && !strings.Contains(viewHistory, ";6m") && !strings.Contains(viewHistory, "96m") {
 		t.Error("expected cyan cursor color when history pane is focused")
 	}
 
@@ -676,14 +676,14 @@ func TestCursorDimmedWhenUnfocused(t *testing.T) {
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
 
-	// When config pane is focused, cursor should be dimmed (comment color #6272a4)
+	// When config pane is focused, cursor should be dimmed (ANSI 8)
 	view2 := m.View()
 	lines := strings.Split(view2, "\n")
 	foundDimmedCursor := false
 	for _, line := range lines {
 		if strings.Contains(line, ">") && strings.Contains(line, "build") {
-			// TrueColor ANSI for #6272a4 might be 97;113;163 or 98;114;164 depending on profile
-			if strings.Contains(line, "97;113;163") || strings.Contains(line, "98;114;164") {
+			// ANSI 8 is often rendered as \x1b[90m or \x1b[38;5;8m
+			if strings.Contains(line, "90m") || strings.Contains(line, ";8m") {
 				foundDimmedCursor = true
 			}
 		}
@@ -1334,8 +1334,8 @@ func TestFocusedTitleColor(t *testing.T) {
 
 	// Initially Commands is focused.
 	view1 := m.View()
-	// TrueColor ANSI for #ffffff is 255;255;255
-	if !strings.Contains(view1, "255;255;255") {
+	// ANSI 15 (Bright White) is often rendered as \x1b[97m or \x1b[38;5;15m
+	if !strings.Contains(view1, "97m") && !strings.Contains(view1, ";15m") {
 		t.Error("expected white title color when pane is focused")
 	}
 	if !strings.Contains(view1, "Commands") {
@@ -1346,7 +1346,7 @@ func TestFocusedTitleColor(t *testing.T) {
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
 	view2 := m.View()
-	if !strings.Contains(view2, "255;255;255") {
+	if !strings.Contains(view2, "97m") && !strings.Contains(view2, ";15m") {
 		t.Error("expected white title color when history pane is focused")
 	}
 	if !strings.Contains(view2, "Command History") {
@@ -1354,20 +1354,14 @@ func TestFocusedTitleColor(t *testing.T) {
 	}
 
 	// Verify that the title of an unfocused pane is NOT white
-	// Commands is now unfocused, its color should be comment color #6272a4
-	// TrueColor ANSI for #6272a4 is 97;113;163 or 98;114;164
-	if strings.Contains(view2, "255;255;255 > Commands") { // This is wrong, title is not white
-		// The title " Commands " should not be wrapped in white color
-	}
+	// Commands is now unfocused, its color should be comment color (ANSI 8)
 
 	// A better way: check that white color only appears once (for the focused pane title)
 	// and potentially other things like the cursor if it uses white (it uses cyan).
 	// Cleat title bar also uses purple and white? No, it uses purple.
 
-	whiteCount := strings.Count(view2, "255;255;255")
+	whiteCount := strings.Count(view2, "97m") + strings.Count(view2, ";15m")
 	// If only one pane is focused, and no other white text is present...
-	// Wait, taskPreview might have white text? Usually it doesn't have specific styles except what strategy provides.
-	// Strategy usually uses default colors or specific ones.
 
 	if whiteCount == 0 {
 		t.Error("expected at least one white title when a pane is focused")
