@@ -24,6 +24,14 @@ type Strategy interface {
 	ResolveTasks(cfg *config.Config) ([]task.Task, error)
 }
 
+// CommandProvider handles the mapping of command strings to strategies
+type CommandProvider interface {
+	// CanHandle returns true if this provider can resolve the given command
+	CanHandle(command string) bool
+	// GetStrategy returns the appropriate strategy for the command
+	GetStrategy(command string, cfg *config.Config) Strategy
+}
+
 // ExecutionMode determines how tasks are run
 type ExecutionMode int
 
