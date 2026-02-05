@@ -10,12 +10,12 @@ Improve error handling across Cleat by introducing structured JSON logging (usin
     - [x] Ensure logs are written to \`~/.cleat/cleat.log\` (handle directory creation)
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Logging Foundation' (Protocol in workflow.md) (1d8e004)
 
-## Phase 2: UI Error Notification Support
+## Phase 2: UI Error Notification Support [checkpoint: b2f4f1b]
 - [x] Task: Update \`internal/ui\` to support error notifications (8507184)
     - [x] Write tests for the UI error display logic
-    - [x] Add an `Error` field or a notification system to the UI model
+    - [x] Add an \`Error\` field or a notification system to the UI model
     - [x] Implement a visually distinct error display in the TUI (e.g., a red status bar)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: UI Error Notification Support' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: UI Error Notification Support' (Protocol in workflow.md) (b2f4f1b)
 
 ## Phase 3: System-wide Audit and Refactoring
 - [ ] Task: Audit and Refactor `internal/history` and `internal/config`

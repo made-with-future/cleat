@@ -106,6 +106,9 @@ func (m model) renderMainUI() string {
 	gap := 2
 	titleLines := 2
 	helpLines := 3
+	if m.fatalError != nil {
+		helpLines = 4 // Extra line for error bar
+	}
 	leftPaneWidth, rightPaneWidth := m.paneWidths()
 	paneHeight := m.height - helpLines - titleLines
 
