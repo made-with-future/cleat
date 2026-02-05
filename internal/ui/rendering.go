@@ -24,7 +24,7 @@ func (m model) View() string {
 	const minHeight = 20
 	if m.width < minWidth || m.height < minHeight {
 		return lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ff5555")).
+			Foreground(themeRed).
 			Render(fmt.Sprintf("Terminal too small (%dx%d). Minimum: %dx%d", m.width, m.height, minWidth, minHeight))
 	}
 
@@ -60,13 +60,13 @@ func (m model) View() string {
 
 // renderMainUI renders the main TUI with all panes
 func (m model) renderMainUI() string {
-	// Dracula colors
-	purple := lipgloss.Color("#bd93f9")
-	cyan := lipgloss.Color("#8be9fd")
-	comment := lipgloss.Color("#6272a4")
-	green := lipgloss.Color("#50fa7b")
-	red := lipgloss.Color("#ff5555")
-	orange := lipgloss.Color("#ffb86c")
+	// Theme colors using terminal ANSI colors
+	purple := themePurple
+	cyan := themeCyan
+	comment := themeComment
+	green := themeGreen
+	red := themeRed
+	orange := themeOrange
 
 	// Build title bar
 	title := " Cleat "
@@ -157,7 +157,7 @@ func (m model) renderMainUI() string {
 		helpText = lipgloss.NewStyle().Foreground(comment).Render("↑/↓: scroll • enter: edit • c/esc/q: close")
 	}
 	if !m.cfgFound {
-		warning := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Render("(no cleat.yaml)")
+		warning := lipgloss.NewStyle().Foreground(themeRed).Render("(no cleat.yaml)")
 		separator := lipgloss.NewStyle().Foreground(comment).Render(" • ")
 		helpText = warning + separator + helpText
 	}
@@ -232,7 +232,7 @@ func (m model) buildCommandsContent(comment, purple, cyan lipgloss.Color) []stri
 // buildTaskPreviewContent builds the task preview pane content
 func (m model) buildTaskPreviewContent() []string {
 	var taskLines []string
-	comment := lipgloss.Color("#6272a4")
+	comment := themeComment
 
 	visibleTasksCount := m.visibleTasksCount()
 	hasMoreAbove := m.taskScrollOffset > 0
@@ -423,7 +423,7 @@ func (m model) buildConfigLines() []string {
 	var configLines []string
 
 	if !m.cfgFound {
-		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Italic(true).Render("No cleat.yaml found"))
+		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(themeRed).Italic(true).Render("No cleat.yaml found"))
 		configLines = append(configLines, "")
 	}
 	configLines = append(configLines, fmt.Sprintf(" version: %d", m.cfg.Version))
@@ -486,8 +486,8 @@ func (m model) buildConfigLines() []string {
 
 // renderInputModal renders the input collection modal
 func (m model) renderInputModal() string {
-	purple := lipgloss.Color("#bd93f9")
-	fg := lipgloss.Color("#f8f8f2")
+	purple := themePurple
+	fg := themeFG
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(purple).Render("Input Required")
 
@@ -501,7 +501,7 @@ func (m model) renderInputModal() string {
 		"",
 		m.textInput.View(),
 		"",
-		lipgloss.NewStyle().Foreground(lipgloss.Color("#6272a4")).Render("  Enter: continue • Esc: cancel"),
+		lipgloss.NewStyle().Foreground(themeComment).Render("  Enter: continue • Esc: cancel"),
 		"",
 	}
 
@@ -520,8 +520,8 @@ func (m model) renderWorkflowNameModal() string {
 	width := 60
 	height := 10
 
-	purple := lipgloss.Color("#bd93f9")
-	comment := lipgloss.Color("#6272a4")
+	purple := themePurple
+	comment := themeComment
 
 	title := " Create Workflow "
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(purple)
@@ -545,9 +545,9 @@ func (m model) renderWorkflowNameModal() string {
 }
 
 func (m model) renderConfirmModal() string {
-	purple := lipgloss.Color("#bd93f9")
-	fg := lipgloss.Color("#f8f8f2")
-	red := lipgloss.Color("#ff5555")
+	purple := themePurple
+	fg := themeFG
+	red := themeRed
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(red).Render("Clear History")
 
@@ -556,7 +556,7 @@ func (m model) renderConfirmModal() string {
 		"",
 		lipgloss.NewStyle().Foreground(fg).Render("Are you sure you want to clear history?"),
 		"",
-		lipgloss.NewStyle().Foreground(lipgloss.Color("#6272a4")).Render("  y: confirm • n/Esc: cancel"),
+		lipgloss.NewStyle().Foreground(themeComment).Render("  y: confirm • n/Esc: cancel"),
 	}
 
 	boxStyle := lipgloss.NewStyle().
@@ -571,9 +571,9 @@ func (m model) renderConfirmModal() string {
 
 // renderHelpOverlay renders a centered help modal
 func (m model) renderWorkflowLocationModal() string {
-	purple := lipgloss.Color("#bd93f9")
-	comment := lipgloss.Color("#6272a4")
-	cyan := lipgloss.Color("#8be9fd")
+	purple := themePurple
+	comment := themeComment
+	cyan := themeCyan
 
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(purple).MarginBottom(1)
 	modalStyle := lipgloss.NewStyle().
@@ -601,8 +601,8 @@ func (m model) renderWorkflowLocationModal() string {
 }
 
 func (m model) renderConfigModal() string {
-	purple := lipgloss.Color("#bd93f9")
-	comment := lipgloss.Color("#6272a4")
+	purple := themePurple
+	comment := themeComment
 
 	width := 60
 	if width > m.width-10 {
@@ -632,9 +632,9 @@ func (m model) renderConfigModal() string {
 }
 
 func (m model) renderHelpOverlay() string {
-	purple := lipgloss.Color("#bd93f9")
-	comment := lipgloss.Color("#6272a4")
-	fg := lipgloss.Color("#f8f8f2")
+	purple := themePurple
+	comment := themeComment
+	fg := themeFG
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(purple).Render("Keyboard Shortcuts")
 
@@ -694,7 +694,7 @@ func drawBox(lines []string, width, height int, borderColor lipgloss.Color, titl
 
 		var renderedTitle string
 		if titleFocused {
-			renderedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Bold(true).Render(displayTitle)
+			renderedTitle = lipgloss.NewStyle().Foreground(themeWhite).Bold(true).Render(displayTitle)
 		} else {
 			renderedTitle = colorStyle.Render(displayTitle)
 		}
