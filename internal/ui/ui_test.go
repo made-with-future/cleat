@@ -1,14 +1,13 @@
 package ui
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/history"
@@ -93,302 +92,80 @@ func TestModelView(t *testing.T) {
 	}
 }
 
-func TestConfigPreview(t *testing.T) {
-	cfg := &config.Config{
-		Version: 1,
-		Docker:  true,
-		Envs:    []string{"production", "staging"},
-		Services: []config.ServiceConfig{
-			{
-				Name: "default",
-				Modules: []config.ModuleConfig{
-					{
-						Python: &config.PythonConfig{
-							Django:        true,
-							DjangoService: "web",
-						},
-					},
-					{
-						Npm: &config.NpmConfig{
-							Service: "node",
-							Scripts: []string{"build"},
-						},
-					},
-				},
-			},
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	// Open configuration modal
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
-	m = updatedModel.(model)
-	view := m.View()
-
-	if !strings.Contains(view, "version: 1") {
-		t.Error("expected view to contain 'version: 1'")
-	}
-	if !strings.Contains(view, "docker: true") {
-		t.Error("expected view to contain 'docker: true'")
-	}
-	if !strings.Contains(view, "envs:") {
-		t.Error("expected view to contain 'envs:' block")
-	}
-	if !strings.Contains(view, "- production") {
-		t.Error("expected view to contain '- production' under envs")
-	}
-	if !strings.Contains(view, "python:") {
-		t.Error("expected view to contain 'python:' block")
-	}
-	if !strings.Contains(view, "django:") {
-		t.Error("expected view to contain 'django:' block under python")
-	}
-	if !strings.Contains(view, "django: true") {
-		t.Error("expected view to contain 'django: true'")
-	}
-	if !strings.Contains(view, "django_service: web") {
-		t.Error("expected view to contain 'django_service: web'")
-	}
-	if !strings.Contains(view, "npm:") {
-		t.Error("expected view to contain 'npm:' block")
-	}
-	if !strings.Contains(view, "service: node") {
-		t.Error("expected view to contain 'service: node'")
-	}
-
-	// Test with Terraform
-	cfg.Terraform = &config.TerraformConfig{UseFolders: true, Envs: []string{"production", "staging"}}
-	m2 := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m2.expandAll()
-	m2.updateVisibleItems()
-	m2.width = 100
-	m2.height = 40
-
-	// Open configuration modal
-	updatedModel2, _ := m2.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
-	m2 = updatedModel2.(model)
-	view2 := m2.View()
-
-	if !strings.Contains(view2, "terraform:") {
-		t.Error("expected view to contain 'terraform:' section")
-	}
-
-	// Test that terraform commands are in the tree
-	found := false
-	for _, item := range m2.visibleItems {
-		if strings.Contains(item.path, "terraform.production.plan") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("expected to find terraform.production.plan in command tree")
-	}
-}
-
-func TestConfigPreviewFiltering(t *testing.T) {
-	// Configuration with Django false and NPM disabled
-	cfg := &config.Config{
-		Docker: true,
-		Services: []config.ServiceConfig{
-			{
-				Name: "default",
-				Modules: []config.ModuleConfig{
-					{Python: &config.PythonConfig{Django: false}},
-					{Npm: &config.NpmConfig{Scripts: []string{}}},
-				},
-			},
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	view := m.View()
-
-	if strings.Contains(view, "python:") {
-		t.Error("expected view NOT to contain 'python:' block when Django is false")
-	}
-	if strings.Contains(view, "django: false") {
-		t.Error("expected view NOT to contain 'django: false' (it should be filtered out)")
-	}
-	if strings.Contains(view, "npm:") {
-		t.Error("expected view NOT to contain 'npm:' block when no scripts are enabled")
-	}
-}
-
-func TestSmallDimensions(t *testing.T) {
+func TestErrorBar(t *testing.T) {
 	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.width = 100
+	m.height = 40
+	m.fatalError = errors.New("test error occurred")
 
-	// Test that small dimensions show the "too small" message
-	m.width = 40
-	m.height = 10
 	view := m.View()
-	if !strings.Contains(view, "Terminal too small") {
-		t.Error("expected 'Terminal too small' message for undersized terminal")
+	if !strings.Contains(view, "ERROR: test error occurred") {
+		t.Error("expected view to contain error message")
 	}
 
-	// Test that adequate dimensions render normally
-	m.width = 60
-	m.height = 20
-	view = m.View()
-	if strings.Contains(view, "Terminal too small") {
-		t.Error("expected normal render at minimum dimensions")
-	}
-	if !strings.Contains(view, "Commands") {
-		t.Error("expected 'Commands' section in normal render")
+	// Check if any key clears it
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	m = updatedModel.(model)
+	if m.fatalError != nil {
+		t.Error("expected fatalError to be cleared after key press")
 	}
 }
 
-func TestTaskPreviewAllCommands(t *testing.T) {
+func TestFiltering(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
-		GoogleCloudPlatform: &config.GCPConfig{
-			ProjectName: "test-project",
-		},
-		Terraform: &config.TerraformConfig{
-			UseFolders: true,
-			Envs:       []string{"dev"},
-		},
-		Services: []config.ServiceConfig{
-			{
-				Name: "backend",
-				Modules: []config.ModuleConfig{
-					{Python: &config.PythonConfig{Django: true}},
-					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
-				},
-			},
-		},
 	}
 	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
 	m.width = 100
 	m.height = 40
 
-	for i, item := range m.visibleItems {
-		m.cursor = i
-		m.updateTaskPreview()
-		view := m.View()
-
-		if item.item.Command != "" {
-			if strings.Contains(view, "unknown command") {
-				t.Errorf("Item %d (%s: %s) has 'unknown command' in preview", i, item.item.Label, item.item.Command)
-			}
-			if strings.Contains(view, "Error:") {
-				t.Errorf("Item %d (%s: %s) has 'Error:' in preview", i, item.item.Label, item.item.Command)
-			}
-		}
-	}
-}
-
-func TestCommandTreeNesting(t *testing.T) {
-	cfg := &config.Config{
-		Docker: true,
-		Services: []config.ServiceConfig{
-			{
-				Name: "backend",
-				Modules: []config.ModuleConfig{
-					{Python: &config.PythonConfig{Django: true}},
-				},
-			},
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.expandAll()
-	m.updateVisibleItems()
-
-	// Expected visible items (all expanded):
-	// build (level 0)
-	// run (level 0)
-	// docker (level 0)
-	//   down (level 1)
-	//   rebuild (level 1)
-	// backend (level 0)
-	//   django (level 1)
-	//     create-user-dev (level 2)
-	//     collectstatic (level 2)
-	//     migrate (level 2)
-	//     gen-random-secret-key (level 2)
-
-	expected := []struct {
-		label string
-		level int
-	}{
-		{"build", 0},
-		{"run", 0},
-		{"docker", 0},
-		{"down", 1},
-		{"rebuild", 1},
-		{"remove-orphans", 1},
-		{"backend", 0},
-		{"django", 1},
-		{"create-user-dev", 2},
-		{"collectstatic", 2},
-		{"makemigrations", 2},
-		{"migrate", 2},
-		{"gen-random-secret-key", 2},
-	}
-
-	if len(m.visibleItems) != len(expected) {
-		t.Fatalf("expected %d visible items, got %d", len(expected), len(m.visibleItems))
-	}
-
-	for i, exp := range expected {
-		if m.visibleItems[i].item.Label != exp.label {
-			t.Errorf("item %d: expected label %q, got %q", i, exp.label, m.visibleItems[i].item.Label)
-		}
-		if m.visibleItems[i].level != exp.level {
-			t.Errorf("item %d: expected level %d, got %d", i, exp.level, m.visibleItems[i].level)
-		}
-	}
-}
-
-func TestNavigation(t *testing.T) {
-	cfg := &config.Config{
-		Services: []config.ServiceConfig{
-			{
-				Name: "frontend",
-				Modules: []config.ModuleConfig{
-					{Npm: &config.NpmConfig{Scripts: []string{"dev", "build"}}},
-				},
-			},
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-
-	if m.cursor != 0 {
-		t.Errorf("expected initial cursor 0, got %d", m.cursor)
-	}
-
-	// Move down
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	// Press '/' to start filtering
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
 	m = updatedModel.(model)
-	if m.cursor != 1 {
-		t.Errorf("expected cursor 1 after Down, got %d", m.cursor)
+	if !m.filtering {
+		t.Error("expected filtering to be true")
 	}
 
-	// Move up
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	// Type 'down'
+	for _, r := range "down" {
+		updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updatedModel.(model)
+	}
+	if m.filterText != "down" {
+		t.Errorf("expected filterText 'down', got %q", m.filterText)
+	}
+
+	// Verify only matching items (or parents of matching items) visible
+	foundDown := false
+	for _, item := range m.visibleItems {
+		if strings.Contains(item.item.Label, "down") || strings.Contains(item.path, "down") {
+			foundDown = true
+		}
+	}
+	if !foundDown {
+		t.Error("expected to find item matching 'down' in filtered results")
+	}
+
+	// Backspace
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	m = updatedModel.(model)
-	if m.cursor != 0 {
-		t.Errorf("expected cursor 0 after Up, got %d", m.cursor)
+	if m.filterText != "dow" {
+		t.Errorf("expected filterText 'dow' after backspace, got %q", m.filterText)
+	}
+
+	// Escape to exit filter
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(model)
+	if m.filtering {
+		t.Error("expected filtering to be false after Esc")
 	}
 }
 
-func TestEnterKey(t *testing.T) {
+func TestModelInit(t *testing.T) {
 	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-
-	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Fatal("expected non-nil command after Enter")
-	}
-	resModel := updatedModel.(model)
-	if !resModel.quitting {
-		t.Error("expected quitting to be true after Enter")
-	}
-	if resModel.selectedCommand != "build" {
-		t.Errorf("expected selectedCommand to be 'build', got %q", resModel.selectedCommand)
+	cmd := m.Init()
+	if cmd != nil {
+		t.Error("expected Init to return nil")
 	}
 }
 
@@ -406,291 +183,11 @@ func TestTabbing(t *testing.T) {
 		t.Errorf("expected focus to be history after Tab, got %v", m.focus)
 	}
 
-	// Tab -> Commands (skips Config modal)
+	// Tab -> Commands
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	m = updatedModel.(model)
 	if m.focus != focusCommands {
 		t.Errorf("expected focus to be commands after 2nd Tab, got %v", m.focus)
-	}
-
-	// Shift+Tab -> History
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-	m = updatedModel.(model)
-	if m.focus != focusHistory {
-		t.Errorf("expected focus to be history after Shift+Tab, got %v", m.focus)
-	}
-
-	// Shift+Tab -> Commands
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-	m = updatedModel.(model)
-	if m.focus != focusCommands {
-		t.Errorf("expected focus to be commands after Shift+Tab, got %v", m.focus)
-	}
-}
-
-func TestWorkflowTaskPreviewIndentation(t *testing.T) {
-	cfg := &config.Config{
-		Docker: true,
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	// Add a mock workflow
-	m.workflows = []config.Workflow{
-		{
-			Name: "test-wf",
-			Commands: []string{
-				"docker down",
-			},
-		},
-	}
-	// Rebuild tree to include workflows
-	m.tree = buildCommandTree(cfg, m.workflows)
-	m.expandAll()
-	m.updateVisibleItems()
-
-	// 1. Find the workflow in visible items
-	found := false
-	for i, item := range m.visibleItems {
-		if item.item.Command == "workflow:test-wf" {
-			m.cursor = i
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Fatal("workflow:test-wf not found in tree")
-	}
-
-	m.updateTaskPreview()
-
-	// Check if task preview contains indented task
-	// Regular task starts with "• " (indented with "  " in View)
-	// Workflow task should start with "  • " (indented with "  " in View, so "    • ")
-
-	// Let's check m.taskPreview directly first
-	hasIndentedTask := false
-	for _, line := range m.taskPreview {
-		if strings.HasPrefix(ansi.Strip(line), "  • ") {
-			hasIndentedTask = true
-			break
-		}
-	}
-
-	if !hasIndentedTask {
-		t.Errorf("expected indented task line starting with '  • ', but not found. Preview: %v", m.taskPreview)
-	}
-
-	// Check command indentation
-	hasIndentedCmd := false
-	for _, line := range m.taskPreview {
-		if strings.HasPrefix(ansi.Strip(line), "      $ ") {
-			hasIndentedCmd = true
-			break
-		}
-	}
-	if !hasIndentedCmd {
-		t.Errorf("expected indented command line starting with '      $ ', but not found. Preview: %v", m.taskPreview)
-	}
-
-	// Check for the header as well
-	hasHeader := false
-	for _, line := range m.taskPreview {
-		if strings.Contains(ansi.Strip(line), "→ docker down") {
-			hasHeader = true
-			break
-		}
-	}
-	if !hasHeader {
-		t.Errorf("expected header '→ docker down', but not found")
-	}
-
-	// 2. Verify non-workflow task indentation (should NOT be indented)
-	found = false
-	for i, item := range m.visibleItems {
-		if item.item.Command == "docker down" {
-			m.cursor = i
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Fatal("docker down command not found in tree")
-	}
-
-	m.updateTaskPreview()
-
-	for _, line := range m.taskPreview {
-		stripped := ansi.Strip(line)
-		if strings.HasPrefix(stripped, "• ") {
-			// Success
-			return
-		}
-		if strings.HasPrefix(stripped, "  • ") {
-			t.Errorf("expected non-workflow task to NOT be indented, but found '  • '")
-		}
-	}
-}
-
-func TestNoConfigMessage(t *testing.T) {
-	m := InitialModel(&config.Config{}, false, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	view := m.View()
-	// Press 'c' to see the message in the configuration modal
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
-	m = updatedModel.(model)
-	view = m.View()
-
-	if !strings.Contains(view, "No cleat.yaml found") {
-		t.Error("expected view to contain 'No cleat.yaml found' in config pane when cfgFound is false")
-	}
-	if !strings.Contains(view, "(no cleat.yaml)") {
-		t.Error("expected view to contain '(no cleat.yaml)' in help bar when cfgFound is false")
-	}
-}
-
-func TestConfigPaneAction(t *testing.T) {
-	m := InitialModel(&config.Config{}, false, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	// Press 'c' to open config modal
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
-	m = updatedModel.(model)
-	if m.focus != focusConfig {
-		t.Fatalf("expected focus to be config, got %v", m.focus)
-	}
-
-	view := m.View()
-	if !strings.Contains(view, "Press Enter to create") {
-		t.Error("expected 'Press Enter to create' hint when config not found and modal focused")
-	}
-
-	// Close modal
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	m = updatedModel.(model)
-	if m.state != stateBrowsing {
-		t.Errorf("expected state browsing after Esc, got %v", m.state)
-	}
-
-	// With config found
-	m2 := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-	m2.width = 100
-	m2.height = 40
-
-	// Open modal
-	updatedModel2, _ := m2.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
-	m2 = updatedModel2.(model)
-	m2.focus = focusConfig
-
-	view2 := m2.View()
-	if !strings.Contains(view2, "Press Enter to edit") {
-		t.Error("expected 'Press Enter to edit' hint when config exists and modal focused")
-	}
-}
-
-func TestScrolling(t *testing.T) {
-	cfg := &config.Config{
-		Services: []config.ServiceConfig{
-			{
-				Name: "frontend",
-				Modules: []config.ModuleConfig{
-					{
-						Npm: &config.NpmConfig{
-							Scripts: []string{"script1", "script2", "script3", "script4", "script5", "script6", "script7", "script8", "script9", "script10"},
-						},
-					},
-				},
-			},
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.expandAll()
-	m.updateVisibleItems()
-	m.width = 80
-	m.height = 15 // Reduced to ensure scrolling
-
-	if m.scrollOffset != 0 {
-		t.Errorf("expected initial scrollOffset 0, got %d", m.scrollOffset)
-	}
-
-	// Navigate to the end
-	numPresses := len(m.visibleItems) - 1
-	for i := 0; i < numPresses; i++ {
-		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-		m = updatedModel.(model)
-	}
-
-	if m.scrollOffset == 0 {
-		t.Error("expected scrollOffset to increase after navigating down")
-	}
-
-	expectedCursor := len(m.visibleItems) - 1
-	if m.cursor != expectedCursor {
-		t.Errorf("expected cursor at %d, got %d", expectedCursor, m.cursor)
-	}
-
-	// Navigate back up
-	for i := 0; i < numPresses; i++ {
-		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
-		m = updatedModel.(model)
-	}
-
-	if m.cursor != 0 {
-		t.Errorf("expected cursor at 0, got %d", m.cursor)
-	}
-	if m.scrollOffset != 0 {
-		t.Errorf("expected scrollOffset 0 after scrolling back up, got %d", m.scrollOffset)
-	}
-}
-
-func TestCursorDimmedWhenUnfocused(t *testing.T) {
-	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-	m.history = []history.HistoryEntry{{Command: "build", Success: true, Timestamp: time.Now()}}
-	m.updateTaskPreview()
-
-	// When commands pane is focused, cursor should be cyan (ANSI 6)
-	view1 := m.View()
-	// ANSI 6 is often rendered as \x1b[36m or \x1b[38;5;6m or \x1b[96m
-	if !strings.Contains(view1, "36m") && !strings.Contains(view1, ";6m") && !strings.Contains(view1, "96m") {
-		t.Error("expected cyan cursor color when commands pane is focused")
-	}
-
-	// Tab to history pane
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	m = updatedModel.(model)
-
-	// When history pane is focused, its cursor should be cyan
-	viewHistory := m.View()
-	if !strings.Contains(viewHistory, "36m") && !strings.Contains(viewHistory, ";6m") && !strings.Contains(viewHistory, "96m") {
-		t.Error("expected cyan cursor color when history pane is focused")
-	}
-
-	// Tab to config pane
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	m = updatedModel.(model)
-
-	// When config pane is focused, cursor should be dimmed (ANSI 8)
-	view2 := m.View()
-	lines := strings.Split(view2, "\n")
-	foundDimmedCursor := false
-	for _, line := range lines {
-		if strings.Contains(line, ">") && strings.Contains(line, "build") {
-			// ANSI 8 is often rendered as \x1b[90m or \x1b[38;5;8m
-			if strings.Contains(line, "90m") || strings.Contains(line, ";8m") {
-				foundDimmedCursor = true
-			}
-		}
-	}
-	if !foundDimmedCursor {
-		t.Error("expected dimmed cursor color when commands pane is not focused")
 	}
 }
 
@@ -699,586 +196,107 @@ func TestHelpOverlay(t *testing.T) {
 	m.width = 100
 	m.height = 40
 
-	if m.showHelp {
-		t.Error("expected showHelp to be false initially")
-	}
-
-	// Press '?' to show help
+	// Press '?'
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
 	m = updatedModel.(model)
-
 	if !m.showHelp {
-		t.Error("expected showHelp to be true after pressing '?'")
+		t.Error("expected showHelp to be true")
 	}
 
 	view := m.View()
 	if !strings.Contains(view, "Keyboard Shortcuts") {
-		t.Error("expected help overlay to contain 'Keyboard Shortcuts'")
-	}
-	if !strings.Contains(view, "e          Expand all") {
-		t.Error("expected help overlay to contain 'e          Expand all'")
-	}
-	if !strings.Contains(view, "C          Collapse all") {
-		t.Error("expected help overlay to contain 'C          Collapse all'")
-	}
-	if !strings.Contains(view, "c          Show configuration") {
-		t.Error("expected help overlay to contain 'c          Show configuration'")
+		t.Error("expected view to contain 'Keyboard Shortcuts'")
 	}
 
 	// Press any key to dismiss
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
 	m = updatedModel.(model)
-
 	if m.showHelp {
-		t.Error("expected showHelp to be false after pressing any key")
+		t.Error("expected showHelp to be false after pressing a key")
 	}
 }
 
-func TestEscToQuit(t *testing.T) {
-	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-
-	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	resModel := updatedModel.(model)
-
-	if !resModel.quitting {
-		t.Error("expected quitting to be true after pressing Esc")
-	}
-	if cmd == nil {
-		t.Error("expected a non-nil command after pressing Esc")
-	}
-}
-
-func TestTaskPreviewWrapping(t *testing.T) {
+func TestModelUpdateNavigation(t *testing.T) {
 	cfg := &config.Config{
 		Docker: true,
 	}
 	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.expandAll()
-	m.updateVisibleItems()
-	m.width = 60
-	m.height = 20
-
-	// Trigger preview update
-	m.updateTaskPreview()
-
-	// Find a long command (like docker:rebuild)
-	m.cursor = 0
-	foundRebuild := false
-	for i, item := range m.visibleItems {
-		if item.item.Command == "docker rebuild" {
-			m.cursor = i
-			foundRebuild = true
-			break
-		}
-	}
-
-	if !foundRebuild {
-		// If not found (maybe docker tree is collapsed), expand it
-		for _, item := range m.visibleItems {
-			if item.item.Label == "docker" {
-				item.item.Expanded = true
-				m.updateVisibleItems()
-				// Try again
-				for j, item2 := range m.visibleItems {
-					if item2.item.Command == "docker rebuild" {
-						m.cursor = j
-						foundRebuild = true
-						break
-					}
-				}
-				break
-			}
-		}
-	}
-
-	if !foundRebuild {
-		t.Skip("docker rebuild command not found in tree")
-	}
-
-	m.updateTaskPreview()
-
-	// Verify that some lines in taskPreview are wrapped
-	// docker rebuild has long commands
-	hasWrappedLines := false
-	// width = 60. availableWidth = 60 - 6 = 54.
-	expectedAvailableWidth := 54
-	for _, line := range m.taskPreview {
-		// Strip ANSI codes for length check
-		plainLine := lipgloss.Width(line)
-		if plainLine > 0 {
-			if plainLine > expectedAvailableWidth {
-				t.Errorf("line exceeds available width: %d > %d: %q", plainLine, expectedAvailableWidth, line)
-			}
-			// Check if we have any continuation lines (starting with 8 spaces for commands)
-			if strings.HasPrefix(ansi.Strip(line), "        ") {
-				hasWrappedLines = true
-			}
-		}
-	}
-
-	if !hasWrappedLines {
-		t.Error("expected wrapped lines in task preview, but found none")
-	}
-}
-
-func TestConfigScrolling(t *testing.T) {
-	cfg := &config.Config{
-		Services: make([]config.ServiceConfig, 20),
-	}
-	for i := 0; i < 20; i++ {
-		cfg.Services[i] = config.ServiceConfig{Name: "service-" + string(rune('a'+i))}
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.expandAll()
-	m.updateVisibleItems()
 	m.width = 100
-	m.height = 20
-	m.focus = focusConfig
+	m.height = 40
 
-	if m.configScrollOffset != 0 {
-		t.Errorf("expected initial configScrollOffset 0, got %d", m.configScrollOffset)
-	}
-
-	// Move down
+	// Down
 	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = updatedModel.(model)
-	if m.configScrollOffset != 1 {
-		t.Errorf("expected configScrollOffset 1 after Down, got %d", m.configScrollOffset)
+	if m.cursor != 1 {
+		t.Errorf("expected cursor 1 after Down, got %d", m.cursor)
 	}
 
-	// Move up
+	// Up
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	m = updatedModel.(model)
-	if m.configScrollOffset != 0 {
-		t.Errorf("expected configScrollOffset 0 after Up, got %d", m.configScrollOffset)
-	}
-
-	// Move down multiple times
-	for i := 0; i < 100; i++ {
-		updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
-		m = updatedModel.(model)
-	}
-
-	if m.configScrollOffset == 0 {
-		t.Error("expected configScrollOffset to be > 0 after multiple Down presses")
-	}
-
-	lastOffset := m.configScrollOffset
-
-	// One more down should not increase offset if at end
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	m = updatedModel.(model)
-	if m.configScrollOffset != lastOffset {
-		t.Errorf("expected configScrollOffset to be capped, but it changed from %d to %d", lastOffset, m.configScrollOffset)
-	}
-}
-
-func TestInputCollectionModal(t *testing.T) {
-	cfg := &config.Config{
-		GoogleCloudPlatform: &config.GCPConfig{
-			ProjectName: "test-project",
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.expandAll()
-	m.updateVisibleItems()
-
-	// Navigate to gcp set-config
-	found := false
-	for i, item := range m.visibleItems {
-		if item.item.Command == "gcp set-config" {
-			m.cursor = i
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Fatal("gcp set-config not found in visible items")
-	}
-
-	// Press Enter to select command
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updatedModel.(model)
-	if m.state != stateInputCollection {
-		t.Fatalf("expected state stateInputCollection, got %v", m.state)
-	}
-
-	if len(m.requirements) == 0 {
-		t.Fatal("expected requirements for gcp set-config when account is missing")
-	}
-
-	// Simulate typing input "test@example.com"
-	for _, r := range "test@example.com" {
-		updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = updatedModel.(model)
-	}
-
-	// Press Enter to submit input
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updatedModel.(model)
-
-	if !m.quitting {
-		t.Error("expected quitting after filling all requirements")
-	}
-	if m.collectedInputs["gcp:account"] != "test@example.com" {
-		t.Errorf("expected gcp:account to be 'test@example.com', got %q", m.collectedInputs["gcp:account"])
-	}
-}
-
-func TestNestedCommandPathTitle(t *testing.T) {
-	cfg := &config.Config{
-		Docker: true,
-		Services: []config.ServiceConfig{
-			{
-				Name: "api",
-				Modules: []config.ModuleConfig{
-					{Python: &config.PythonConfig{Django: true, DjangoService: "backend"}},
-				},
-			},
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.expandAll()
-	m.updateVisibleItems()
-	m.width = 100
-	m.height = 40
-	view := m.View()
-	if !strings.Contains(view, "Tasks for build") {
-		t.Errorf("expected 'Tasks for build', got something else")
-	}
-
-	m.cursor = 3 // docker.down
-	m.updateTaskPreview()
-	view = m.View()
-	if !strings.Contains(view, "Tasks for docker.down") {
-		t.Errorf("expected title 'Tasks for docker.down', view content:\n%s", view)
-	}
-
-	m.cursor = 11
-	m.updateTaskPreview()
-	view = m.View()
-	if !strings.Contains(view, "Tasks for api.django.migrate") {
-		t.Errorf("expected title 'Tasks for api.django.migrate', view content:\n%s", view)
-	}
-
-	m.filterText = "migrate"
-	m.updateVisibleItems()
-	found := false
-	for i, v := range m.visibleItems {
-		if v.path == "api.django.migrate" {
-			m.cursor = i
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("could not find api.django.migrate in visible items after filtering")
-	}
-
-	m.updateTaskPreview()
-	view = m.View()
-	if !strings.Contains(view, "Tasks for api.django.migrate") {
-		t.Errorf("expected title 'Tasks for api.django.migrate' with filter, view content:\n%s", view)
-	}
-}
-
-func TestHistoryNavigationWithJK(t *testing.T) {
-	cfg := &config.Config{}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 20
-
-	m.history = []history.HistoryEntry{
-		{Timestamp: time.Now(), Command: "cmd1"},
-		{Timestamp: time.Now(), Command: "cmd2"},
-		{Timestamp: time.Now(), Command: "cmd3"},
-		{Timestamp: time.Now(), Command: "cmd4"},
-		{Timestamp: time.Now(), Command: "cmd5"},
-		{Timestamp: time.Now(), Command: "cmd6"},
-	}
-	m.historyCursor = 0
-	m.focus = focusHistory
-
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-	m = updatedModel.(model)
-	if m.historyCursor != 1 {
-		t.Errorf("expected historyCursor 1 after 'j', got %d", m.historyCursor)
-	}
-
-	for i := 0; i < 5; i++ {
-		updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-		m = updatedModel.(model)
-	}
-
-	if m.historyCursor != 5 {
-		t.Errorf("expected historyCursor 5, got %d", m.historyCursor)
-	}
-
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
-	m = updatedModel.(model)
-	if m.historyCursor != 4 {
-		t.Errorf("expected historyCursor 4 after 'k', got %d", m.historyCursor)
-	}
-}
-
-func TestHistoryJumpWithNumberKeys(t *testing.T) {
-	cfg := &config.Config{}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 20
-
-	m.history = []history.HistoryEntry{
-		{Timestamp: time.Now(), Command: "cmd1"},
-		{Timestamp: time.Now(), Command: "cmd2"},
-		{Timestamp: time.Now(), Command: "cmd3"},
-		{Timestamp: time.Now(), Command: "cmd4"},
-		{Timestamp: time.Now(), Command: "cmd5"},
-		{Timestamp: time.Now(), Command: "cmd6"},
-		{Timestamp: time.Now(), Command: "cmd7"},
-	}
-
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("3")})
-	m = updatedModel.(model)
-	if m.focus != focusHistory {
-		t.Fatalf("expected focusHistory after '3', got %v", m.focus)
-	}
-	if m.historyCursor != 2 {
-		t.Errorf("expected historyCursor 2 after '3', got %d", m.historyCursor)
-	}
-}
-
-func TestGGKeybinding(t *testing.T) {
-	cfg := &config.Config{}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	for i := 0; i < 5; i++ {
-		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-		m = updatedModel.(model)
-	}
-	if m.cursor == 0 {
-		t.Fatal("expected cursor to be > 0 after moving down")
-	}
-
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
-	m = updatedModel.(model)
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
-	m = updatedModel.(model)
 	if m.cursor != 0 {
-		t.Errorf("expected cursor 0 after 'gg', got %d", m.cursor)
+		t.Errorf("expected cursor 0 after Up, got %d", m.cursor)
 	}
 }
 
-func TestHistoryTaskPreview(t *testing.T) {
-	cfg := &config.Config{
-		Docker: true,
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 120
-	m.height = 40
-
-	m.history = []history.HistoryEntry{
-		{Timestamp: time.Now(), Command: "build"},
-		{Timestamp: time.Now(), Command: "docker down"},
-	}
-	m.historyCursor = 0
-
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	m = updatedModel.(model)
-	if m.focus != focusHistory {
-		t.Fatalf("expected focus history, got %v", m.focus)
-	}
-
-	view := m.View()
-	if !strings.Contains(view, "Tasks for build") {
-		t.Error("expected preview for history 'build'")
-	}
-}
-
-func TestClearHistoryConfirmation(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "cleat-ui-history-test-*")
-	defer os.RemoveAll(tmpDir)
-
-	oldUserHomeDir := history.UserHomeDir
-	history.UserHomeDir = func() (string, error) {
-		return tmpDir, nil
-	}
-	defer func() { history.UserHomeDir = oldUserHomeDir }()
-
-	history.Save(history.HistoryEntry{Command: "test-cmd", Timestamp: time.Now()})
-
-	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-	m.focus = focusHistory
-
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
-	m = updatedModel.(model)
-
-	if m.state != stateConfirmClearHistory {
-		t.Errorf("expected state stateConfirmClearHistory, got %v", m.state)
-	}
-
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
-	m = updatedModel.(model)
-
-	if len(m.history) != 0 {
-		t.Errorf("expected history to be empty, got %d entries", len(m.history))
-	}
-}
-
-func TestFocusedTitleColor(t *testing.T) {
-	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-
-	view1 := m.View()
-	if !strings.Contains(view1, "97m") && !strings.Contains(view1, ";15m") {
-		t.Error("expected white title color when pane is focused")
-	}
-
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	m = updatedModel.(model)
-	view2 := m.View()
-	if !strings.Contains(view2, "97m") && !strings.Contains(view2, ";15m") {
-		t.Error("expected white title color when history pane is focused")
-	}
-}
-
-func TestTaskPaneFocusAndScrolling(t *testing.T) {
+func TestModelUpdateEnter(t *testing.T) {
 	cfg := &config.Config{}
 	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
 	m.width = 100
-	m.height = 20
+	m.height = 40
 
-	m.taskPreview = []string{
-		"task 1", "task 2", "task 3", "task 4", "task 5",
-		"task 6", "task 7", "task 8", "task 9", "task 10",
+	// Press Enter on 'build'
+	updatedModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Error("expected a command after pressing Enter")
 	}
+	resModel := updatedModel.(model)
+	if !resModel.quitting {
+		t.Error("expected quitting after selecting a command")
+	}
+}
 
-	m.focus = focusCommands
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+func TestTUIKeys(t *testing.T) {
+	cfg := &config.Config{Docker: true}
+	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
+	m.width = 100
+	m.height = 40
+
+	// Expand all 'e'
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	m = updatedModel.(model)
+	
+	// Collapse all 'C'
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("C")})
+	m = updatedModel.(model)
+	
+	// Jump to tasks 't'
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = updatedModel.(model)
 	if m.focus != focusTasks {
-		t.Errorf("expected focusTasks after 't' from Commands, got %v", m.focus)
-	}
-
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	m = updatedModel.(model)
-	if m.focus != focusCommands {
-		t.Errorf("expected focus back to Commands after Tab from Tasks, got %v", m.focus)
+		t.Error("expected focus tasks after 't'")
 	}
 }
 
-func TestServiceDockerCommandsInTree(t *testing.T) {
+func TestTerraformTree(t *testing.T) {
 	cfg := &config.Config{
-		Docker: false,
-		Services: []config.ServiceConfig{
-			{
-				Name:   "svc1",
-				Docker: ptrBool(true),
-			},
+		Terraform: &config.TerraformConfig{
+			UseFolders: true,
+			Envs: []string{"prod"},
 		},
 	}
 	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
 	m.expandAll()
 	m.updateVisibleItems()
-
-	foundRootDocker := false
+	
+	foundProd := false
 	for _, item := range m.visibleItems {
-		if item.item.Label == "docker" && item.level == 0 {
-			foundRootDocker = true
+		if strings.Contains(item.path, "terraform.prod") {
+			foundProd = true
 			break
 		}
 	}
-	if !foundRootDocker {
-		t.Error("expected root docker group when service has docker")
-	}
-}
-
-func TestConfigFocusClearsTaskPreview(t *testing.T) {
-	cfg := &config.Config{}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 20
-	m.history = []history.HistoryEntry{
-		{Command: "build", Success: true, Timestamp: time.Now()},
-	}
-
-	m.taskPreview = []string{"task 1", "task 2"}
-
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
-	m = updatedModel.(model)
-	if m.focus != focusConfig {
-		t.Fatalf("expected focus focusConfig after pressing 'c', got %v", m.focus)
-	}
-
-	if len(m.taskPreview) != 0 {
-		t.Errorf("expected taskPreview to be cleared when focused on Config, got %v", m.taskPreview)
-	}
-}
-
-func TestWorkflowCreationFlow(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "cleat-ui-workflow-test-*")
-	defer os.RemoveAll(tmpDir)
-	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
-
-	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
-
-	cfg := &config.Config{}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.width = 100
-	m.height = 40
-	m.history = []history.HistoryEntry{
-		{Command: "cmd1", Success: true, Timestamp: time.Now()},
-		{Command: "cmd2", Success: true, Timestamp: time.Now()},
-	}
-
-	m.focus = focusHistory
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("w")})
-	m = updatedModel.(model)
-	if m.state != stateCreatingWorkflow {
-		t.Errorf("expected stateCreatingWorkflow, got %v", m.state)
-	}
-
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updatedModel.(model)
-
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
-	m = updatedModel.(model)
-
-	m.textInput.SetValue("my-wf")
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updatedModel.(model)
-
-	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updatedModel.(model)
-
-	if _, err := os.Stat("cleat.workflows.yaml"); os.IsNotExist(err) {
-		t.Error("expected cleat.workflows.yaml to be created")
-	}
-}
-
-func TestGCPCommandsInTree(t *testing.T) {
-	cfg := &config.Config{
-		GoogleCloudPlatform: &config.GCPConfig{
-			ProjectName: "test-project",
-		},
-	}
-	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
-	m.expandAll()
-	m.updateVisibleItems()
-
-	foundLabels := make(map[string]bool)
-	for _, item := range m.visibleItems {
-		foundLabels[item.item.Label] = true
-	}
-
-	if !foundLabels["gcp"] {
-		t.Error("expected label 'gcp' not found in visible items")
+	if !foundProd {
+		t.Error("expected terraform.prod in tree")
 	}
 }

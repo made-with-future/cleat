@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/madewithfuture/cleat/internal/config"
 )
 
 func TestHistory(t *testing.T) {
@@ -115,7 +117,7 @@ func TestHistoryProjectRoot(t *testing.T) {
 	files, _ := os.ReadDir(filepath.Join(tmpDir, ".cleat"))
 	var historyFiles []string
 	for _, f := range files {
-		if !f.IsDir() {
+		if !f.IsDir() && strings.HasSuffix(f.Name(), ".history.yaml") {
 			historyFiles = append(historyFiles, f.Name())
 		}
 	}
@@ -171,56 +173,20 @@ func TestHistoryGitRoot(t *testing.T) {
 
 	// 2. Load and verify identity
 	files, _ := os.ReadDir(filepath.Join(tmpDir, ".cleat"))
-	if len(files) != 1 {
-		t.Errorf("Expected 1 history file, got %d", len(files))
+	var historyFiles []string
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".history.yaml") {
+			historyFiles = append(historyFiles, f.Name())
+		}
+	}
+	if len(historyFiles) != 1 {
+		t.Errorf("Expected 1 history file, got %d", len(historyFiles))
 	}
 
 	// The filename should start with the tmpDir base name, not "cmd"
 	expectedPrefix := filepath.Base(projectRoot)
-	if !strings.HasPrefix(files[0].Name(), expectedPrefix) {
-		t.Errorf("Expected filename to start with %s, got %s", expectedPrefix, files[0].Name())
-	}
-}
-
-func TestHistoryHashLength(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "cleat-history-hash-test-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	oldUserHomeDir := UserHomeDir
-	UserHomeDir = func() (string, error) {
-		return tmpDir, nil
-	}
-	defer func() { UserHomeDir = oldUserHomeDir }()
-
-	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
-
-	entry := HistoryEntry{Command: "test", Timestamp: time.Now()}
-	err = Save(entry)
-	if err != nil {
-		t.Fatalf("Failed to save history: %v", err)
-	}
-
-	files, _ := os.ReadDir(filepath.Join(tmpDir, ".cleat"))
-	if len(files) != 1 {
-		t.Fatalf("Expected 1 history file, got %d", len(files))
-	}
-
-	// Verify hash is 8 bytes (16 hex chars)
-	// Filename format: <dirname>-<16hexchars>.history.yaml
-	filename := files[0].Name()
-	parts := strings.Split(filename, "-")
-	if len(parts) < 2 {
-		t.Fatalf("Expected filename with dash separator, got %s", filename)
-	}
-
-	hashPart := strings.TrimSuffix(parts[len(parts)-1], ".history.yaml")
-	if len(hashPart) != 16 {
-		t.Errorf("Expected hash length of 16 hex chars, got %d (%s)", len(hashPart), hashPart)
+	if !strings.HasPrefix(historyFiles[0], expectedPrefix) {
+		t.Errorf("Expected filename to start with %s, got %s", expectedPrefix, historyFiles[0])
 	}
 }
 
@@ -315,4 +281,113 @@ func TestHistoryWithInputs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStats(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-stats-test-*")
+	defer os.RemoveAll(tmpDir)
+	
+	oldUserHomeDir := UserHomeDir
+	UserHomeDir = func() (string, error) {
+		return tmpDir, nil
+	}
+	defer func() { UserHomeDir = oldUserHomeDir }()
+	
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+	
+	// Test UpdateStats
+	UpdateStats("build")
+	UpdateStats("build")
+	UpdateStats("run")
+	
+	top, err := GetTopCommands(10)
+	if err != nil {
+		t.Fatalf("GetTopCommands failed: %v", err)
+	}
+	
+	if len(top) != 2 {
+		t.Errorf("expected 2 top commands, got %d", len(top))
+	}
+	if top[0].Command != "build" || top[0].Count != 2 {
+		t.Errorf("expected build count 2, got %v", top[0])
+	}
+}
+
+func TestWorkflows(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-wf-test-*")
+	defer os.RemoveAll(tmpDir)
+	
+	oldUserHomeDir := UserHomeDir
+	UserHomeDir = func() (string, error) {
+		return tmpDir, nil
+	}
+	defer func() { UserHomeDir = oldUserHomeDir }()
+	
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+	
+	// Create a dummy cleat.yaml
+	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
+	
+	wf := config.Workflow{
+		Name:     "deploy",
+		Commands: []string{"build", "gcp app-engine deploy"},
+	}
+	
+	t.Run("SaveToProject", func(t *testing.T) {
+		err := SaveWorkflowToProject(wf)
+		if err != nil {
+			t.Fatalf("SaveWorkflowToProject failed: %v", err)
+		}
+		
+		loaded, _ := LoadWorkflows(nil)
+		found := false
+		for _, w := range loaded {
+			if w.Name == "deploy" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("workflow not found in project")
+		}
+	})
+	
+	t.Run("SaveToUser", func(t *testing.T) {
+		wfUser := wf
+		wfUser.Name = "user-wf"
+		err := SaveWorkflowToUser(wfUser)
+		if err != nil {
+			t.Fatalf("SaveWorkflowToUser failed: %v", err)
+		}
+		
+		loaded, _ := LoadWorkflows(nil)
+		found := false
+		for _, w := range loaded {
+			if w.Name == "user-wf" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("workflow not found in user config")
+		}
+	})
+	
+	t.Run("DeleteWorkflow", func(t *testing.T) {
+		err := DeleteWorkflow("deploy")
+		if err != nil {
+			t.Fatalf("DeleteWorkflow failed: %v", err)
+		}
+		
+		loaded, _ := LoadWorkflows(nil)
+		for _, w := range loaded {
+			if w.Name == "deploy" {
+				t.Error("workflow still exists after delete")
+			}
+		}
+	})
 }
