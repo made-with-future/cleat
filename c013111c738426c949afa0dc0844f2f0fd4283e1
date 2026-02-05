@@ -1,0 +1,1 @@
+Task: Define CommandProvider interface\nSummary: Added CommandProvider interface with CanHandle and GetStrategy methods to strategy.go.\nFiles: internal/strategy/strategy.go\nWhy: To provide a standard interface for command-to-strategy routing as part of the dispatcher pattern refactoring.
