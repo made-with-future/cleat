@@ -267,6 +267,7 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 func GetProviders() []CommandProvider {
 	return []CommandProvider{
 		&NpmProvider{},
+		&DockerProvider{},
 		&LegacyProvider{},
 		&RegistryProvider{},
 	}
@@ -347,6 +348,44 @@ func (p *NpmProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 	return nil
 }
 
+// DockerProvider handles service-specific docker commands
+type DockerProvider struct{}
+
+func (p *DockerProvider) CanHandle(command string) bool {
+	return strings.HasPrefix(command, "docker ")
+}
+
+func (p *DockerProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+	if cfg == nil {
+		return nil
+	}
+
+	parts := strings.Split(command, ":")
+	if len(parts) == 2 {
+		baseCmd := parts[0]
+		svcName := parts[1]
+		var targetSvc *config.ServiceConfig
+		for i := range cfg.Services {
+			if cfg.Services[i].Name == svcName {
+				targetSvc = &cfg.Services[i]
+				break
+			}
+		}
+
+		if targetSvc != nil {
+			switch baseCmd {
+			case "docker down":
+				return NewDockerDownStrategyForService(targetSvc)
+			case "docker rebuild":
+				return NewDockerRebuildStrategyForService(targetSvc)
+			case "docker remove-orphans":
+				return NewDockerRemoveOrphansStrategyForService(targetSvc)
+			}
+		}
+	}
+	return nil
+}
+
 // LegacyProvider contains the original monolithic routing logic
 type LegacyProvider struct{}
 
@@ -357,33 +396,6 @@ func (p *LegacyProvider) CanHandle(command string) bool {
 func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strategy {
 	if cfg == nil {
 		return nil
-	}
-
-	// Handle service-specific docker commands from TUI: "docker down:backend"
-	if strings.HasPrefix(command, "docker ") {
-		parts := strings.Split(command, ":")
-		if len(parts) == 2 {
-			baseCmd := parts[0]
-			svcName := parts[1]
-			var targetSvc *config.ServiceConfig
-			for i := range cfg.Services {
-				if cfg.Services[i].Name == svcName {
-					targetSvc = &cfg.Services[i]
-					break
-				}
-			}
-
-			if targetSvc != nil {
-				switch baseCmd {
-				case "docker down":
-					return NewDockerDownStrategyForService(targetSvc)
-				case "docker rebuild":
-					return NewDockerRebuildStrategyForService(targetSvc)
-				case "docker remove-orphans":
-					return NewDockerRemoveOrphansStrategyForService(targetSvc)
-				}
-			}
-		}
 	}
 
 	// Handle service-specific django commands from TUI: "django migrate:backend"
