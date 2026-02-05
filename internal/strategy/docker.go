@@ -42,3 +42,15 @@ func NewDockerRemoveOrphansStrategyForService(svc *config.ServiceConfig) Strateg
 		task.NewDockerRemoveOrphans(svc),
 	})
 }
+
+func NewDockerUpStrategy(cfg *config.Config) Strategy {
+	var tasks []task.Task
+	tasks = append(tasks, task.NewDockerUp(nil))
+	return NewBaseStrategy("docker up", tasks)
+}
+
+func NewDockerUpStrategyForService(svc *config.ServiceConfig) Strategy {
+	return NewBaseStrategy("docker up", []task.Task{
+		task.NewDockerUp(svc),
+	})
+}
