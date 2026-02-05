@@ -12,9 +12,9 @@ Refactor the strategy routing logic to use a modular dispatcher pattern, ensurin
 ## Phase 2: Dispatcher Foundation
 - [x] Task: Define \`CommandProvider\` interface (c013111)
     - [x] Add \`CommandProvider\` interface to \`internal/strategy/strategy.go\`
-- [ ] Task: Implement `RegistryProvider`
-    - [ ] Write tests for the `RegistryProvider`
-    - [ ] Implement `RegistryProvider` to handle strategies registered via `Register()`
+- [x] Task: Implement \`RegistryProvider\` (2c37c79)
+    - [x] Write tests for the `RegistryProvider`
+    - [x] Implement `RegistryProvider` to handle strategies registered via `Register()`
 - [ ] Task: Implement Dispatcher Loop
     - [ ] Refactor `GetStrategyForCommand` to use a slice of `CommandProviders`
     - [ ] Verify existing tests still pass with only the `RegistryProvider` integrated
