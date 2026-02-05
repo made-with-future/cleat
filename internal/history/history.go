@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,18 +29,16 @@ const (
 func getFilePath(suffix string) (string, error) {
 	home, err := UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get user home dir: %w", err)
 	}
 
 	root := config.FindProjectRoot()
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get absolute project root: %w", err)
 	}
 
 	hash := sha256.Sum256([]byte(absRoot))
-	// Use project directory name + hash for better recognizability
-	// Using 8 bytes (16 hex chars) to reduce collision risk while keeping filenames reasonable
 	projectDirName := filepath.Base(absRoot)
 	if projectDirName == "/" || projectDirName == "." || projectDirName == "" {
 		projectDirName = "root"
@@ -55,7 +54,12 @@ func getHistoryFilePath() (string, error) {
 }
 
 func Save(entry HistoryEntry) error {
-	entries, _ := Load()
+	entries, err := Load()
+	if err != nil {
+		logger.Warn("failed to load existing history before saving", map[string]interface{}{"error": err.Error()})
+		// Initialize empty entries if load failed
+		entries = []HistoryEntry{}
+	}
 
 	// Prepend new entry
 	entries = append([]HistoryEntry{entry}, entries...)
@@ -67,7 +71,7 @@ func Save(entry HistoryEntry) error {
 
 	data, err := yaml.Marshal(entries)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal history: %w", err)
 	}
 
 	historyFile, err := getHistoryFilePath()
@@ -76,10 +80,13 @@ func Save(entry HistoryEntry) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(historyFile), 0755); err != nil {
-		return err
+		return fmt.Errorf("failed to create history directory: %w", err)
 	}
 
-	return os.WriteFile(historyFile, data, 0644)
+	if err := os.WriteFile(historyFile, data, 0644); err != nil {
+		return fmt.Errorf("failed to write history file: %w", err)
+	}
+	return nil
 }
 
 func Clear() error {
@@ -87,7 +94,10 @@ func Clear() error {
 	if err != nil {
 		return err
 	}
-	return os.Remove(historyFile)
+	if err := os.Remove(historyFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clear history: %w", err)
+	}
+	return nil
 }
 
 func Load() ([]HistoryEntry, error) {
@@ -98,12 +108,15 @@ func Load() ([]HistoryEntry, error) {
 
 	data, err := os.ReadFile(historyFile)
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to read history file: %w", err)
 	}
 
 	var entries []HistoryEntry
 	if err := yaml.Unmarshal(data, &entries); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal history: %w", err)
 	}
 
 	return entries, nil
