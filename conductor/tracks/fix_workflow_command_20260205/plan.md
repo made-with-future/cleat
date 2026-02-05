@@ -2,7 +2,7 @@
 
 Restore the missing `WorkflowProvider` to the strategy dispatcher to fix the regression where named workflows from `cleat.yaml` could not be executed.
 
-## Phase 1: Test Setup & Command Resolution (Red Phase)
+## Phase 1: Test Setup & Command Resolution (Red Phase) [checkpoint: c7cbf28]
 - [x] Task: Write failing tests for workflow command resolution [dc36c9f]
     - [x] Create test cases in `internal/strategy/strategy_test.go` that attempt to resolve `workflow:test-workflow`.
     - [x] Define a sample workflow in the test configuration.
