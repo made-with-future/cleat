@@ -33,7 +33,7 @@ Refactor the strategy routing logic to use a modular dispatcher pattern, ensurin
 - [x] Task: Extract GCP Strategy Logic (9353237)
     - [x] Write tests for \`GcpProvider\`
     - [x] Move GCP routing logic to \`GcpProvider\` and register it
-- [ ] Task: Extract Terraform Strategy Logic
-    - [ ] Write tests for `TerraformProvider`
-    - [ ] Move Terraform routing logic to `TerraformProvider` and register it
+- [x] Task: Extract Terraform Strategy Logic (0d60d34)
+    - [x] Write tests for \`TerraformProvider\`
+    - [x] Move Terraform routing logic to \`TerraformProvider\` and register it
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Module Extraction' (Protocol in workflow.md)
