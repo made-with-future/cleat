@@ -87,7 +87,13 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	var cfg Config
-	cfg.SourcePath, _ = filepath.Abs(path)
+	var absErr error
+	cfg.SourcePath, absErr = filepath.Abs(path)
+	if absErr != nil {
+		logger.Warn("failed to get absolute path for config", map[string]interface{}{"path": path, "error": absErr.Error()})
+		cfg.SourcePath = path
+	}
+
 	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config from %s: %w", path, err)

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/session"
@@ -15,7 +17,7 @@ var buildCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := session.NewSession(cfg, executor.Default)
@@ -25,7 +27,10 @@ var buildCmd = &cobra.Command{
 			}
 		}
 		s := strategy.NewBuildStrategy(cfg)
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("build execution failed: %w", err)
+		}
+		return nil
 	},
 }
 

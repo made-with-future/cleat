@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -187,7 +188,7 @@ envs: []
 		_, err = LoadConfig(tmpfile.Name())
 		if err == nil {
 			t.Error("Expected error for empty envs, got nil")
-		} else if err.Error() != "envs must have at least one item if provided" {
+		} else if !strings.Contains(err.Error(), "envs") || !strings.Contains(err.Error(), "must have at least one item if provided") {
 			t.Errorf("Unexpected error message: %v", err)
 		}
 	})

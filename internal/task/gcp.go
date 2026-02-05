@@ -28,7 +28,7 @@ func (t *GCPInit) Run(sess *session.Session) error {
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
-			return err
+			return fmt.Errorf("gcp init failed: %w", err)
 		}
 	}
 	return nil
@@ -68,7 +68,7 @@ func (t *GCPActivate) Run(sess *session.Session) error {
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
-			return err
+			return fmt.Errorf("gcp activate failed: %w", err)
 		}
 	}
 	return nil
@@ -122,7 +122,7 @@ func (t *GCPSetConfig) Run(sess *session.Session) error {
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
-			return err
+			return fmt.Errorf("gcp set-config failed: %w", err)
 		}
 	}
 	return nil
@@ -171,7 +171,7 @@ func (t *GCPADCLogin) Run(sess *session.Session) error {
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
-			return err
+			return fmt.Errorf("gcp adc-login failed: %w", err)
 		}
 	}
 	return nil
@@ -229,7 +229,7 @@ func (t *GCPAdcImpersonateLogin) Run(sess *session.Session) error {
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
-			return err
+			return fmt.Errorf("gcp adc-impersonate-login failed: %w", err)
 		}
 	}
 	return nil
@@ -275,7 +275,10 @@ func (t *GCPConsole) ShouldRun(sess *session.Session) bool {
 func (t *GCPConsole) Run(sess *session.Session) error {
 	fmt.Println("==> Opening Google Cloud Console")
 	cmds := t.Commands(sess)
-	return sess.Exec.Run(cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.Run(cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("failed to open gcp console: %w", err)
+	}
+	return nil
 }
 
 func (t *GCPConsole) Commands(sess *session.Session) [][]string {
@@ -321,7 +324,10 @@ func (t *GCPAppEngineDeploy) Run(sess *session.Session) error {
 		fmt.Printf("--> Version: %s\n", version)
 	}
 	cmds := t.Commands(sess)
-	return sess.Exec.Run(cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.Run(cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("gcp app-engine deploy failed: %w", err)
+	}
+	return nil
 }
 
 func (t *GCPAppEngineDeploy) Commands(sess *session.Session) [][]string {
@@ -374,7 +380,10 @@ func (t *GCPAppEnginePromote) Run(sess *session.Session) error {
 	}
 	fmt.Printf("==> Promoting App Engine version %s\n", version)
 	cmds := t.Commands(sess)
-	return sess.Exec.Run(cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.Run(cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("gcp app-engine promote failed for version %s: %w", version, err)
+	}
+	return nil
 }
 
 func (t *GCPAppEnginePromote) Commands(sess *session.Session) [][]string {

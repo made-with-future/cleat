@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/history"
+	"github.com/madewithfuture/cleat/internal/logger"
 	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/madewithfuture/cleat/internal/task"
@@ -43,10 +44,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case editorFinishedMsg:
 		return m.handleEditorFinished(msg)
 	case tea.KeyMsg:
+		m.fatalError = nil
 		return m.handleKeyPress(msg)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.fatalError = nil
 		m.updateTaskPreview()
 	}
 	return m, nil
@@ -57,8 +60,15 @@ func (m model) handleConfirmClearHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "y", "enter":
-			history.Clear()
-			m.history, _ = history.Load()
+			if err := history.Clear(); err != nil {
+				m.fatalError = fmt.Errorf("failed to clear history: %w", err)
+				logger.Error("history clear failed", err, nil)
+			}
+			var err error
+			m.history, err = history.Load()
+			if err != nil {
+				logger.Warn("failed to load history after clear", map[string]interface{}{"error": err.Error()})
+			}
 			m.historyCursor = 0
 			m.historyOffset = 0
 			m.state = stateBrowsing
@@ -149,10 +159,15 @@ func (m model) handleWorkflowLocationSelection(msg tea.Msg) (tea.Model, tea.Cmd)
 					Name:     name,
 					Commands: workflowSteps,
 				}
+				var err error
 				if m.workflowLocationIdx == 0 {
-					history.SaveWorkflowToProject(workflow)
+					err = history.SaveWorkflowToProject(workflow)
 				} else {
-					history.SaveWorkflowToUser(workflow)
+					err = history.SaveWorkflowToUser(workflow)
+				}
+				if err != nil {
+					m.fatalError = fmt.Errorf("failed to save workflow: %w", err)
+					logger.Error("workflow save failed", err, map[string]interface{}{"name": name, "location": m.workflowLocationIdx})
 				}
 				m.workflows, _ = history.LoadWorkflows(m.cfg)
 				m.tree = buildCommandTree(m.cfg, m.workflows)
@@ -287,13 +302,19 @@ func (m model) handleEditorFinished(msg editorFinishedMsg) (tea.Model, tea.Cmd) 
 		if os.IsNotExist(err) {
 			m.cfg = &config.Config{}
 			m.cfgFound = false
+		} else {
+			m.fatalError = fmt.Errorf("failed to reload config: %w", err)
+			logger.Error("failed to reload config after editor", err, map[string]interface{}{"path": m.cfg.SourcePath})
 		}
-		// If other error, keep existing config
 	} else {
 		m.cfg = cfg
 		m.cfgFound = true
 		// Rebuild commands tree with new npm scripts and workflows
-		m.workflows, _ = history.LoadWorkflows(cfg)
+		var workflowsErr error
+		m.workflows, workflowsErr = history.LoadWorkflows(cfg)
+		if workflowsErr != nil {
+			logger.Warn("failed to load workflows after editor", map[string]interface{}{"error": workflowsErr.Error()})
+		}
 		m.tree = buildCommandTree(cfg, m.workflows)
 		m.updateVisibleItems()
 		m.updateTaskPreview()
@@ -460,7 +481,8 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 			if s != nil {
 				plan, err := s.ResolveTasks(sess)
 				if err != nil {
-					m.fatalError = fmt.Errorf("failed to resolve tasks: %w", err)
+					m.fatalError = fmt.Errorf("failed to resolve tasks for %s: %w", m.selectedCommand, err)
+					logger.Error("task resolution failed", err, map[string]interface{}{"command": m.selectedCommand})
 					return m, nil
 				}
 				var reqs []task.InputRequirement
@@ -484,6 +506,7 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 				}
 			} else {
 				m.fatalError = fmt.Errorf("unknown command: %s", m.selectedCommand)
+				logger.Warn("unknown command selected in UI", map[string]interface{}{"command": m.selectedCommand})
 				return m, nil
 			}
 			m.quitting = true
@@ -610,6 +633,7 @@ func (m model) openEditor() tea.Cmd {
 		if err := os.WriteFile(m.cfg.SourcePath, []byte(defaultConfigTemplate), 0644); err != nil {
 			// Log the error but continue - the editor will show file creation error
 			fmt.Fprintf(os.Stderr, "Warning: failed to create default config: %v\n", err)
+			logger.Error("failed to create default config", err, map[string]interface{}{"path": m.cfg.SourcePath})
 		}
 	}
 

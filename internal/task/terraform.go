@@ -45,7 +45,10 @@ func (t *Terraform) Run(sess *session.Session) error {
 
 	fmt.Printf("==> Running terraform %s in %s\n", t.Action, dir)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("terraform %s failed in %s: %w", t.Action, dir, err)
+	}
+	return nil
 }
 
 func (t *Terraform) Commands(sess *session.Session) [][]string {

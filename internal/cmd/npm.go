@@ -16,7 +16,7 @@ var npmCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -31,7 +31,10 @@ var npmCmd = &cobra.Command{
 		if s == nil {
 			return fmt.Errorf("no strategy found for %s", command)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("npm script failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -42,7 +45,7 @@ var npmInstallCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -57,7 +60,10 @@ var npmInstallCmd = &cobra.Command{
 		if s == nil {
 			return fmt.Errorf("no strategy found for %s", command)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("npm install failed: %w", err)
+		}
+		return nil
 	},
 }
 

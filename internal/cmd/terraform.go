@@ -21,7 +21,7 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.LoadDefaultConfig()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to load config: %w", err)
 			}
 
 			if cfg.Terraform == nil {
@@ -69,7 +69,10 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 
 			sess := createSessionAndMerge(cfg)
 			s := strategy.NewTerraformStrategy(env, tfAction, tfArgs)
-			return s.Execute(sess)
+			if err := s.Execute(sess); err != nil {
+				return fmt.Errorf("terraform %s failed: %w", action, err)
+			}
+			return nil
 		},
 	}
 }

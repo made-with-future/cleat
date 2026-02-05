@@ -1,0 +1,149 @@
+GCP_PROJECT_ID = delta-dental-ok-foundation
+
+export OP_ACCOUNT=madewithfuture.1password.com
+
+.PHONY: \
+run build deploy promote deploy-mouthguards \
+dc-build \
+dj-collectstatic dj-dumpdata dj-makemigrations dj-migrate-dev dj-migrate-production dj-loaddata \
+py-install \
+npm-vite-build npm-tailwindcss-build \
+gcp-activate gcp-adc-login gcp-init gcp-set-config gcp-deploy gcp-promote gcp-deploy-mouthguards \
+tf-init tf-init-upgrade tf-plan tf-apply tf-apply-refresh
+
+run:
+	op run --env-file="./.env/dev.env" -- docker compose up
+
+build:
+	make npm-vite-build
+	make npm-tailwindcss-build
+	make dj-collectstatic
+
+deploy:
+	make dc-prune-orphans
+	make build
+	make gcp-deploy
+
+promote:
+	make gcp-promote
+
+# TODO Remove once mouthguards isn't only deployment target
+deploy-mouthguards:
+	make build
+	make gcp-deploy-mouthguards
+
+dc-build:
+	# Builds all services, as far as extra profiles go, we only have migrate, if we added others
+	# we'd need to add those to the list below if we want it to build everything
+	docker compose --profile migrate build
+
+dc-prune-orphans:
+	docker compose down --remove-orphans
+
+dj-collectstatic:
+	docker compose run --rm backend-wo-db python manage.py collectstatic --noinput
+
+dj-collectstatic-clear:
+	docker compose run --rm backend-wo-db python manage.py collectstatic --noinput --clear
+
+dj-createsuperuser:
+	docker compose run --rm backend python manage.py createsuperuser
+
+dj-makemigrations:
+	docker compose run --rm backend python manage.py makemigrations
+
+dj-migrate-dev:
+	docker compose run --rm backend python manage.py migrate
+
+dj-migrate-production:
+	export MY_UID=$$(id -u)
+	export MY_GID=$$(id -g)
+	docker compose up cloud-sql-proxy -d
+	op run --env-file="./.env/production_migrate.env" -- docker compose run --rm backend-wo-db python manage.py migrate
+	docker compose stop cloud-sql-proxy
+
+dj-dumpdata:
+	make dj-migrate-dev
+	docker compose run --rm backend python manage.py dumpdata --indent 2 --natural-foreign --natural-primary --exclude auth.permission --exclude contenttypes > backend/.fixtures/initial_data.json
+
+dj-loaddata:
+	make dj-migrate-dev
+	docker compose run --rm backend python manage.py loaddata .fixtures/initial_data.json
+
+py-install:
+	docker compose run --rm backend pip install -r requirements.txt
+
+npm-vite-build:
+	docker compose run --rm backend-node-vite npm run vite-build
+
+npm-tailwindcss-build:
+	docker compose run --rm backend-node npm run tailwindcss-build
+
+npm-tailwindcss-watch:
+	docker compose run --rm backend-node npm run tailwindcss-watch
+
+npm-tailwindcss-upgrade:
+	docker compose run --rm backend-node npx @tailwindcss/upgrade
+
+gcp-adc-login:
+	gcloud config configurations activate $(GCP_PROJECT_ID)
+	gcloud auth application-default login --project $(GCP_PROJECT_ID)
+	gcloud auth login --project $(GCP_PROJECT_ID)
+	gcloud auth application-default set-quota-project $(GCP_PROJECT_ID)
+
+gcp-init:
+	gcloud config configurations create $(GCP_PROJECT_ID)
+	make gcp-set-config
+
+gcp-set-config:
+	make gcp-activate
+	@printf "Enter your GCP account email:"; \
+		read email; \
+		gcloud config set account $$email
+	gcloud config set project $(GCP_PROJECT_ID)
+	gcloud config set app/promote_by_default false
+	gcloud config set billing/quota_project $(GCP_PROJECT_ID)
+
+gcp-activate:
+	gcloud config configurations activate $(GCP_PROJECT_ID)
+	gcloud auth application-default set-quota-project $(GCP_PROJECT_ID)
+
+gcp-deploy:
+	make gcp-activate
+	@printf "\nEnter version name, or return to skip:"; read VERSION; \
+	if [ -z "$${VERSION}" ]; then \
+		gcloud app deploy backend/app.yaml; \
+	else \
+		gcloud app deploy backend/app.yaml --version $$VERSION; \
+	fi
+
+# TODO Remove once mouthguards isn't only deployment target
+gcp-deploy-mouthguards:
+	make gcp-activate
+	gcloud app deploy backend/app-mouthguards.yaml
+
+gcp-promote:
+	make gcp-activate
+	@printf "Enter version to promote:"; \
+		read version; \
+		gcloud app versions migrate $$version
+
+tf-init:
+	make gcp-activate
+	op run --env-file="./.env/production.env" -- terraform -chdir=terraform/production init
+
+tf-init-upgrade:
+	make gcp-activate
+	op run --env-file="./.env/production.env" -- terraform -chdir=terraform/production init -upgrade
+
+tf-plan:
+	make gcp-activate
+	op run --env-file="./.env/production.env" -- terraform -chdir=terraform/production plan
+
+tf-apply:
+	make gcp-activate
+	op run --env-file="./.env/production.env" -- terraform -chdir=terraform/production apply
+
+tf-apply-refresh:
+	make gcp-activate
+	op run --env-file="./.env/production.env" -- terraform -chdir=terraform/production apply -refresh-only

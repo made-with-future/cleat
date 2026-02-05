@@ -104,10 +104,10 @@ func (m model) renderMainUI() string {
 
 	// Calculate dimensions
 	gap := 2
-	titleLines := 2
-	helpLines := 3
+	titleLines := 2 // titleBar + \n
+	helpLines := 2  // \n + helpText
 	if m.fatalError != nil {
-		helpLines = 4 // Extra line for error bar
+		helpLines = 3 // +1 for error bar
 	}
 	leftPaneWidth, rightPaneWidth := m.paneWidths()
 	paneHeight := m.height - helpLines - titleLines
@@ -167,7 +167,7 @@ func (m model) renderMainUI() string {
 
 	helpText = lipgloss.NewStyle().Width(m.width).Align(lipgloss.Center).Render(helpText)
 
-	ui := titleBar + "\n" + combined.String() + "\n\n" + helpText
+	ui := titleBar + "\n" + combined.String() + "\n" + helpText
 
 	if m.fatalError != nil {
 		errorStyle := lipgloss.NewStyle().
@@ -176,7 +176,13 @@ func (m model) renderMainUI() string {
 			Bold(true).
 			Width(m.width).
 			Align(lipgloss.Center)
-		errorBar := errorStyle.Render(fmt.Sprintf(" ERROR: %v ", m.fatalError))
+		// Truncate error message if it's too long for one line
+		errStr := m.fatalError.Error()
+		maxErrWidth := m.width - 10
+		if lipgloss.Width(errStr) > maxErrWidth {
+			errStr = ansi.Truncate(errStr, maxErrWidth, "…")
+		}
+		errorBar := errorStyle.Render(fmt.Sprintf(" ERROR: %s ", errStr))
 		ui += "\n" + errorBar
 	}
 
@@ -312,7 +318,8 @@ func (m model) buildConfigContent(comment, purple lipgloss.Color) []string {
 		if !m.cfgFound {
 			actionText = "Press Enter to create"
 		}
-		configLines = append(configLines, "  "+lipgloss.NewStyle().Foreground(purple).Render(actionText))
+		line := "  " + lipgloss.NewStyle().Foreground(purple).Render(actionText)
+		configLines = append(configLines, line)
 	}
 
 	return configLines

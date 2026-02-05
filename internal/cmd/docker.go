@@ -19,7 +19,7 @@ var dockerDownCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -39,7 +39,10 @@ var dockerDownCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDockerDownStrategy(cfg)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("docker down failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -49,7 +52,7 @@ var dockerRemoveOrphansCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -69,7 +72,10 @@ var dockerRemoveOrphansCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDockerRemoveOrphansStrategy(cfg)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("docker remove-orphans failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -79,7 +85,7 @@ var dockerRebuildCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -99,7 +105,10 @@ var dockerRebuildCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDockerRebuildStrategy(cfg)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("docker rebuild failed: %w", err)
+		}
+		return nil
 	},
 }
 

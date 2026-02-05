@@ -4,21 +4,9 @@ import (
 	"fmt"
 
 	"github.com/madewithfuture/cleat/internal/config"
-	"github.com/madewithfuture/cleat/internal/executor"
-	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
-
-func createSessionAndMerge(cfg *config.Config) *session.Session {
-	sess := session.NewSession(cfg, executor.Default)
-	if preCollectedInputs != nil {
-		for k, v := range preCollectedInputs {
-			sess.Inputs[k] = v
-		}
-	}
-	return sess
-}
 
 var djangoCmd = &cobra.Command{
 	Use:   "django",
@@ -31,7 +19,7 @@ var djangoCreateUserDevCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -51,7 +39,10 @@ var djangoCreateUserDevCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoCreateUserDevStrategyGlobal(cfg)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("django create-user-dev failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -61,7 +52,7 @@ var djangoCollectStaticCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -81,7 +72,10 @@ var djangoCollectStaticCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoCollectStaticStrategyGlobal(cfg)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("django collectstatic failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -91,7 +85,7 @@ var djangoMigrateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -111,7 +105,10 @@ var djangoMigrateCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoMigrateStrategyGlobal(cfg)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("django migrate failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -121,7 +118,7 @@ var djangoMakeMigrationsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -141,7 +138,10 @@ var djangoMakeMigrationsCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoMakeMigrationsStrategyGlobal(cfg)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("django makemigrations failed: %w", err)
+		}
+		return nil
 	},
 }
 
@@ -151,7 +151,7 @@ var djangoGenRandomSecretKeyCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -171,7 +171,10 @@ var djangoGenRandomSecretKeyCmd = &cobra.Command{
 		} else {
 			s = strategy.NewDjangoGenRandomSecretKeyStrategyGlobal(cfg)
 		}
-		return s.Execute(sess)
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("django gen-random-secret-key failed: %w", err)
+		}
+		return nil
 	},
 }
 

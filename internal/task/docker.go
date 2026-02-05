@@ -52,7 +52,10 @@ func (t *DockerBuild) Run(sess *session.Session) error {
 	if t.Service != nil {
 		dir = t.Service.Dir
 	}
-	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("docker build failed: %w", err)
+	}
+	return nil
 }
 
 func (t *DockerBuild) Commands(sess *session.Session) [][]string {
@@ -121,7 +124,10 @@ func (t *DockerUp) Run(sess *session.Session) error {
 	if t.Service != nil {
 		dir = t.Service.Dir
 	}
-	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("docker up failed: %w", err)
+	}
+	return nil
 }
 
 func (t *DockerUp) Commands(sess *session.Session) [][]string {
@@ -187,7 +193,10 @@ func (t *DockerDown) Run(sess *session.Session) error {
 	if t.Service != nil {
 		dir = t.Service.Dir
 	}
-	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("docker down failed: %w", err)
+	}
+	return nil
 }
 
 func (t *DockerDown) Commands(sess *session.Session) [][]string {
@@ -257,12 +266,15 @@ func (t *DockerRebuild) Run(sess *session.Session) error {
 	// 1. Down with --rmi all --volumes
 	fmt.Println("--> Cleaning up: stopping containers and removing images/volumes")
 	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
-		return err
+		return fmt.Errorf("docker cleanup failed during rebuild: %w", err)
 	}
 
 	// 2. Build with --no-cache
 	fmt.Println("--> Rebuilding: build without cache")
-	return sess.Exec.RunWithDir(dir, cmds[1][0], cmds[1][1:]...)
+	if err := sess.Exec.RunWithDir(dir, cmds[1][0], cmds[1][1:]...); err != nil {
+		return fmt.Errorf("docker rebuild failed: %w", err)
+	}
+	return nil
 }
 
 func (t *DockerRebuild) Commands(sess *session.Session) [][]string {
@@ -341,7 +353,10 @@ func (t *DockerRemoveOrphans) Run(sess *session.Session) error {
 	if t.Service != nil {
 		dir = t.Service.Dir
 	}
-	return sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("docker remove-orphans failed: %w", err)
+	}
+	return nil
 }
 
 func (t *DockerRemoveOrphans) Commands(sess *session.Session) [][]string {

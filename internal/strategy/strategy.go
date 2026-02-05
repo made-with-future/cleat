@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/logger"
 	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/task"
 )
@@ -86,9 +87,12 @@ func (s *BaseStrategy) ResolveTasks(sess *session.Session) ([]task.Task, error) 
 
 // Execute runs tasks in dependency order
 func (s *BaseStrategy) Execute(sess *session.Session) error {
+	logger.Info("executing strategy", map[string]interface{}{"strategy": s.name})
+
 	// Build execution plan respecting dependencies
 	plan, err := s.buildExecutionPlan(sess)
 	if err != nil {
+		logger.Error("failed to build execution plan", err, map[string]interface{}{"strategy": s.name})
 		return err
 	}
 
@@ -118,11 +122,14 @@ func (s *BaseStrategy) Execute(sess *session.Session) error {
 
 	// Execute tasks
 	for _, t := range plan {
+		logger.Debug("running task", map[string]interface{}{"task": t.Name()})
 		if err := t.Run(sess); err != nil {
+			logger.Error("task execution failed", err, map[string]interface{}{"task": t.Name(), "strategy": s.name})
 			return fmt.Errorf("task '%s' failed: %w", t.Name(), err)
 		}
 	}
 
+	logger.Info("strategy completed successfully", map[string]interface{}{"strategy": s.name})
 	fmt.Printf("==> %s completed successfully\n", s.name)
 	return nil
 }
@@ -257,6 +264,7 @@ func ResolveCommandTasks(command string, sess *session.Session) ([]task.Task, er
 }
 
 func GetStrategyForCommand(command string, sess *session.Session) Strategy {
+	logger.Debug("resolving command to strategy", map[string]interface{}{"command": command})
 	for _, p := range GetProviders() {
 		if p.CanHandle(command) {
 			if s := p.GetStrategy(command, sess); s != nil {

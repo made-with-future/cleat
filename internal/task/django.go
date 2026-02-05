@@ -36,7 +36,10 @@ func (t *DjangoRunServer) ShouldRun(sess *session.Session) bool {
 func (t *DjangoRunServer) Run(sess *session.Session) error {
 	fmt.Printf("==> Running Django server for service %s\n", t.Service.Name)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("django server failed for service %s: %w", t.Service.Name, err)
+	}
+	return nil
 }
 
 func (t *DjangoRunServer) Commands(sess *session.Session) [][]string {
@@ -79,7 +82,10 @@ func (t *DjangoMigrate) ShouldRun(sess *session.Session) bool {
 func (t *DjangoMigrate) Run(sess *session.Session) error {
 	fmt.Printf("==> Running Django migrations for service %s\n", t.Service.Name)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("django migrations failed for service %s: %w", t.Service.Name, err)
+	}
+	return nil
 }
 
 func (t *DjangoMigrate) Commands(sess *session.Session) [][]string {
@@ -122,7 +128,10 @@ func (t *DjangoMakeMigrations) ShouldRun(sess *session.Session) bool {
 func (t *DjangoMakeMigrations) Run(sess *session.Session) error {
 	fmt.Printf("==> Creating Django migrations for service %s\n", t.Service.Name)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("django makemigrations failed for service %s: %w", t.Service.Name, err)
+	}
+	return nil
 }
 
 func (t *DjangoMakeMigrations) Commands(sess *session.Session) [][]string {
@@ -165,7 +174,10 @@ func (t *DjangoCollectStatic) ShouldRun(sess *session.Session) bool {
 func (t *DjangoCollectStatic) Run(sess *session.Session) error {
 	fmt.Printf("==> Collecting static files for service %s\n", t.Service.Name)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("django collectstatic failed for service %s: %w", t.Service.Name, err)
+	}
+	return nil
 }
 
 func (t *DjangoCollectStatic) Commands(sess *session.Session) [][]string {
@@ -208,7 +220,10 @@ func (t *DjangoCreateUserDev) ShouldRun(sess *session.Session) bool {
 func (t *DjangoCreateUserDev) Run(sess *session.Session) error {
 	fmt.Printf("==> Creating Django superuser for service %s\n", t.Service.Name)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("django create-user-dev failed for service %s: %w", t.Service.Name, err)
+	}
+	return nil
 }
 
 func (t *DjangoCreateUserDev) Commands(sess *session.Session) [][]string {
@@ -251,7 +266,10 @@ func (t *DjangoGenRandomSecretKey) ShouldRun(sess *session.Session) bool {
 func (t *DjangoGenRandomSecretKey) Run(sess *session.Session) error {
 	fmt.Printf("==> Generating Django secret key for service %s\n", t.Service.Name)
 	cmds := t.Commands(sess)
-	return sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...)
+	if err := sess.Exec.RunWithDir(t.Service.Dir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("django gen-random-secret-key failed for service %s: %w", t.Service.Name, err)
+	}
+	return nil
 }
 
 func (t *DjangoGenRandomSecretKey) Commands(sess *session.Session) [][]string {

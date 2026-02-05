@@ -1,0 +1,169 @@
+HOSTS ?= "yourgarner.localhost app.yourgarner.localhost www.yourgarner.localhost"
+ENV ?= ci-qa
+
+ifeq ($(ENV), st-pr)
+	GCP_PROJECT_ID = garner-363917
+else
+	GCP_PROJECT_ID = garner-ci
+endif
+
+export GOOGLE_CLOUD_QUOTA_PROJECT = $(GCP_PROJECT_ID)
+
+.PHONY: \
+run build deploy promote \
+npm-install \
+rails-make-migration rails-db-create rails-db-migrate rails-shell rake \
+rb-install rb-update-bundler rb-standard-fix \
+bundle-and-rebuild \
+lint test \
+gcp-adc-login gcp-init gcp-set-config gcp-activate gcp-config-activate gcp-quota-activate \
+tf-init tf-init-upgrade tf-plan tf-apply tf-apply-refresh
+
+run:
+	docker compose up
+
+npm-install:
+	docker compose run --rm backend npm install
+
+npm-update-browserslist-db:
+	docker compose run --rm backend npx update-browserslist-db@latest
+
+rails-make-migration:
+	docker compose run --rm backend bin/rails generate migration $(name) $(args)
+
+rails-db-create:
+	docker compose run --rm backend bin/rails db:create
+
+rails-db-migrate:
+	docker compose run --rm backend bin/rails db:migrate
+
+rails-data-migrate:
+	docker compose run --rm backend bin/rails data:migrate
+
+rails-db-migrate-with-data:
+	docker compose run --rm backend bin/rails db:migrate:with_data
+
+rails-shell:
+	docker compose run --rm backend bin/rails console
+
+rails-secret:
+	docker compose run --rm backend bin/rails secret
+
+rails-db-encryption-init:
+	docker compose run --rm backend bin/rails db:encryption:init
+
+rk:
+	docker compose run --rm backend bin/rake $(task)
+
+rk-assets-precompile:
+	docker compose run --rm backend sh -c "DATABASE_URL=postgres://localhost SECRET_KEY_BASE_DUMMY=1 CLOUDTASKER_SECRET=1 RAILS_ENV=production bundle exec rake assets:precompile"
+
+rk-generate-key:
+	make rake task="generate:key"
+
+rb-install:
+	docker compose run --rm backend bundle install
+
+bundle-and-rebuild:
+	docker compose down
+	docker compose run --rm backend bundle install
+	docker compose build backend
+	docker compose up backend -d
+
+rb-update-bundler:
+	docker compose run --rm backend gem install bundler
+	docker compose run --rm backend bundle update --bundler
+
+rb-standard-fix:
+	docker compose run --rm backend bundle exec standardrb --fix
+
+lint:
+	docker compose run --rm backend bundle exec bundler-audit --update
+	docker compose run --rm backend bundle exec brakeman -q -w2
+	docker compose run --rm backend bundle exec standardrb
+
+test: rails-db-create
+	docker compose run --rm backend bin/rails test
+
+gcp-adc-login:
+	# TODO Need to have an initial setup for the service account itself that doesn't
+	#  involve manually setting up the service account, can go down in the gcp-tf-init section
+	gcloud auth application-default login --impersonate-service-account terraform@$(GCP_PROJECT_ID).iam.gserviceaccount.com --project $(GCP_PROJECT_ID)
+	make gcp-activate
+
+gcp-init:
+	gcloud config configurations create $(GCP_PROJECT_ID)
+	make gcp-set-config
+
+gcp-set-config:
+	make gcp-activate
+	@printf "Enter your GCP account email:"; \
+		read email; \
+		gcloud config set account $$email
+	gcloud config set project $(GCP_PROJECT_ID)
+	gcloud config set app/promote_by_default false
+	gcloud config set run/region us-central1
+	gcloud config set billing/quota_project $(GCP_PROJECT_ID)
+
+gcp-activate:
+	make gcp-config-activate
+
+gcp-config-activate:
+	gcloud config configurations activate $(GCP_PROJECT_ID)
+
+gcp-dns-auth-list:
+	gcloud certificate-manager dns-authorizations list
+
+gcp-run-job-migrate:
+	make gcp-activate
+	gcloud run jobs execute migrate --region us-central1
+
+tf-init:
+	make gcp-config-activate
+	op run --env-file="./.env/$(ENV).env" -- terraform -chdir=terraform_$(ENV) init
+
+tf-init-upgrade:
+	make gcp-activate
+	op run --env-file="./.env/$(ENV).env" -- terraform -chdir=terraform_$(ENV) init
+
+tf-plan:
+	make gcp-config-activate
+	op run --env-file="./.env/$(ENV).env" -- terraform -chdir=terraform_$(ENV) plan
+
+tf-apply:
+	make gcp-activate
+	op run --env-file="./.env/$(ENV).env" -- terraform -chdir=terraform_$(ENV) apply
+
+tf-apply-refresh:
+	make gcp-activate
+	op run --env-file="./.env/$(ENV).env" -- terraform -chdir=terraform_$(ENV) apply -refresh-only
+
+tf-list:
+	make gcp-activate
+	op run --env-file="./.env/$(ENV).env" -- terraform -chdir=terraform_$(ENV) state list
+
+tf-show:
+	make gcp-activate
+	terraform -chdir=terraform show
+
+# Only used to setup new GCP/Terraform project
+gcp-tf-init:
+	make gcp-activate
+	op run --env-file="./.env/$(ENV).env" -- terraform -chdir=terraform_$(ENV) import google_project.default $(GCP_PROJECT_ID)
+	op run --env-file="./.env/$(ENV).env" -- terraform -chdir=terraform_$(ENV) apply -target=google_storage_bucket.terraform_state
+
+# Helper methods to add/remove entries to /etc/hosts for clients other than Chrome/Firefox which
+# don't support the .localhost domain by default.
+add-hosts:
+	@echo "Adding entries to /etc/hosts..."
+	@for host in $(HOSTS); do \
+		echo "127.0.0.1 $$host" | sudo tee -a /etc/hosts; \
+		echo "::1 $$host" | sudo tee -a /etc/hosts; \
+	done
+
+remove-hosts:
+	@echo "Removing entries from /etc/hosts..."
+	@for host in $(HOSTS); do \
+		sudo sed -i".bak" "/127.0.0.1 $$host/d" /etc/hosts; \
+		sudo sed -i".bak" "/::1 $$host/d" /etc/hosts; \
+	done
