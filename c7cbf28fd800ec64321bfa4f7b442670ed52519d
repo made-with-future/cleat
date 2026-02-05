@@ -1,0 +1,4 @@
+Phase 1: Test Setup & Command Resolution (Red Phase)
+Automated Tests: go test ./internal/strategy/... (Failed as expected)
+Manual Verification: Confirmed by user.
+Status: Success (Failing test established)
