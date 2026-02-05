@@ -21,9 +21,9 @@ Refactor the strategy routing logic to use a modular dispatcher pattern, ensurin
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Dispatcher Foundation' (Protocol in workflow.md) (d74c3d5)
 
 ## Phase 3: Module Extraction
-- [ ] Task: Extract NPM Strategy Logic
-    - [ ] Write tests for `NpmProvider`
-    - [ ] Move NPM routing logic to `NpmProvider` and register it
+- [x] Task: Extract NPM Strategy Logic (164e9d9)
+    - [x] Write tests for \`NpmProvider\`
+    - [x] Move NPM routing logic to \`NpmProvider\` and register it
 - [ ] Task: Extract Docker Strategy Logic
     - [ ] Write tests for `DockerProvider`
     - [ ] Move Docker routing logic to `DockerProvider` and register it
