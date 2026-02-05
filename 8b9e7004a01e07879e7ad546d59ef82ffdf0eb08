@@ -1,0 +1,1 @@
+Task: Implement Dispatcher Loop\nSummary: Refactored GetStrategyForCommand to iterate through a prioritized list of CommandProviders. Introduced LegacyProvider to maintain existing logic during transition.\nFiles: internal/strategy/strategy.go\nWhy: To provide a clean, extensible entry point for command strategy resolution.
