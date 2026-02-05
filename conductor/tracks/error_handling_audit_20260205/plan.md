@@ -18,10 +18,10 @@ Improve error handling across Cleat by introducing structured JSON logging (usin
 - [x] Task: Conductor - User Manual Verification 'Phase 2: UI Error Notification Support' (Protocol in workflow.md) (b2f4f1b)
 
 ## Phase 3: System-wide Audit and Refactoring
-- [ ] Task: Audit and Refactor `internal/history` and `internal/config`
-    - [ ] Identify ignored errors and missing context in these packages
-    - [ ] Add tests for error cases that were previously ignored
-    - [ ] Wrap errors with context and integrate the new logger
+- [x] Task: Audit and Refactor \`internal/history\` and \`internal/config\` (15cb8fd)
+    - [x] Identify ignored errors and missing context in these packages
+    - [x] Add tests for error cases that were previously ignored
+    - [x] Wrap errors with context and integrate the new logger
 - [ ] Task: Audit and Refactor remaining `internal/` packages
     - [ ] Scan `executor`, `strategy`, `task`, and `cmd` for ignored errors
     - [ ] Update logic to either log (non-fatal) or return/notify (fatal) errors
