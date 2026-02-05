@@ -162,6 +162,8 @@ func (m model) renderMainUI() string {
 		helpText = warning + separator + helpText
 	}
 
+	helpText = lipgloss.NewStyle().Width(m.width).Align(lipgloss.Center).Render(helpText)
+
 	return titleBar + "\n" + combined.String() + "\n\n" + helpText
 }
 
