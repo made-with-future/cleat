@@ -21,6 +21,6 @@ This plan outlines the refactoring of configuration and auto-detection logic.
 - [x] Task: Update `internal/config` to use `internal/detector` (c1ad0d2)
     - [x] Write tests for the integrated configuration loading
     - [x] Refactor `internal/config` to call detectors
-- [ ] Task: Remove redundant detection logic from `internal/config`
-    - [ ] Clean up `internal/config` and ensure all tests pass
+- [x] Task: Remove redundant detection logic from `internal/config` (c1ad0d2)
+    - [x] Clean up `internal/config` and ensure all tests pass
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Config Integration and Cleanup' (Protocol in workflow.md)
