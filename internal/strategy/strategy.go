@@ -252,14 +252,36 @@ func ResolveCommandTasks(command string, cfg *config.Config) ([]task.Task, error
 	return s.ResolveTasks(cfg)
 }
 
-// GetStrategyForCommand returns a strategy by its command string
 func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
-	if cfg == nil {
-		s, ok := Get(command, nil)
-		if !ok {
-			return nil
+	for _, p := range GetProviders() {
+		if p.CanHandle(command) {
+			if s := p.GetStrategy(command, cfg); s != nil {
+				return s
+			}
 		}
-		return s
+	}
+	return nil
+}
+
+// GetProviders returns the prioritized list of command providers
+func GetProviders() []CommandProvider {
+	return []CommandProvider{
+		&LegacyProvider{},
+		&RegistryProvider{},
+	}
+}
+
+// LegacyProvider contains the original monolithic routing logic
+type LegacyProvider struct{}
+
+func (p *LegacyProvider) CanHandle(command string) bool {
+	// The legacy logic handles everything by default for now
+	return true
+}
+
+func (p *LegacyProvider) GetStrategy(command string, cfg *config.Config) Strategy {
+	if cfg == nil {
+		return nil
 	}
 
 	if strings.HasPrefix(command, "npm install") {
@@ -439,9 +461,5 @@ func GetStrategyForCommand(command string, cfg *config.Config) Strategy {
 		return NewTerraformStrategy(env, action, args)
 	}
 
-	s, ok := Get(command, cfg)
-	if !ok {
-		return nil
-	}
-	return s
+	return nil
 }
