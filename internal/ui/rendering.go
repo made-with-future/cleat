@@ -164,7 +164,20 @@ func (m model) renderMainUI() string {
 
 	helpText = lipgloss.NewStyle().Width(m.width).Align(lipgloss.Center).Render(helpText)
 
-	return titleBar + "\n" + combined.String() + "\n\n" + helpText
+	ui := titleBar + "\n" + combined.String() + "\n\n" + helpText
+
+	if m.fatalError != nil {
+		errorStyle := lipgloss.NewStyle().
+			Background(themeRed).
+			Foreground(themeWhite).
+			Bold(true).
+			Width(m.width).
+			Align(lipgloss.Center)
+		errorBar := errorStyle.Render(fmt.Sprintf(" ERROR: %v ", m.fatalError))
+		ui += "\n" + errorBar
+	}
+
+	return ui
 }
 
 // buildCommandsContent builds the commands pane content

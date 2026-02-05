@@ -87,6 +87,7 @@ type model struct {
 	pendingG                bool
 	workflowLocationIdx     int
 	version                 string
+	fatalError              error
 }
 
 // InitialModel creates a new model with the given config
