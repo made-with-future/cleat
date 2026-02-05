@@ -6,9 +6,9 @@ This plan outlines the refactoring of configuration and auto-detection logic.
 - [x] Task: Create \`internal/detector\` package structure and interface (c10d6f8)
     - [x] Write tests for the base detector interface
     - [x] Implement the base detector interface
-- [ ] Task: Extract Docker auto-detection logic
-    - [ ] Write tests for Docker detector
-    - [ ] Move Docker detection logic from `internal/config` to `internal/detector`
+- [x] Task: Extract Docker auto-detection logic (6601538)
+    - [x] Write tests for Docker detector
+    - [x] Move Docker detection logic from \`internal/config\` to \`internal/detector\`
 - [ ] Task: Extract Django and NPM auto-detection logic
     - [ ] Write tests for Django and NPM detectors
     - [ ] Move Django/NPM detection logic to `internal/detector`
