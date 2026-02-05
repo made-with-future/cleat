@@ -528,11 +528,21 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"gcp app-engine promote:default", []string{"gcp:activate", "gcp:app-engine-promote:default"}},
 		{"gcp app-engine promote:backend", []string{"gcp:activate", "gcp:app-engine-promote:backend"}},
 		{"gcp console", []string{"gcp:console"}},
+		{"workflow:test-workflow", []string{"docker:up", "django:migrate"}},
 	}
 
 	cfg.AppYaml = "app.yaml"
 	cfg.Services[0].AppYaml = "default/app.yaml"
 	cfg.GoogleCloudPlatform = &config.GCPConfig{ProjectName: "test-project"}
+	cfg.Workflows = []config.Workflow{
+		{
+			Name: "test-workflow",
+			Commands: []string{
+				"docker:up",
+				"django:migrate",
+			},
+		},
+	}
 	sess := session.NewSession(cfg, &mockExecutor{})
 
 	for _, tt := range tests {
