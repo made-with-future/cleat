@@ -1,0 +1,1 @@
+Task: Extract Docker Strategy Logic\nSummary: Extracted Docker service-specific routing logic from LegacyProvider into DockerProvider. Registered DockerProvider in GetProviders.\nFiles: internal/strategy/strategy.go\nWhy: To modularize the dispatcher and isolate Docker-specific command resolution.
