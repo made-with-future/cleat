@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
+	"github.com/madewithfuture/cleat/internal/logger"
 )
 
 // Start launches the TUI and returns the selected command and collected inputs
@@ -20,6 +21,7 @@ func Start(version string) (string, map[string]string, error) {
 			cfgFound = false
 		} else {
 			// Configuration exists but failed to load (e.g., syntax error)
+			logger.Error("failed to load config during TUI startup", err, nil)
 			cfg = &config.Config{SourcePath: "cleat.yaml"}
 			cfgFound = false
 			initialErr = err
