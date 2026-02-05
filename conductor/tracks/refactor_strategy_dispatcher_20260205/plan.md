@@ -30,9 +30,9 @@ Refactor the strategy routing logic to use a modular dispatcher pattern, ensurin
 - [x] Task: Extract Django Strategy Logic (8f5304d)
     - [x] Write tests for \`DjangoProvider\`
     - [x] Move Django routing logic to \`DjangoProvider\` and register it
-- [ ] Task: Extract GCP Strategy Logic
-    - [ ] Write tests for `GcpProvider`
-    - [ ] Move GCP routing logic to `GcpProvider` and register it
+- [x] Task: Extract GCP Strategy Logic (9353237)
+    - [x] Write tests for \`GcpProvider\`
+    - [x] Move GCP routing logic to \`GcpProvider\` and register it
 - [ ] Task: Extract Terraform Strategy Logic
     - [ ] Write tests for `TerraformProvider`
     - [ ] Move Terraform routing logic to `TerraformProvider` and register it
