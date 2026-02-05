@@ -1,126 +1,97 @@
 package executor
 
 import (
+	"os"
 	"testing"
 )
 
-func TestShellExecutorInterface(t *testing.T) {
-	// Verify ShellExecutor implements Executor interface
-	var _ Executor = &ShellExecutor{}
+func TestShellExecutor_Run(t *testing.T) {
+	e := &ShellExecutor{}
+	
+	// Test basic command (using 'true' as a reliable cross-platform-ish NOOP command on Unix)
+	// On Windows this might fail, but we're on Linux as per prompt.
+	err := e.Run("true")
+	if err != nil {
+		t.Errorf("expected no error running 'true', got %v", err)
+	}
+
+	// Test failing command
+	err = e.Run("false")
+	if err == nil {
+		t.Error("expected error running 'false', got nil")
+	}
+}
+
+func TestShellExecutor_RunWithDir(t *testing.T) {
+	e := &ShellExecutor{}
+	tmpDir, _ := os.MkdirTemp("", "cleat-exec-test-*")
+	defer os.RemoveAll(tmpDir)
+
+	// Test command in specific dir
+	// We'll use 'ls' and check output if we could capture it, but for now we just check error.
+	err := e.RunWithDir(tmpDir, "ls")
+	if err != nil {
+		t.Errorf("expected no error running 'ls' in tmpDir, got %v", err)
+	}
+}
+
+func TestShellExecutor_Prompt(t *testing.T) {
+	e := &ShellExecutor{}
+
+	t.Run("DefaultValue", func(t *testing.T) {
+		input := "\n"
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.Write([]byte(input))
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		val, err := e.Prompt("message", "default")
+		if err != nil {
+			t.Fatalf("Prompt failed: %v", err)
+		}
+		if val != "default" {
+			t.Errorf("expected 'default', got %q", val)
+		}
+	})
+
+	t.Run("UserInput", func(t *testing.T) {
+		input := "user input\n"
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.Write([]byte(input))
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		val, err := e.Prompt("message", "default")
+		if err != nil {
+			t.Fatalf("Prompt failed: %v", err)
+		}
+		if val != "user input" {
+			t.Errorf("expected 'user input', got %q", val)
+		}
+	})
+	
+	t.Run("InputError", func(t *testing.T) {
+		// Mock a closed stdin or similar to trigger error
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		r.Close() // Close reader to trigger error on ReadString
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		_, err := e.Prompt("message", "default")
+		if err == nil {
+			t.Error("expected error for closed stdin, got nil")
+		}
+	})
 }
 
 func TestDefaultExecutor(t *testing.T) {
 	if Default == nil {
-		t.Error("expected Default executor to be non-nil")
-	}
-}
-
-func TestShellExecutorRun(t *testing.T) {
-	exec := &ShellExecutor{}
-	// Test that Run calls RunWithDir with empty dir
-	// We'll use echo which is available on all platforms
-	err := exec.Run("echo", "test")
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-}
-
-func TestShellExecutorRunWithDir(t *testing.T) {
-	exec := &ShellExecutor{}
-	// Test with a valid directory
-	err := exec.RunWithDir(".", "echo", "test")
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-}
-
-// MockExecutor for use in other package tests
-type MockExecutor struct {
-	Commands []struct {
-		Dir  string
-		Name string
-		Args []string
-	}
-	Prompts       []string
-	PromptInputs  []string
-	PromptCounter int
-	Error         error
-}
-
-func (m *MockExecutor) Run(name string, args ...string) error {
-	return m.RunWithDir("", name, args...)
-}
-
-func (m *MockExecutor) RunWithDir(dir string, name string, args ...string) error {
-	m.Commands = append(m.Commands, struct {
-		Dir  string
-		Name string
-		Args []string
-	}{Dir: dir, Name: name, Args: args})
-	return m.Error
-}
-
-func (m *MockExecutor) Prompt(message string, defaultValue string) (string, error) {
-	m.Prompts = append(m.Prompts, message)
-	if m.Error != nil {
-		return "", m.Error
-	}
-	if m.PromptCounter < len(m.PromptInputs) {
-		result := m.PromptInputs[m.PromptCounter]
-		m.PromptCounter++
-		if result == "" {
-			return defaultValue, nil
-		}
-		return result, nil
-	}
-	return defaultValue, nil
-}
-
-func TestMockExecutor(t *testing.T) {
-	mock := &MockExecutor{}
-
-	// Test Run
-	err := mock.Run("test", "arg1", "arg2")
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if len(mock.Commands) != 1 {
-		t.Errorf("expected 1 command, got %d", len(mock.Commands))
-	}
-	if mock.Commands[0].Name != "test" {
-		t.Errorf("expected command name 'test', got %q", mock.Commands[0].Name)
-	}
-
-	// Test RunWithDir
-	err = mock.RunWithDir("/tmp", "test2", "arg1")
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if len(mock.Commands) != 2 {
-		t.Errorf("expected 2 commands, got %d", len(mock.Commands))
-	}
-	if mock.Commands[1].Dir != "/tmp" {
-		t.Errorf("expected dir '/tmp', got %q", mock.Commands[1].Dir)
-	}
-
-	// Test Prompt with default
-	mock.PromptInputs = []string{""}
-	result, err := mock.Prompt("Enter value", "default")
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if result != "default" {
-		t.Errorf("expected 'default', got %q", result)
-	}
-
-	// Test Prompt with input
-	mock.PromptCounter = 0
-	mock.PromptInputs = []string{"custom"}
-	result, err = mock.Prompt("Enter value", "default")
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if result != "custom" {
-		t.Errorf("expected 'custom', got %q", result)
+		t.Error("Default executor should not be nil")
 	}
 }
