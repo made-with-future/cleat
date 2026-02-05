@@ -299,6 +299,15 @@ func TestGetStrategyForCommand(t *testing.T) {
 		t.Fatal("expected to get gcp init strategy")
 	}
 
+	// gcp adc-impersonate-login strategy
+	s = GetStrategyForCommand("gcp adc-impersonate-login", cfg)
+	if s == nil {
+		t.Fatal("expected to get gcp adc-impersonate-login strategy")
+	}
+	if s.Name() != "gcp:adc-impersonate-login" {
+		t.Errorf("expected name 'gcp:adc-impersonate-login', got %q", s.Name())
+	}
+
 	// docker remove-orphans strategy
 	s = GetStrategyForCommand("docker remove-orphans", cfg)
 	if s == nil {

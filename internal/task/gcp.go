@@ -184,6 +184,65 @@ func (t *GCPADCLogin) Commands(cfg *config.Config) [][]string {
 	}
 }
 
+type GCPADCImpersonateLogin struct {
+	BaseTask
+}
+
+func NewGCPADCImpersonateLogin() *GCPADCImpersonateLogin {
+	return &GCPADCImpersonateLogin{
+		BaseTask: BaseTask{
+			TaskName:        "gcp:adc-impersonate-login",
+			TaskDescription: "Login to Google Cloud Platform with service account impersonation (ADC)",
+		},
+	}
+}
+
+func (t *GCPADCImpersonateLogin) ShouldRun(cfg *config.Config) bool {
+	return cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ProjectName != ""
+}
+
+func (t *GCPADCImpersonateLogin) Run(cfg *config.Config, exec executor.Executor) error {
+	commands := t.Commands(cfg)
+	for _, cmd := range commands {
+		if err := exec.Run(cmd[0], cmd[1:]...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *GCPADCImpersonateLogin) Requirements(cfg *config.Config) []InputRequirement {
+	if cfg.GoogleCloudPlatform != nil && cfg.GoogleCloudPlatform.ImpersonateServiceAccount != "" {
+		return nil
+	}
+	return []InputRequirement{
+		{
+			Key:    "gcp:impersonate-service-account",
+			Prompt: "Enter service account email to impersonate",
+		},
+	}
+}
+
+func (t *GCPADCImpersonateLogin) Commands(cfg *config.Config) [][]string {
+	if cfg.GoogleCloudPlatform == nil || cfg.GoogleCloudPlatform.ProjectName == "" {
+		return [][]string{}
+	}
+	email := cfg.Inputs["gcp:impersonate-service-account"]
+	if email == "" && cfg.GoogleCloudPlatform.ImpersonateServiceAccount != "" {
+		email = cfg.GoogleCloudPlatform.ImpersonateServiceAccount
+	}
+	if email == "" {
+		return [][]string{}
+	}
+
+	return [][]string{
+		{"gcloud", "config", "configurations", "activate", cfg.GoogleCloudPlatform.ProjectName},
+		{"gcloud", "auth", "application-default", "login", "--impersonate-service-account", email, "--project", cfg.GoogleCloudPlatform.ProjectName},
+		{"gcloud", "auth", "login", "--impersonate-service-account", email, "--project", cfg.GoogleCloudPlatform.ProjectName},
+		{"gcloud", "auth", "application-default", "set-quota-project", cfg.GoogleCloudPlatform.ProjectName},
+	}
+}
+
 type GCPAppEngineDeploy struct {
 	BaseTask
 	AppYaml string

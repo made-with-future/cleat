@@ -95,6 +95,7 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		gcpChildren := []CommandItem{
 			{Label: "activate", Command: "gcp activate"},
 			{Label: "adc-login", Command: "gcp adc-login"},
+			{Label: "adc-impersonate-login", Command: "gcp adc-impersonate-login"},
 			{Label: "init", Command: "gcp init"},
 			{Label: "set-config", Command: "gcp set-config"},
 		}

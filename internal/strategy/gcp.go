@@ -18,6 +18,9 @@ func init() {
 	Register("gcp adc-login", func(cfg *config.Config) Strategy {
 		return NewGCPADCLoginStrategy()
 	})
+	Register("gcp adc-impersonate-login", func(cfg *config.Config) Strategy {
+		return NewGCPADCImpersonateLoginStrategy()
+	})
 	Register("gcp console", func(cfg *config.Config) Strategy {
 		return NewGCPConsoleStrategy()
 	})
@@ -87,6 +90,22 @@ func NewGCPADCLoginStrategy() *GCPADCLoginStrategy {
 }
 
 func (s *GCPADCLoginStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
+	return s.buildExecutionPlan(cfg)
+}
+
+type GCPADCImpersonateLoginStrategy struct {
+	BaseStrategy
+}
+
+func NewGCPADCImpersonateLoginStrategy() *GCPADCImpersonateLoginStrategy {
+	return &GCPADCImpersonateLoginStrategy{
+		BaseStrategy: *NewBaseStrategy("gcp:adc-impersonate-login", []task.Task{
+			task.NewGCPADCImpersonateLogin(),
+		}),
+	}
+}
+
+func (s *GCPADCImpersonateLoginStrategy) ResolveTasks(cfg *config.Config) ([]task.Task, error) {
 	return s.buildExecutionPlan(cfg)
 }
 

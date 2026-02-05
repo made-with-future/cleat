@@ -27,8 +27,9 @@ type PythonConfig struct {
 }
 
 type GCPConfig struct {
-	ProjectName string `yaml:"project_name"`
-	Account     string `yaml:"account,omitempty"`
+	ProjectName               string `yaml:"project_name"`
+	Account                   string `yaml:"account,omitempty"`
+	ImpersonateServiceAccount string `yaml:"impersonate_service_account,omitempty"`
 }
 
 type TerraformConfig struct {
