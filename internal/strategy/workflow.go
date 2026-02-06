@@ -49,10 +49,9 @@ func (s *WorkflowStrategy) Name() string {
 	return "workflow:" + s.name
 }
 
+// Tasks returns nil for WorkflowStrategy as tasks are resolved dynamically.
+// Callers MUST use ResolveTasks(session) to get the task list.
 func (s *WorkflowStrategy) Tasks() []task.Task {
-	// We can't easily return all possible tasks without a session,
-	// but the interface requires it. We'll return nil here and 
-	// rely on ResolveTasks when a session is available.
 	return nil
 }
 
