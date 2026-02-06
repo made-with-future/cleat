@@ -285,8 +285,58 @@ func GetProviders() []CommandProvider {
 		&GcpProvider{},
 		&TerraformProvider{},
 		&RegistryProvider{},
+		&PassthroughProvider{},
 	}
 }
+
+// PassthroughProvider handles commands that don't match any other provider
+// It assumes the command is a direct shell command
+type PassthroughProvider struct{}
+
+func (p *PassthroughProvider) CanHandle(command string) bool {
+	return true // Can handle any command not caught by others
+}
+
+func (p *PassthroughProvider) GetStrategy(command string, sess *session.Session) Strategy {
+	return NewPassthroughStrategy(command)
+}
+
+// PassthroughStrategy directly executes a shell command
+type PassthroughStrategy struct {
+	command string
+}
+
+func NewPassthroughStrategy(command string) *PassthroughStrategy {
+	return &PassthroughStrategy{command: command}
+}
+
+func (s *PassthroughStrategy) Name() string {
+	return "passthrough:" + s.command
+}
+
+func (s *PassthroughStrategy) Tasks() []task.Task {
+	// A passthrough strategy generates a single shell task
+	return []task.Task{task.NewShellTask(s.command)}
+}
+
+func (s *PassthroughStrategy) ResolveTasks(sess *session.Session) ([]task.Task, error) {
+	// For a passthrough strategy, the task list is simply the shell task itself.
+	// No complex dependencies or sub-resolutions here.
+	return s.Tasks(), nil
+}
+
+func (s *PassthroughStrategy) Execute(sess *session.Session) error {
+	logger.Info("executing passthrough strategy", map[string]interface{}{"command": s.command})
+	
+	// Delegate to the single task
+	shellTask := task.NewShellTask(s.command)
+	if err := shellTask.Run(sess); err != nil {
+		return fmt.Errorf("passthrough command '%s' failed: %w", s.command, err)
+	}
+	fmt.Printf("==> Command '%s' completed successfully\n", s.command)
+	return nil
+}
+
 
 // NpmProvider handles NPM related commands
 type NpmProvider struct{}
@@ -544,6 +594,10 @@ func (p *GcpProvider) GetStrategy(command string, sess *session.Session) Strateg
 	
 	if command == "gcp console" || command == "gcp:console" {
 		return NewGCPConsoleStrategy()
+	}
+
+	if command == "gcp init" || command == "gcp:init" {
+		return NewGCPInitStrategy()
 	}
 
 	return nil

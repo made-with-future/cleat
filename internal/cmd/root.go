@@ -92,7 +92,7 @@ func run(args []string) {
 				cmdArgs = []string{"run"}
 			} else if strings.HasPrefix(selected, "workflow:") {
 				// Let the dispatcher handle it
-				cmdArgs = []string{"run-workflow", strings.TrimPrefix(selected, "workflow:")}
+				cmdArgs = []string{"workflow", strings.TrimPrefix(selected, "workflow:")}
 			} else if strings.HasPrefix(selected, "docker ") || strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
 				cmdArgs = strings.Fields(selected)
 				if strings.Contains(selected, ":") {

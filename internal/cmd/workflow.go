@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/madewithfuture/cleat/internal/config"
+	"github.com/madewithfuture/cleat/internal/history"
 	"github.com/madewithfuture/cleat/internal/strategy"
 	"github.com/spf13/cobra"
 )
 
-var runWorkflowCmd = &cobra.Command{
-	Use:   "run-workflow [name]",
+var workflowCmd = &cobra.Command{
+	Use:   "workflow [name]",
 	Short: "Run a named workflow",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -17,6 +18,15 @@ var runWorkflowCmd = &cobra.Command{
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
+		}
+
+		// Load merged workflows (project + user)
+		workflows, err := history.LoadWorkflows(cfg)
+		if err != nil {
+			// Non-fatal, but we might miss the workflow we're looking for
+			// Proceeding might be okay if it's in cleat.yaml
+		} else {
+			cfg.Workflows = workflows
 		}
 
 		sess := createSessionAndMerge(cfg)
@@ -35,5 +45,5 @@ var runWorkflowCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(runWorkflowCmd)
+	rootCmd.AddCommand(workflowCmd)
 }
