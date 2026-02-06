@@ -301,7 +301,7 @@ func TestTerraformOpWrapping(t *testing.T) {
 
 		cmd := cmds[0]
 		expectedEnvFile := ".envs/prod.env"
-		expectedPrefix := []string{"op", "run", "--env-file=" + expectedEnvFile, "--"}
+		expectedPrefix := []string{"op", "run", "--env-file=" + expectedEnvFile, "--no-masking", "--"}
 
 		for i, part := range expectedPrefix {
 			if i >= len(cmd) || cmd[i] != part {

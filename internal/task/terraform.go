@@ -79,7 +79,7 @@ func (t *Terraform) Commands(sess *session.Session) [][]string {
 
 	if absPath, displayPath := t.getEnvFile(sess); absPath != "" && FileUsesOp(absPath) {
 		// Use displayPath because it is already relative to cleat root
-		wrappedCmd := []string{"op", "run", "--env-file=" + displayPath, "--"}
+		wrappedCmd := []string{"op", "run", "--env-file=" + displayPath, "--no-masking", "--"}
 		wrappedCmd = append(wrappedCmd, cmd...)
 		return [][]string{wrappedCmd}
 	}
