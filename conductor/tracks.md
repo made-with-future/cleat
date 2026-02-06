@@ -9,6 +9,11 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+- [ ] **Track: Enhanced workflow creation: Slugified IDs, upsert logic based on ID, name validation, and TUI UI improvements.**
+*Link: [./conductor/tracks/workflow_creation_improvement_20260205/](./conductor/tracks/workflow_creation_improvement_20260205/)*
+
+---
+
 - [x] **Track: Workflow Refactoring: Deduplicate persistence logic, reuse Project ID hash, and clarify Strategy interface.**
 *Link: [./tracks/workflow_refactoring_20260205/](./tracks/workflow_refactoring_20260205/)*
 
