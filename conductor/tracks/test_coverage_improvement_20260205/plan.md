@@ -2,12 +2,12 @@
 
 Increase project-wide code coverage to >= 75%, ensuring individual modules hit >= 75% and individual functions hit >= 50%.
 
-## Phase 1: Audit and Baseline
+## Phase 1: Audit and Baseline [checkpoint: 8317f09]
 - [x] Task: Generate baseline coverage report
     - [x] Run `go test -coverprofile=coverage.out ./...`
     - [x] Identify all modules and functions below the targets (75% module, 50% function)
     - [x] Create a "hit list" of low-coverage areas in `internal/ui` and `internal/cmd`
-- [~] Task: Conductor - User Manual Verification 'Phase 1: Audit and Baseline' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Audit and Baseline' (Protocol in workflow.md)
 
 ## Phase 2: Core Logic and Utility Strengthening
 - [ ] Task: Improve coverage for `internal/detector`
