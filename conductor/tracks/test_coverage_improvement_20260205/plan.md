@@ -29,7 +29,7 @@ Increase project-wide code coverage to >= 75%, ensuring individual modules hit >
     - [x] Target: >= 75% coverage for `internal/cmd`
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Command and Strategy Refactoring' (Protocol in workflow.md)
 
-## Phase 4: TUI Robustness
+## Phase 4: TUI Robustness [checkpoint: 5555493]
 - [x] Task: Improve coverage for `internal/ui`
     - [x] Identify complex event handlers in `internal/ui/events.go` and `internal/ui/model.go`
     - [x] Extract state transition logic from TUI rendering loops
