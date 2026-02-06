@@ -37,9 +37,9 @@ This phase focuses on verifying that workflows terminate immediately and report 
 ## Phase 4: Load-Time Workflow Definition Validation
 This phase focuses on ensuring workflow definitions are validated at load time to prevent runtime errors.
 
-- [ ] Task: Write failing tests for load-time workflow validation
-    - [ ] Create a malformed workflow definition (e.g., non-existent command, invalid syntax).
-    - [ ] Write a test that attempts to load the malformed workflow and asserts it fails with an appropriate error.
-    - [ ] Create a workflow definition that references valid but currently unresolvable commands and assert it is caught at load time (if applicable).
-- [ ] Task: Implement/Refactor load-time validation to pass tests (if necessary)
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Load-Time Workflow Definition Validation' (Protocol in workflow.md)
+- [x] Task: Write failing tests for load-time workflow validation [checkpoint: 1192051]
+    - [x] Create a malformed workflow definition (e.g., non-existent command, invalid syntax).
+    - [x] Write a test that attempts to load the malformed workflow and asserts it fails with an appropriate error.
+    - [x] Create a workflow definition that references valid but currently unresolvable commands and assert it is caught at load time (if applicable).
+- [x] Task: Implement/Refactor load-time validation to pass tests (if necessary)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Load-Time Workflow Definition Validation' (Protocol in workflow.md) [checkpoint: 98e3ade]
