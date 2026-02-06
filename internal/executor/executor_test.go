@@ -35,6 +35,14 @@ func TestShellExecutor_RunWithDir(t *testing.T) {
 	}
 }
 
+func TestShellExecutor_RunWithDir_Error(t *testing.T) {
+	e := &ShellExecutor{}
+	err := e.RunWithDir("/non/existent/path/for/cleat", "ls")
+	if err == nil {
+		t.Error("expected error for non-existent directory, got nil")
+	}
+}
+
 func TestShellExecutor_Prompt(t *testing.T) {
 	e := &ShellExecutor{}
 
@@ -71,6 +79,24 @@ func TestShellExecutor_Prompt(t *testing.T) {
 		}
 		if val != "user input" {
 			t.Errorf("expected 'user input', got %q", val)
+		}
+	})
+
+	t.Run("EmptyInput", func(t *testing.T) {
+		input := "  \n" // Just spaces and newline
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.Write([]byte(input))
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		val, err := e.Prompt("message", "default")
+		if err != nil {
+			t.Fatalf("Prompt failed: %v", err)
+		}
+		if val != "default" {
+			t.Errorf("expected 'default' for empty input, got %q", val)
 		}
 	})
 	

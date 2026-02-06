@@ -78,7 +78,11 @@ func (d *NpmDetector) Detect(baseDir string, cfg *schema.Config) error {
 				if len(mod.Npm.Scripts) == 0 && searchDir != "" {
 					packageJsonPath := filepath.Join(searchDir, "package.json")
 					if _, err := os.Stat(packageJsonPath); err == nil {
-						mod.Npm.Scripts = readNpmScripts(packageJsonPath)
+						scripts, err := readNpmScripts(packageJsonPath)
+						if err != nil {
+							return err
+						}
+						mod.Npm.Scripts = scripts
 					}
 				}
 
@@ -100,15 +104,15 @@ type packageJSON struct {
 	Scripts map[string]string `json:"scripts"`
 }
 
-func readNpmScripts(packageJsonPath string) []string {
+func readNpmScripts(packageJsonPath string) ([]string, error) {
 	data, err := os.ReadFile(packageJsonPath)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	var pkg packageJSON
 	if err := json.Unmarshal(data, &pkg); err != nil {
-		return nil
+		return nil, err
 	}
 
 	scripts := make([]string, 0, len(pkg.Scripts))
@@ -116,7 +120,7 @@ func readNpmScripts(packageJsonPath string) []string {
 		scripts = append(scripts, s)
 	}
 	sort.Strings(scripts)
-	return scripts
+	return scripts, nil
 }
 
 func matchesNpm(name string) bool {

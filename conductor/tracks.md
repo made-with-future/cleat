@@ -4,8 +4,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Project-wide Test Coverage Audit and Improvement**
-*Link: [./conductor/tracks/test_coverage_improvement_20260205/](./conductor/tracks/test_coverage_improvement_20260205/)*
+- [x] **Track: Project-wide Test Coverage Audit and Improvement**
+*Link: [./conductor/archive/test_coverage_improvement_20260205/](./conductor/archive/test_coverage_improvement_20260205/)*
 
 ---
 
