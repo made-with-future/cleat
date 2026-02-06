@@ -9,7 +9,7 @@ Increase project-wide code coverage to >= 75%, ensuring individual modules hit >
     - [x] Create a "hit list" of low-coverage areas in `internal/ui` and `internal/cmd`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Audit and Baseline' (Protocol in workflow.md)
 
-## Phase 2: Core Logic and Utility Strengthening
+## Phase 2: Core Logic and Utility Strengthening [checkpoint: d3d46e0]
 - [x] Task: Improve coverage for `internal/detector`
     - [x] Write failing tests for auto-detection edge cases (Red Phase)
     - [x] Implement/Refactor to pass tests (Green Phase)
