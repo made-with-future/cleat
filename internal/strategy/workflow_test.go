@@ -7,6 +7,7 @@ import (
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/session"
+	"github.com/madewithfuture/cleat/internal/task"
 )
 
 // refined mockWorkflowExecutor
@@ -33,6 +34,10 @@ func (m *mockWorkflowExecutor) RunWithDir(dir string, name string, args ...strin
 }
 
 func (m *mockWorkflowExecutor) Prompt(message string, defaultValue string) (string, error) {
+	// Simple simulation: return a value if "Prompt" matches, else default
+	if strings.Contains(message, "Enter value") {
+		return "user-input", nil
+	}
 	return defaultValue, nil
 }
 
@@ -99,5 +104,65 @@ func TestWorkflowFailFast(t *testing.T) {
 	}
 	if !strings.Contains(mockExec.executedCommands[0], "step1") {
 		t.Errorf("Expected 'echo step1' to run, got '%s'", mockExec.executedCommands[0])
+	}
+}
+
+// mockTaskWithReqs
+type mockTaskWithReqs struct {
+	name string
+	reqs []task.InputRequirement
+}
+
+func (t *mockTaskWithReqs) Name() string           { return t.name }
+func (t *mockTaskWithReqs) Description() string    { return "mock task" }
+func (t *mockTaskWithReqs) Dependencies() []string { return nil }
+func (t *mockTaskWithReqs) ShouldRun(sess *session.Session) bool { return true }
+func (t *mockTaskWithReqs) Run(sess *session.Session) error { return nil }
+func (t *mockTaskWithReqs) Commands(sess *session.Session) [][]string { return nil }
+func (t *mockTaskWithReqs) Requirements(sess *session.Session) []task.InputRequirement {
+	return t.reqs
+}
+
+func TestWorkflowInputPrompting(t *testing.T) {
+	reqTask := &mockTaskWithReqs{
+		name: "req-task",
+		reqs: []task.InputRequirement{
+			{Key: "test:input", Prompt: "Enter value", Default: "default"},
+		},
+	}
+
+	Register("test-req", func(cfg *config.Config) Strategy {
+		return NewBaseStrategy("test-req", []task.Task{reqTask})
+	})
+	// Cleanup registry after test
+	defer func() {
+		delete(Registry, "test-req")
+	}()
+
+	mockExec := &mockWorkflowExecutor{}
+	cfg := &config.Config{
+		Workflows: []config.Workflow{
+			{
+				Name:     "prompt-test",
+				Commands: []string{"test-req"},
+			},
+		},
+	}
+	sess := session.NewSession(cfg, mockExec)
+
+	provider := &WorkflowProvider{}
+	strat := provider.GetStrategy("workflow:prompt-test", sess)
+
+	// Clear inputs to force prompt
+	sess.Inputs = make(map[string]string)
+
+	err := strat.Execute(sess)
+	if err != nil {
+		t.Fatalf("Execution failed: %v", err)
+	}
+
+	// Verify input was collected
+	if val, ok := sess.Inputs["test:input"]; !ok || val != "user-input" {
+		t.Errorf("Expected input 'user-input', got '%s' (ok=%v)", val, ok)
 	}
 }
