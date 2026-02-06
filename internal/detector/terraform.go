@@ -17,12 +17,47 @@ func (d *TerraformDetector) Detect(baseDir string, cfg *schema.Config) error {
 	}
 	iacDir := filepath.Join(baseDir, iacDirName)
 	info, err := os.Stat(iacDir)
+
+	// If not found in baseDir and it was the default ".iac", try searching deeper
+	if (err != nil || !info.IsDir()) && iacDirName == ".iac" {
+		foundDir := ""
+		filepath.Walk(baseDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if !info.IsDir() {
+				return nil
+			}
+			// Skip common large/irrelevant directories
+			name := info.Name()
+			if name == ".git" || name == "node_modules" || name == "venv" || name == ".envs" {
+				return filepath.SkipDir
+			}
+			if name == ".iac" {
+				rel, err := filepath.Rel(baseDir, path)
+				if err == nil {
+					foundDir = rel
+					return filepath.SkipAll // Stop searching
+				}
+			}
+			return nil
+		})
+		if foundDir != "" {
+			iacDir = filepath.Join(baseDir, foundDir)
+			iacDirName = foundDir
+			info, err = os.Stat(iacDir)
+		}
+	}
+
 	if err != nil || !info.IsDir() {
 		return nil
 	}
 
 	if cfg.Terraform == nil {
 		cfg.Terraform = &schema.TerraformConfig{}
+	}
+	if cfg.Terraform.Dir == "" && iacDirName != ".iac" {
+		cfg.Terraform.Dir = iacDirName
 	}
 
 	entries, err := os.ReadDir(iacDir)
@@ -34,14 +69,17 @@ func (d *TerraformDetector) Detect(baseDir string, cfg *schema.Config) error {
 		for _, entry := range entries {
 			if entry.IsDir() {
 				subDir := filepath.Join(iacDir, entry.Name())
-				subEntries, _ := os.ReadDir(subDir)
 				hasTfInSubDir := false
-				for _, subEntry := range subEntries {
-					if !subEntry.IsDir() && strings.HasSuffix(subEntry.Name(), ".tf") {
-						hasTfInSubDir = true
-						break
+				filepath.Walk(subDir, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return nil
 					}
-				}
+					if !info.IsDir() && strings.HasSuffix(info.Name(), ".tf") {
+						hasTfInSubDir = true
+						return filepath.SkipAll
+					}
+					return nil
+				})
 
 				if hasTfInSubDir {
 					useFolders = true

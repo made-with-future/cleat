@@ -39,6 +39,8 @@ func TestTerraformCmd(t *testing.T) {
 	defer func() { ConfigPath = oldConfigPath }()
 
 	t.Run("NoTerraformConfig", func(t *testing.T) {
+		tmpDir, _ := os.MkdirTemp("", "cleat-tf-cmd-no-tf-*")
+		defer os.RemoveAll(tmpDir)
 		ConfigPath = filepath.Join(tmpDir, "no-tf.yaml")
 		os.WriteFile(ConfigPath, []byte("version: 1"), 0644)
 		rootCmd.SetArgs([]string{"terraform", "plan"})
@@ -49,6 +51,8 @@ func TestTerraformCmd(t *testing.T) {
 	})
 
 	t.Run("MultiEnvRequired", func(t *testing.T) {
+		tmpDir, _ := os.MkdirTemp("", "cleat-tf-cmd-multi-*")
+		defer os.RemoveAll(tmpDir)
 		ConfigPath = filepath.Join(tmpDir, "multi-tf.yaml")
 		os.WriteFile(ConfigPath, []byte("version: 1\nterraform: {envs: [dev, prod], dir: .}"), 0644)
 
@@ -60,9 +64,6 @@ func TestTerraformCmd(t *testing.T) {
 		os.WriteFile(filepath.Join(iacDir, "dev", "main.tf"), []byte(""), 0644)
 		os.WriteFile(filepath.Join(iacDir, "prod", "main.tf"), []byte(""), 0644)
 
-		// Since we're using ConfigPath, we need to make sure detector runs on the right baseDir
-		// LoadConfig will run detector on filepath.Dir(ConfigPath) which is tmpDir.
-
 		rootCmd.SetArgs([]string{"terraform", "plan"})
 		err := rootCmd.Execute()
 		if err == nil {
@@ -71,6 +72,8 @@ func TestTerraformCmd(t *testing.T) {
 	})
 
 	t.Run("ValidEnv", func(t *testing.T) {
+		tmpDir, _ := os.MkdirTemp("", "cleat-tf-cmd-valid-*")
+		defer os.RemoveAll(tmpDir)
 		ConfigPath = filepath.Join(tmpDir, "valid-tf.yaml")
 		os.WriteFile(ConfigPath, []byte("version: 1\nterraform: {envs: [prod], dir: .}"), 0644)
 		rootCmd.SetArgs([]string{"terraform", "plan", "prod"})
@@ -85,6 +88,8 @@ func TestTerraformCmd(t *testing.T) {
 	})
 
 	t.Run("EnvFromGeneralEnvs", func(t *testing.T) {
+		tmpDir, _ := os.MkdirTemp("", "cleat-tf-cmd-general-*")
+		defer os.RemoveAll(tmpDir)
 		ConfigPath = filepath.Join(tmpDir, "general-envs-tf.yaml")
 		// No envs in terraform config
 		os.WriteFile(ConfigPath, []byte("version: 1\nterraform: {dir: .}"), 0644)

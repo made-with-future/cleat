@@ -205,7 +205,7 @@ func TestTerraformDetector(t *testing.T) {
 
 	iacDir := filepath.Join(tmpDir, ".iac")
 	os.Mkdir(iacDir, 0755)
-	
+
 	prodDir := filepath.Join(iacDir, "production")
 	os.Mkdir(prodDir, 0755)
 	os.WriteFile(filepath.Join(prodDir, "main.tf"), []byte(""), 0644)
@@ -225,5 +225,59 @@ func TestTerraformDetector(t *testing.T) {
 	}
 	if len(cfg.Terraform.Envs) != 1 || cfg.Terraform.Envs[0] != "production" {
 		t.Errorf("expected production env, got %v", cfg.Terraform.Envs)
+	}
+}
+
+func TestTerraformDetector_Recursive(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-tf-recursive-*")
+	defer os.RemoveAll(tmpDir)
+
+	// Case 1: .iac in a subfolder
+	projectDir := filepath.Join(tmpDir, "my-project")
+	iacDir := filepath.Join(projectDir, ".iac")
+	os.MkdirAll(filepath.Join(iacDir, "prod"), 0755)
+	os.WriteFile(filepath.Join(iacDir, "prod", "main.tf"), []byte(""), 0644)
+
+	d := &TerraformDetector{}
+	cfg := &schema.Config{}
+	err := d.Detect(tmpDir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.Terraform == nil {
+		t.Errorf("expected Terraform config to be detected in subfolder %s", iacDir)
+	} else {
+		if cfg.Terraform.Dir != "my-project/.iac" {
+			t.Errorf("expected Dir to be my-project/.iac, got %q", cfg.Terraform.Dir)
+		}
+	}
+
+	// Case 2: Deep terraform files inside .iac
+	tmpDir2, _ := os.MkdirTemp("", "cleat-tf-deep-*")
+	defer os.RemoveAll(tmpDir2)
+	iacDir2 := filepath.Join(tmpDir2, ".iac")
+	os.MkdirAll(filepath.Join(iacDir2, "staging", "terraform"), 0755)
+	os.WriteFile(filepath.Join(iacDir2, "staging", "terraform", "main.tf"), []byte(""), 0644)
+
+	cfg2 := &schema.Config{}
+	err = d.Detect(tmpDir2, cfg2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg2.Terraform == nil {
+		t.Fatal("expected Terraform config to be detected")
+	}
+
+	foundStaging := false
+	for _, env := range cfg2.Terraform.Envs {
+		if env == "staging" {
+			foundStaging = true
+			break
+		}
+	}
+	if !foundStaging {
+		t.Errorf("expected staging env to be detected from deep .tf file, got %v", cfg2.Terraform.Envs)
 	}
 }
