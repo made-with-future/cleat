@@ -549,7 +549,7 @@ func (m model) renderWorkflowNameModal() string {
 	title := " Create Workflow "
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(purple)
 
-	content := "\n Enter a name for your workflow:\n\n"
+	content := "\n Workflow Name:\n"
 	content += " " + m.textInput.View() + "\n\n"
 	content += lipgloss.NewStyle().Foreground(comment).Render(" enter: confirm • esc: cancel")
 

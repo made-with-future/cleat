@@ -14,9 +14,11 @@
 This workflow governs the high-level execution of a "Track" (a feature, bug fix, or chore defined in `tracks.md`).
 
 1.  **Start Track & Create Branch:**
+    -   **MANDATORY:** You must **NEVER** start work on a track without first creating and switching to a feature branch.
     -   When a track is selected for implementation (status moves to `[~] In Progress`):
-    -   Create a new Git feature branch named `feature/<track-id>` (e.g., `feature/user-auth-20240101`).
-    -   Checkout this branch.
+        1.  Create a new Git feature branch named `feature/<track-id>` (e.g., `feature/user-auth-20240101`).
+        2.  Checkout this branch immediately.
+    -   **Verify:** Run `git branch --show-current` to confirm you are on the correct feature branch before writing any code or updating any plans.
 
 2.  **Continuous Commits:**
     -   As individual tasks within the track are completed (following the "Task Workflow" below), commit changes directly to this feature branch.

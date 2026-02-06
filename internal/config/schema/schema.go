@@ -60,6 +60,7 @@ func (n *NpmConfig) IsEnabled() bool {
 }
 
 type Workflow struct {
+	ID       string   `yaml:"id" json:"id"`
 	Name     string   `yaml:"name" json:"name"`
 	Commands []string `yaml:"commands" json:"commands"`
 }
