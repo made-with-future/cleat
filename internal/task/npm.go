@@ -32,9 +32,9 @@ func (t *NpmRun) ShouldRun(sess *session.Session) bool {
 
 func (t *NpmRun) Run(sess *session.Session) error {
 	if sess.Config.Docker && t.Service.IsDocker() && t.Npm.Service != "" {
-		fmt.Printf("==> Running NPM script %s for service %s via Docker (%s service)\n", t.Script, t.Service.Name, t.Npm.Service)
+		PrintStep(fmt.Sprintf("Running NPM script %s for service %s via Docker (%s service)", t.Script, t.Service.Name, t.Npm.Service))
 	} else {
-		fmt.Printf("==> Running NPM script %s for service %s\n", t.Script, t.Service.Name)
+		PrintStep(fmt.Sprintf("Running NPM script %s for service %s", t.Script, t.Service.Name))
 	}
 	cmds := t.Commands(sess)
 	dir := t.Service.Dir
@@ -77,9 +77,9 @@ func (t *NpmInstall) ShouldRun(sess *session.Session) bool {
 
 func (t *NpmInstall) Run(sess *session.Session) error {
 	if sess.Config.Docker && t.Service.IsDocker() && t.Npm.Service != "" {
-		fmt.Printf("==> Installing dependencies for service %s via Docker (%s service)\n", t.Service.Name, t.Npm.Service)
+		PrintStep(fmt.Sprintf("Installing dependencies for service %s via Docker (%s service)", t.Service.Name, t.Npm.Service))
 	} else {
-		fmt.Printf("==> Installing dependencies for service %s\n", t.Service.Name)
+		PrintStep(fmt.Sprintf("Installing dependencies for service %s", t.Service.Name))
 	}
 	cmds := t.Commands(sess)
 	dir := t.Service.Dir

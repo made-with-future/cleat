@@ -14,7 +14,6 @@ type DjangoRunServer struct {
 	Service *config.ServiceConfig
 }
 
-
 func NewDjangoRunServer(svc *config.ServiceConfig) *DjangoRunServer {
 	return &DjangoRunServer{
 		BaseTask: BaseTask{
@@ -39,9 +38,9 @@ func (t *DjangoRunServer) ShouldRun(sess *session.Session) bool {
 func (t *DjangoRunServer) Run(sess *session.Session) error {
 	if sess.Config.Docker && t.Service.IsDocker() {
 		pyConfig := getPythonConfig(t.Service)
-		fmt.Printf("==> Running Django runserver for service %s via Docker (%s service)\n", t.Service.Name, pyConfig.DjangoService)
+		PrintStep(fmt.Sprintf("Running Django runserver for service %s via Docker (%s service)", t.Service.Name, pyConfig.DjangoService))
 	} else {
-		fmt.Printf("==> Running Django server for service %s\n", t.Service.Name)
+		PrintStep(fmt.Sprintf("Running Django server for service %s", t.Service.Name))
 	}
 	cmds := t.Commands(sess)
 	dir := t.Service.Dir
@@ -98,9 +97,9 @@ func (t *DjangoMigrate) ShouldRun(sess *session.Session) bool {
 func (t *DjangoMigrate) Run(sess *session.Session) error {
 	if sess.Config.Docker && t.Service.IsDocker() {
 		pyConfig := getPythonConfig(t.Service)
-		fmt.Printf("==> Running Django migrations for service %s via Docker (%s service)\n", t.Service.Name, pyConfig.DjangoService)
+		PrintStep(fmt.Sprintf("Running Django migrations for service %s via Docker (%s service)", t.Service.Name, pyConfig.DjangoService))
 	} else {
-		fmt.Printf("==> Running Django migrations for service %s\n", t.Service.Name)
+		PrintStep(fmt.Sprintf("Running Django migrations for service %s", t.Service.Name))
 	}
 	cmds := t.Commands(sess)
 	dir := t.Service.Dir
@@ -157,9 +156,9 @@ func (t *DjangoMakeMigrations) ShouldRun(sess *session.Session) bool {
 func (t *DjangoMakeMigrations) Run(sess *session.Session) error {
 	if sess.Config.Docker && t.Service.IsDocker() {
 		pyConfig := getPythonConfig(t.Service)
-		fmt.Printf("==> Creating Django migrations for service %s via Docker (%s service)\n", t.Service.Name, pyConfig.DjangoService)
+		PrintStep(fmt.Sprintf("Creating Django migrations for service %s via Docker (%s service)", t.Service.Name, pyConfig.DjangoService))
 	} else {
-		fmt.Printf("==> Creating Django migrations for service %s\n", t.Service.Name)
+		PrintStep(fmt.Sprintf("Creating Django migrations for service %s", t.Service.Name))
 	}
 	cmds := t.Commands(sess)
 	dir := t.Service.Dir
@@ -216,9 +215,9 @@ func (t *DjangoCollectStatic) ShouldRun(sess *session.Session) bool {
 func (t *DjangoCollectStatic) Run(sess *session.Session) error {
 	if sess.Config.Docker && t.Service.IsDocker() {
 		pyConfig := getPythonConfig(t.Service)
-		fmt.Printf("==> Collecting static files for service %s via Docker (%s service)\n", t.Service.Name, pyConfig.DjangoService)
+		PrintStep(fmt.Sprintf("Collecting static files for service %s via Docker (%s service)", t.Service.Name, pyConfig.DjangoService))
 	} else {
-		fmt.Printf("==> Collecting static files for service %s\n", t.Service.Name)
+		PrintStep(fmt.Sprintf("Collecting static files for service %s", t.Service.Name))
 	}
 	cmds := t.Commands(sess)
 	dir := t.Service.Dir
@@ -275,9 +274,9 @@ func (t *DjangoCreateUserDev) ShouldRun(sess *session.Session) bool {
 func (t *DjangoCreateUserDev) Run(sess *session.Session) error {
 	if sess.Config.Docker && t.Service.IsDocker() {
 		pyConfig := getPythonConfig(t.Service)
-		fmt.Printf("==> Creating Django superuser for service %s via Docker (%s service)\n", t.Service.Name, pyConfig.DjangoService)
+		PrintStep(fmt.Sprintf("Creating Django superuser for service %s via Docker (%s service)", t.Service.Name, pyConfig.DjangoService))
 	} else {
-		fmt.Printf("==> Creating Django superuser for service %s\n", t.Service.Name)
+		PrintStep(fmt.Sprintf("Creating Django superuser for service %s", t.Service.Name))
 	}
 	cmds := t.Commands(sess)
 	dir := t.Service.Dir
@@ -340,9 +339,9 @@ func (t *DjangoGenRandomSecretKey) ShouldRun(sess *session.Session) bool {
 func (t *DjangoGenRandomSecretKey) Run(sess *session.Session) error {
 	if sess.Config.Docker && t.Service.IsDocker() {
 		pyConfig := getPythonConfig(t.Service)
-		fmt.Printf("==> Generating Django secret key for service %s via Docker (%s service)\n", t.Service.Name, pyConfig.DjangoService)
+		PrintStep(fmt.Sprintf("Generating Django secret key for service %s via Docker (%s service)", t.Service.Name, pyConfig.DjangoService))
 	} else {
-		fmt.Printf("==> Generating Django secret key for service %s\n", t.Service.Name)
+		PrintStep(fmt.Sprintf("Generating Django secret key for service %s", t.Service.Name))
 	}
 	cmds := t.Commands(sess)
 	dir := t.Service.Dir

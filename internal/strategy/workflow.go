@@ -131,6 +131,6 @@ func (s *WorkflowStrategy) Execute(sess *session.Session) error {
 		}
 	}
 
-	fmt.Printf("==> Workflow '%s' completed successfully\n", s.name)
+	task.PrintStep(fmt.Sprintf("Workflow '%s' completed successfully", s.name))
 	return nil
 }

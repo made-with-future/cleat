@@ -36,7 +36,7 @@ func (t *DockerBuild) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *DockerBuild) Run(sess *session.Session) error {
-	fmt.Println("==> Building Docker containers")
+	PrintStep("Building Docker containers")
 
 	// 1Password integration
 	searchDir := "."
@@ -44,7 +44,7 @@ func (t *DockerBuild) Run(sess *session.Session) error {
 		searchDir = t.Service.Dir
 	}
 	if execPath, absPath, displayEnv := DetectEnvFile(searchDir); execPath != "" && FileUsesOp(absPath) {
-		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
+		PrintSubStep(fmt.Sprintf("Detected %s, using 1Password CLI (op)", displayEnv))
 	}
 
 	cmds := t.Commands(sess)
@@ -108,7 +108,7 @@ func (t *DockerUp) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *DockerUp) Run(sess *session.Session) error {
-	fmt.Println("==> Running project via Docker")
+	PrintStep("Running project via Docker")
 
 	// 1Password integration
 	searchDir := "."
@@ -116,7 +116,7 @@ func (t *DockerUp) Run(sess *session.Session) error {
 		searchDir = t.Service.Dir
 	}
 	if execPath, absPath, displayEnv := DetectEnvFile(searchDir); execPath != "" && FileUsesOp(absPath) {
-		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
+		PrintSubStep(fmt.Sprintf("Detected %s, using 1Password CLI (op)", displayEnv))
 	}
 
 	cmds := t.Commands(sess)
@@ -177,7 +177,7 @@ func (t *DockerDown) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *DockerDown) Run(sess *session.Session) error {
-	fmt.Println("==> Stopping Docker containers (all profiles)")
+	PrintStep("Stopping Docker containers (all profiles)")
 
 	// 1Password integration
 	searchDir := "."
@@ -185,7 +185,7 @@ func (t *DockerDown) Run(sess *session.Session) error {
 		searchDir = t.Service.Dir
 	}
 	if execPath, absPath, displayEnv := DetectEnvFile(searchDir); execPath != "" && FileUsesOp(absPath) {
-		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
+		PrintSubStep(fmt.Sprintf("Detected %s, using 1Password CLI (op)", displayEnv))
 	}
 
 	cmds := t.Commands(sess)
@@ -246,7 +246,7 @@ func (t *DockerRebuild) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *DockerRebuild) Run(sess *session.Session) error {
-	fmt.Println("==> Rebuilding Docker containers (all profiles, no cache)")
+	PrintStep("Rebuilding Docker containers (all profiles, no cache)")
 
 	// 1Password integration check for logging
 	searchDir := "."
@@ -254,7 +254,7 @@ func (t *DockerRebuild) Run(sess *session.Session) error {
 		searchDir = t.Service.Dir
 	}
 	if execPath, absPath, displayEnv := DetectEnvFile(searchDir); execPath != "" && FileUsesOp(absPath) {
-		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
+		PrintSubStep(fmt.Sprintf("Detected %s, using 1Password CLI (op)", displayEnv))
 	}
 
 	cmds := t.Commands(sess)
@@ -264,13 +264,13 @@ func (t *DockerRebuild) Run(sess *session.Session) error {
 	}
 
 	// 1. Down with --rmi all --volumes
-	fmt.Println("--> Cleaning up: stopping containers and removing images/volumes")
+	PrintSubStep("Cleaning up: stopping containers and removing images/volumes")
 	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
 		return fmt.Errorf("docker cleanup failed during rebuild: %w", err)
 	}
 
 	// 2. Build with --no-cache
-	fmt.Println("--> Rebuilding: build without cache")
+	PrintSubStep("Rebuilding: build without cache")
 	if err := sess.Exec.RunWithDir(dir, cmds[1][0], cmds[1][1:]...); err != nil {
 		return fmt.Errorf("docker rebuild failed: %w", err)
 	}
@@ -337,7 +337,7 @@ func (t *DockerRemoveOrphans) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *DockerRemoveOrphans) Run(sess *session.Session) error {
-	fmt.Println("==> Removing orphan Docker containers (all profiles)")
+	PrintStep("Removing orphan Docker containers (all profiles)")
 
 	// 1Password integration
 	searchDir := "."
@@ -345,7 +345,7 @@ func (t *DockerRemoveOrphans) Run(sess *session.Session) error {
 		searchDir = t.Service.Dir
 	}
 	if execPath, absPath, displayEnv := DetectEnvFile(searchDir); execPath != "" && FileUsesOp(absPath) {
-		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayEnv)
+		PrintSubStep(fmt.Sprintf("Detected %s, using 1Password CLI (op)", displayEnv))
 	}
 
 	cmds := t.Commands(sess)

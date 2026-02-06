@@ -55,11 +55,11 @@ func (t *Terraform) Run(sess *session.Session) error {
 		}
 	}
 
-	fmt.Printf("==> Running terraform %s in %s\n", t.Action, tfDir)
+	PrintStep(fmt.Sprintf("Running terraform %s in %s", t.Action, tfDir))
 
 	// 1Password integration message
 	if absPath, displayPath := t.getEnvFile(sess); absPath != "" && FileUsesOp(absPath) {
-		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayPath)
+		PrintSubStep(fmt.Sprintf("Detected %s, using 1Password CLI (op)", displayPath))
 	}
 
 	cmds := t.Commands(sess)

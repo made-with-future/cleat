@@ -24,7 +24,7 @@ func (t *GCPInit) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *GCPInit) Run(sess *session.Session) error {
-	fmt.Println("==> Initializing Google Cloud SDK")
+	PrintStep("Initializing Google Cloud SDK")
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
@@ -64,7 +64,7 @@ func (t *GCPActivate) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *GCPActivate) Run(sess *session.Session) error {
-	fmt.Printf("==> Activating project %s\n", sess.Config.GoogleCloudPlatform.ProjectName)
+	PrintStep(fmt.Sprintf("Activating project %s", sess.Config.GoogleCloudPlatform.ProjectName))
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
@@ -118,7 +118,7 @@ func (t *GCPSetConfig) Requirements(sess *session.Session) []InputRequirement {
 }
 
 func (t *GCPSetConfig) Run(sess *session.Session) error {
-	fmt.Println("==> Setting GCP project configuration")
+	PrintStep("Setting GCP project configuration")
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
@@ -167,7 +167,7 @@ func (t *GCPADCLogin) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *GCPADCLogin) Run(sess *session.Session) error {
-	fmt.Println("==> Logging in to GCP")
+	PrintStep("Logging in to GCP")
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
@@ -225,7 +225,7 @@ func (t *GCPAdcImpersonateLogin) Run(sess *session.Session) error {
 	if a, ok := sess.Inputs["gcp:impersonate-service-account"]; ok && a != "" {
 		sa = a
 	}
-	fmt.Printf("==> Logging in with impersonation: %s\n", sa)
+	PrintStep(fmt.Sprintf("Logging in with impersonation: %s", sa))
 	cmds := t.Commands(sess)
 	for _, cmd := range cmds {
 		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
@@ -273,7 +273,7 @@ func (t *GCPConsole) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *GCPConsole) Run(sess *session.Session) error {
-	fmt.Println("==> Opening Google Cloud Console")
+	PrintStep("Opening Google Cloud Console")
 	cmds := t.Commands(sess)
 	if err := sess.Exec.Run(cmds[0][0], cmds[0][1:]...); err != nil {
 		return fmt.Errorf("failed to open gcp console: %w", err)
@@ -318,10 +318,10 @@ func (t *GCPAppEngineDeploy) Requirements(sess *session.Session) []InputRequirem
 }
 
 func (t *GCPAppEngineDeploy) Run(sess *session.Session) error {
-	fmt.Printf("==> Deploying %s to App Engine\n", t.AppYaml)
+	PrintStep(fmt.Sprintf("Deploying %s to App Engine", t.AppYaml))
 	version := sess.Inputs["gcp:version"]
 	if version != "" {
-		fmt.Printf("--> Version: %s\n", version)
+		PrintSubStep(fmt.Sprintf("Version: %s", version))
 	}
 	cmds := t.Commands(sess)
 	if err := sess.Exec.Run(cmds[0][0], cmds[0][1:]...); err != nil {
@@ -378,7 +378,7 @@ func (t *GCPAppEnginePromote) Run(sess *session.Session) error {
 	if version == "" {
 		return fmt.Errorf("no version specified for promotion")
 	}
-	fmt.Printf("==> Promoting App Engine version %s\n", version)
+	PrintStep(fmt.Sprintf("Promoting App Engine version %s", version))
 	cmds := t.Commands(sess)
 	if err := sess.Exec.Run(cmds[0][0], cmds[0][1:]...); err != nil {
 		return fmt.Errorf("gcp app-engine promote failed for version %s: %w", version, err)

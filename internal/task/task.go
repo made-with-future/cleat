@@ -1,13 +1,16 @@
 package task
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/madewithfuture/cleat/internal/logger"
 	"github.com/madewithfuture/cleat/internal/session"
+	"github.com/madewithfuture/cleat/internal/ui/theme"
 )
 
 var (
@@ -142,4 +145,14 @@ func DetectEnvFile(searchDir string) (execPath string, absPath string, displayPa
 	}
 
 	return "", "", ""
+}
+
+// PrintStep prints a formatted step header with a preceding newline
+func PrintStep(msg string) {
+	fmt.Printf("\n%s\n", lipgloss.NewStyle().Foreground(theme.Purple).Bold(true).Render("==> "+msg))
+}
+
+// PrintSubStep prints a formatted sub-step message
+func PrintSubStep(msg string) {
+	fmt.Printf("%s\n", lipgloss.NewStyle().Foreground(theme.Cyan).Render("--> "+msg))
 }

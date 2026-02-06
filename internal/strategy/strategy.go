@@ -133,7 +133,7 @@ func (s *BaseStrategy) Execute(sess *session.Session) error {
 	}
 
 	logger.Info("strategy completed successfully", map[string]interface{}{"strategy": s.name})
-	fmt.Printf("==> %s completed successfully\n", s.name)
+	task.PrintStep(fmt.Sprintf("%s completed successfully", s.name))
 	return nil
 }
 
@@ -334,16 +334,15 @@ func (s *PassthroughStrategy) ResolveTasks(sess *session.Session) ([]task.Task, 
 
 func (s *PassthroughStrategy) Execute(sess *session.Session) error {
 	logger.Info("executing passthrough strategy", map[string]interface{}{"command": s.command})
-	
+
 	// Delegate to the single task
 	shellTask := task.NewShellTask(s.command)
 	if err := shellTask.Run(sess); err != nil {
 		return fmt.Errorf("passthrough command '%s' failed: %w", s.command, err)
 	}
-	fmt.Printf("==> Command '%s' completed successfully\n", s.command)
+	task.PrintStep(fmt.Sprintf("Command '%s' completed successfully", s.command))
 	return nil
 }
-
 
 // NpmProvider handles NPM related commands
 type NpmProvider struct{}
@@ -479,7 +478,7 @@ func (p *DockerProvider) GetStrategy(command string, sess *session.Session) Stra
 		}
 	} else if len(parts) == 2 {
 		// Cases like "docker:up" (handled above) or if it was "docker down:web" but now it's "docker:down:web"
-		// Wait, if it was "docker down:web", strings.Split(normalized, ":") gives ["docker", "down", "web"]? 
+		// Wait, if it was "docker down:web", strings.Split(normalized, ":") gives ["docker", "down", "web"]?
 		// No, strings.Replace("docker down:web", " ", ":", 1) gives "docker:down:web".
 		// Let's re-verify my normalization.
 	}
@@ -564,9 +563,9 @@ func (p *GcpProvider) GetStrategy(command string, sess *session.Session) Strateg
 	}
 
 	// Normalize: "gcp app-engine deploy" -> "gcp:app-engine:deploy"
-	// Actually GCP commands might have multiple spaces. 
+	// Actually GCP commands might have multiple spaces.
 	// Let's look at existing logic.
-	
+
 	if strings.HasPrefix(command, "gcp app-engine deploy") || strings.HasPrefix(command, "gcp:app-engine:deploy") {
 		// handle deploy
 		fullCmd := strings.Replace(command, " ", ":", -1)
@@ -598,7 +597,7 @@ func (p *GcpProvider) GetStrategy(command string, sess *session.Session) Strateg
 			return NewGCPAppEnginePromoteStrategy("")
 		}
 	}
-	
+
 	if command == "gcp console" || command == "gcp:console" {
 		return NewGCPConsoleStrategy()
 	}
