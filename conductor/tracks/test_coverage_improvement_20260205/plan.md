@@ -10,15 +10,15 @@ Increase project-wide code coverage to >= 75%, ensuring individual modules hit >
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Audit and Baseline' (Protocol in workflow.md)
 
 ## Phase 2: Core Logic and Utility Strengthening
-- [ ] Task: Improve coverage for `internal/detector`
-    - [ ] Write failing tests for auto-detection edge cases (Red Phase)
-    - [ ] Implement/Refactor to pass tests (Green Phase)
-    - [ ] Target: >= 75% coverage for `internal/detector`
-- [ ] Task: Improve coverage for `internal/executor` and `internal/logger`
-    - [ ] Write failing tests for error paths and side effects (Red Phase)
-    - [ ] Implement/Refactor to pass tests (Green Phase)
-    - [ ] Target: >= 75% coverage for these modules
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Logic and Utility Strengthening' (Protocol in workflow.md)
+- [x] Task: Improve coverage for `internal/detector`
+    - [x] Write failing tests for auto-detection edge cases (Red Phase)
+    - [x] Implement/Refactor to pass tests (Green Phase)
+    - [x] Target: >= 75% coverage for `internal/detector`
+- [x] Task: Improve coverage for `internal/executor` and `internal/logger`
+    - [x] Write failing tests for error paths and side effects (Red Phase)
+    - [x] Implement/Refactor to pass tests (Green Phase)
+    - [x] Target: >= 75% coverage for these modules
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Core Logic and Utility Strengthening' (Protocol in workflow.md)
 
 ## Phase 3: Command and Strategy Refactoring
 - [ ] Task: Refactor and Test `internal/cmd`

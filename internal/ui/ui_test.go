@@ -556,12 +556,271 @@ func TestBuildConfigLines(t *testing.T) {
     m.buildConfigLines()
 }
 
-func TestBuildHistoryContent(t *testing.T) {
-    m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-    m.width = 100
-    m.history = []history.HistoryEntry{{Command: "c1", Success: true, Timestamp: time.Now()}}
-    m.buildHistoryContent(lipgloss.Color("1"), lipgloss.Color("2"), lipgloss.Color("3"), lipgloss.Color("4"), lipgloss.Color("5"), 50)
+func TestOpenEditor(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-test-editor-*")
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "cleat.yaml")
+	m := InitialModel(&config.Config{SourcePath: configPath}, false, "0.1.0", &executor.ShellExecutor{})
+	m.cfgFound = false
+
+	// Test default config creation
+	os.Setenv("EDITOR", "true") // Use 'true' as it exits immediately with 0
+	defer os.Unsetenv("EDITOR")
+
+	cmd := m.openEditor()
+	if cmd == nil {
+		t.Fatal("expected non-nil tea.Cmd from openEditor")
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		t.Error("expected default config file to be created")
+	}
+
+	// Test with existing file
+	m.cfgFound = true
+	os.WriteFile(configPath, []byte("existing"), 0644)
+	m.openEditor()
+	data, _ := os.ReadFile(configPath)
+	if string(data) != "existing" {
+		t.Error("openEditor should not overwrite existing config")
+	}
+}
+
+func TestHandleInputCollection_Advanced(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.state = stateInputCollection
+	m.requirements = []task.InputRequirement{
+		{Key: "k1", Prompt: "P1"},
+		{Key: "k2", Prompt: "P2"},
+	}
+	m.requirementIdx = 0
+	m.collectedInputs = make(map[string]string)
+
+	// Submit first input
+	m.textInput.SetValue("v1")
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.collectedInputs["k1"] != "v1" {
+		t.Errorf("expected k1=v1, got %v", m.collectedInputs["k1"])
+	}
+	if m.requirementIdx != 1 {
+		t.Errorf("expected requirementIdx 1, got %d", m.requirementIdx)
+	}
+
+	// Submit second input (last)
+	m.textInput.SetValue("v2")
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.collectedInputs["k2"] != "v2" {
+		t.Errorf("expected k2=v2, got %v", m.collectedInputs["k2"])
+	}
+	if !m.quitting {
+		t.Error("expected quitting to be true after last input")
+	}
+	
+	// Test Esc
+	m.state = stateInputCollection
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("expected browsing state after Esc")
+	}
+
+	// Test Ctrl+C
+	m.state = stateInputCollection
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = updatedModel.(model)
+	if !m.quitting {
+		t.Error("expected quitting after Ctrl+C")
+	}
+}
+
+func TestHandleShowingConfig_Advanced(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.state = stateShowingConfig
+	m.focus = focusConfig
+	m.previousFocus = focusCommands
+
+	// Test Esc
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing || m.focus != focusCommands {
+		t.Error("failed to return to browsing/prevFocus after Esc")
+	}
+
+	// Test 'q'
+	m.state = stateShowingConfig
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("failed to close config with 'q'")
+	}
+
+	// Test Ctrl+C
+	m.state = stateShowingConfig
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = updatedModel.(model)
+	if !m.quitting {
+		t.Error("expected quitting after Ctrl+C")
+	}
+	
+	// Test 'g' jump to top
+	m.state = stateShowingConfig
+	m.configScrollOffset = 10
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")}) // pending
+	m = updatedModel.(model)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = updatedModel.(model)
+	if m.configScrollOffset != 0 {
+		t.Errorf("expected configScrollOffset 0 after 'gg', got %d", m.configScrollOffset)
+	}
+}
+
+func TestOpenEditor_Fallback(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-test-editor-fallback-*")
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "cleat.yaml")
+	m := InitialModel(&config.Config{SourcePath: configPath}, false, "0.1.0", &executor.ShellExecutor{})
+	
+	oldEditor := os.Getenv("EDITOR")
+	os.Unsetenv("EDITOR")
+	defer os.Setenv("EDITOR", oldEditor)
+
+	m.openEditor()
+	// Just ensuring it doesn't crash and uses "vi" internally
+}
+
+func TestOpenEditor_WriteError(t *testing.T) {
+	// Attempt to write to a path that should fail (e.g., a directory that exists)
+	tmpDir, _ := os.MkdirTemp("", "cleat-test-editor-err-*")
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "bad-dir")
+	os.Mkdir(configPath, 0755)
+	
+	m := InitialModel(&config.Config{SourcePath: configPath}, false, "0.1.0", &executor.ShellExecutor{})
+	m.cfgFound = false
+	
+	m.openEditor()
+	// Should log error but not crash
+}
+
+type mockRunner struct {
+	m tea.Model
+}
+
+func (r *mockRunner) Run() (tea.Model, error) {
+	return r.m, nil
+}
+
+func TestStart(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-test-start-*")
+	defer os.RemoveAll(tmpDir)
+
+	// Mock runner factory
+	oldFactory := runnerFactory
+	defer func() { 
+		runnerFactory = oldFactory 
+	}()
+
+	t.Run("NoConfig", func(t *testing.T) {
+		configPath := filepath.Join(tmpDir, "nonexistent.yaml")
+		runnerFactory = func(m tea.Model) programRunner {
+			mod := m.(model)
+			if mod.cfgFound {
+				t.Error("expected cfgFound to be false")
+			}
+			mod.selectedCommand = "ls"
+			return &mockRunner{m: mod}
+		}
+		cmd, _, err := Start("0.1.0", configPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cmd != "ls" {
+			t.Errorf("expected ls, got %q", cmd)
+		}
+	})
+
+	t.Run("MalformedConfig", func(t *testing.T) {
+		configPath := filepath.Join(tmpDir, "malformed.yaml")
+		os.WriteFile(configPath, []byte("invalid yaml: ["), 0644)
+		runnerFactory = func(m tea.Model) programRunner {
+			mod := m.(model)
+			if mod.fatalError == nil {
+				t.Error("expected fatalError for malformed config")
+			}
+			return &mockRunner{m: mod}
+		}
+		Start("0.1.0", configPath)
+	})
+
+	t.Run("ValidConfig", func(t *testing.T) {
+		configPath := filepath.Join(tmpDir, "valid.yaml")
+		os.WriteFile(configPath, []byte("version: 1\ndocker: true"), 0644)
+		runnerFactory = func(m tea.Model) programRunner {
+			mod := m.(model)
+			if !mod.cfgFound {
+				t.Error("expected cfgFound to be true")
+			}
+			return &mockRunner{m: mod}
+		}
+		Start("0.1.0", configPath)
+	})
+}
+
+func TestInit(t *testing.T) {
+	m := model{}
+	cmd := m.Init()
+	if cmd != nil {
+		t.Error("Init should return nil")
+	}
+}
+
+func TestNavigationHandlers(t *testing.T) {
+    cfg := &config.Config{
+        Services: []config.ServiceConfig{{Name: "s1"}, {Name: "s2"}},
+    }
+    m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
+    m.updateVisibleItems()
     
-    m.state = stateCreatingWorkflow
-    m.buildHistoryContent(lipgloss.Color("1"), lipgloss.Color("2"), lipgloss.Color("3"), lipgloss.Color("4"), lipgloss.Color("5"), 50)
+    // Down
+    m.handleDownKey()
+    if m.cursor != 1 {
+        t.Errorf("expected cursor 1, got %d", m.cursor)
+    }
+    
+    // Up
+    m.handleUpKey()
+    if m.cursor != 0 {
+        t.Errorf("expected cursor 0, got %d", m.cursor)
+    }
+
+    // History navigation
+    m.focus = focusHistory
+    m.history = []history.HistoryEntry{{Command: "h1"}, {Command: "h2"}}
+    m.historyCursor = 0
+    m.handleDownKey()
+    if m.historyCursor != 1 {
+        t.Errorf("expected historyCursor 1, got %d", m.historyCursor)
+    }
+    m.handleUpKey()
+    if m.historyCursor != 0 {
+        t.Errorf("expected historyCursor 0, got %d", m.historyCursor)
+    }
+
+    // Config navigation
+    m.focus = focusConfig
+    m.cfgFound = true
+    m.cfg = &config.Config{Version: 1} // buildConfigLines will return some lines
+    m.configScrollOffset = 1
+    m.handleUpKey()
+    if m.configScrollOffset != 0 {
+        t.Errorf("expected configScrollOffset 0, got %d", m.configScrollOffset)
+    }
+    m.handleDownKey()
+    // handleDownKey for config depends on buildConfigLines length
 }

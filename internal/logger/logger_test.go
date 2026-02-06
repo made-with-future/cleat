@@ -1,10 +1,12 @@
 package logger
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -170,8 +172,33 @@ func jsonLines(data []byte) []string {
 			curr += string(b)
 		}
 	}
-	if curr != "" {
-		lines = append(lines, curr)
+		if curr != "" {
+			lines = append(lines, curr)
+		}
+		return lines
 	}
-	return lines
-}
+	
+	func TestLoggerSetOutput(t *testing.T) {
+		var buf bytes.Buffer
+		SetOutput(&buf)
+		
+		Info("buf message", nil)
+		
+		if !strings.Contains(buf.String(), "buf message") {
+			t.Errorf("expected buffer to contain 'buf message', got %q", buf.String())
+		}
+	}
+	
+	func TestLoggerInit_HomeExpansion(t *testing.T) {
+		// Use a path with ~/ but ensure it's something that won't mess up real home
+		// Since Init creates directories, we must be careful.
+		// We'll just test that it attempts to get the home dir by passing a path starting with ~/
+		// and checking if it returns an error related to directory creation (which we can control).
+		
+		err := Init("~/.cleat-test-log/test.log", "info", nil)
+		if err != nil {
+			// It might fail if we can't write to home, but usually it should work or fail with permission
+			t.Logf("Init with home expansion returned: %v", err)
+		}
+	}
+	

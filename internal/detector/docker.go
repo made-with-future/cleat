@@ -36,7 +36,7 @@ func (d *DockerDetector) Detect(baseDir string, cfg *schema.Config) error {
 		Services map[string]dcService `yaml:"services"`
 	}
 	if err := yaml.Unmarshal(dcData, &dc); err != nil {
-		return nil
+		return err
 	}
 
 	for name, s := range dc.Services {

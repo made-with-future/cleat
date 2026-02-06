@@ -9,20 +9,28 @@ import (
 	"github.com/madewithfuture/cleat/internal/logger"
 )
 
+type programRunner interface {
+	Run() (tea.Model, error)
+}
+
+var runnerFactory = func(m tea.Model) programRunner {
+	return tea.NewProgram(m, tea.WithAltScreen())
+}
+
 // Start launches the TUI and returns the selected command and collected inputs
-func Start(version string) (string, map[string]string, error) {
-	cfg, err := config.LoadDefaultConfig()
+func Start(version string, configPath string) (string, map[string]string, error) {
+	cfg, err := config.LoadConfig(configPath)
 	cfgFound := true
 	var initialErr error
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			cfg = &config.Config{SourcePath: "cleat.yaml"}
+			cfg = &config.Config{SourcePath: configPath}
 			cfgFound = false
 		} else {
 			// Configuration exists but failed to load (e.g., syntax error)
 			logger.Error("failed to load config during TUI startup", err, nil)
-			cfg = &config.Config{SourcePath: "cleat.yaml"}
+			cfg = &config.Config{SourcePath: configPath}
 			cfgFound = false
 			initialErr = err
 		}
@@ -34,7 +42,7 @@ func Start(version string) (string, map[string]string, error) {
 		m.fatalError = initialErr
 	}
 
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := runnerFactory(m)
 	finalModel, err := p.Run()
 	if err != nil {
 		return "", nil, err

@@ -351,6 +351,21 @@ func TestGetStrategyForCommand(t *testing.T) {
 	}
 }
 
+func TestPassthroughStrategy_Execute(t *testing.T) {
+	mock := &mockExecutor{}
+	sess := session.NewSession(&config.Config{}, mock)
+	s := NewPassthroughStrategy("echo hello")
+
+	err := s.Execute(sess)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(mock.commands) != 1 || mock.commands[0] != "echo" {
+		t.Errorf("expected 1 command 'echo', got %v", mock.commands)
+	}
+}
+
 func TestCircularDependencyDetection(t *testing.T) {
 	// task1 depends on task2, task2 depends on task1
 	task1 := &mockTask{
@@ -370,6 +385,33 @@ func TestCircularDependencyDetection(t *testing.T) {
 	err := s.Execute(sess)
 	if err == nil {
 		t.Error("expected circular dependency error, got nil")
+	}
+}
+
+type errorPromptExecutor struct {
+	mockExecutor
+}
+
+func (e *errorPromptExecutor) Prompt(message string, defaultValue string) (string, error) {
+	return "", errors.New("prompt error")
+}
+
+func TestBaseStrategy_Execute_PromptError(t *testing.T) {
+	req := task.InputRequirement{
+		Key:    "test:key",
+		Prompt: "Test Prompt",
+	}
+	task1 := &requirementTask{
+		mockTask: mockTask{BaseTask: task.BaseTask{TaskName: "task1"}, shouldRun: true},
+		reqs:     []task.InputRequirement{req},
+	}
+
+	s := NewBaseStrategy("test", []task.Task{task1})
+	sess := session.NewSession(&config.Config{}, &errorPromptExecutor{})
+
+	err := s.Execute(sess)
+	if err == nil {
+		t.Error("expected error from prompt failure, got nil")
 	}
 }
 
