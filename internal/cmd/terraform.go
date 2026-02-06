@@ -19,7 +19,13 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 		Short: short,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.LoadDefaultConfig()
+			var cfg *config.Config
+			var err error
+			if ConfigPath != "" {
+				cfg, err = config.LoadConfig(ConfigPath)
+			} else {
+				cfg, err = config.LoadDefaultConfig()
+			}
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
@@ -34,28 +40,19 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 			}
 
 			if env == "" {
-				if cfg.Terraform.UseFolders {
-					if len(cfg.Terraform.Envs) == 1 {
-						env = cfg.Terraform.Envs[0]
-					} else if len(cfg.Terraform.Envs) > 1 {
-						return fmt.Errorf("environment is required, must be one of: %v", cfg.Terraform.Envs)
-					} else {
-						return fmt.Errorf("environment is required when using terraform folders")
-					}
-				} else {
-					if len(cfg.Envs) == 1 {
-						env = cfg.Envs[0]
-					}
+				if len(cfg.Terraform.Envs) == 1 {
+					env = cfg.Terraform.Envs[0]
+				} else if len(cfg.Terraform.Envs) > 1 {
+					return fmt.Errorf("environment is required, must be one of: %v", cfg.Terraform.Envs)
+				} else if cfg.Terraform.UseFolders {
+					return fmt.Errorf("environment is required when using terraform folders")
 				}
 			}
 
 			if env != "" {
 				validEnv := false
-				validEnvs := cfg.Envs
-				if cfg.Terraform.UseFolders {
-					validEnvs = cfg.Terraform.Envs
-				}
-
+				validEnvs := cfg.Terraform.Envs
+				
 				for _, e := range validEnvs {
 					if e == env {
 						validEnv = true

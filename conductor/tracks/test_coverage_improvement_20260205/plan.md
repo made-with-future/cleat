@@ -21,13 +21,13 @@ Increase project-wide code coverage to >= 75%, ensuring individual modules hit >
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Core Logic and Utility Strengthening' (Protocol in workflow.md)
 
 ## Phase 3: Command and Strategy Refactoring
-- [ ] Task: Refactor and Test `internal/cmd`
-    - [ ] Identify complex `RunE` blocks in `internal/cmd/*.go`
-    - [ ] Extract logic into testable helper functions or methods
-    - [ ] Write failing tests for command routing and argument handling (Red Phase)
-    - [ ] Implement/Refactor to pass tests (Green Phase)
-    - [ ] Target: >= 75% coverage for `internal/cmd`
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Command and Strategy Refactoring' (Protocol in workflow.md)
+- [x] Task: Refactor and Test `internal/cmd`
+    - [x] Identify complex `RunE` blocks in `internal/cmd/*.go`
+    - [x] Extract logic into testable helper functions or methods
+    - [x] Write failing tests for command routing and argument handling (Red Phase)
+    - [x] Implement/Refactor to pass tests (Green Phase)
+    - [x] Target: >= 75% coverage for `internal/cmd`
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Command and Strategy Refactoring' (Protocol in workflow.md)
 
 ## Phase 4: TUI Robustness
 - [ ] Task: Improve coverage for `internal/ui`
