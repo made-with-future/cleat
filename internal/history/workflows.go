@@ -4,12 +4,40 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
+	"unicode"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/logger"
 	"gopkg.in/yaml.v3"
 )
+
+func Slugify(name string) string {
+	name = strings.ToLower(name)
+	var result strings.Builder
+	for _, r := range name {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' {
+			result.WriteRune(r)
+		} else if r == ' ' {
+			result.WriteRune('-')
+		}
+	}
+	s := result.String()
+	// Collapse multiple hyphens
+	s = regexp.MustCompile("-+").ReplaceAllString(s, "-")
+	// Trim hyphens
+	s = strings.Trim(s, "-")
+	return s
+}
+
+func ValidateWorkflowName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("workflow name cannot be empty")
+	}
+	return nil
+}
 
 func GetUserWorkflowFilePath() (string, error) {
 	home, err := UserHomeDir()
@@ -52,6 +80,10 @@ func modifyWorkflowFile(path string, op func([]config.Workflow) ([]config.Workfl
 }
 
 func SaveWorkflowToProject(workflow config.Workflow) error {
+	if workflow.ID == "" {
+		workflow.ID = Slugify(workflow.Name)
+	}
+
 	// Save to project-local file. Prefer existing .yaml if it exists.
 	root := config.FindProjectRoot()
 	projectFile := filepath.Join(root, "cleat.workflows.yaml")
@@ -66,7 +98,11 @@ func SaveWorkflowToProject(workflow config.Workflow) error {
 		// Update existing or add new
 		found := false
 		for i, w := range workflows {
-			if w.Name == workflow.Name {
+			id := w.ID
+			if id == "" {
+				id = Slugify(w.Name)
+			}
+			if id == workflow.ID {
 				workflows[i] = workflow
 				found = true
 				break
@@ -80,6 +116,10 @@ func SaveWorkflowToProject(workflow config.Workflow) error {
 }
 
 func SaveWorkflowToUser(workflow config.Workflow) error {
+	if workflow.ID == "" {
+		workflow.ID = Slugify(workflow.Name)
+	}
+
 	userFile, err := GetUserWorkflowFilePath()
 	if err != nil {
 		return err
@@ -93,7 +133,11 @@ func SaveWorkflowToUser(workflow config.Workflow) error {
 		// Update existing or add new
 		found := false
 		for i, w := range workflows {
-			if w.Name == workflow.Name {
+			id := w.ID
+			if id == "" {
+				id = Slugify(w.Name)
+			}
+			if id == workflow.ID {
 				workflows[i] = workflow
 				found = true
 				break
@@ -112,7 +156,10 @@ func LoadWorkflows(cfg *config.Config) ([]config.Workflow, error) {
 	// 1. Load from cleat.yaml/cleat.yml (if available in cfg)
 	if cfg != nil {
 		for _, w := range cfg.Workflows {
-			workflowsMap[w.Name] = w
+			if w.ID == "" {
+				w.ID = Slugify(w.Name)
+			}
+			workflowsMap[w.ID] = w
 		}
 	}
 
@@ -127,7 +174,10 @@ func LoadWorkflows(cfg *config.Config) ([]config.Workflow, error) {
 			var projectWorkflows []config.Workflow
 			if err := yaml.Unmarshal(data, &projectWorkflows); err == nil {
 				for _, w := range projectWorkflows {
-					workflowsMap[w.Name] = w
+					if w.ID == "" {
+						w.ID = Slugify(w.Name)
+					}
+					workflowsMap[w.ID] = w
 				}
 			} else {
 				return nil, fmt.Errorf("failed to parse project workflows in %s: %w", projectFile, err)
@@ -141,7 +191,10 @@ func LoadWorkflows(cfg *config.Config) ([]config.Workflow, error) {
 			var userWorkflows []config.Workflow
 			if err := yaml.Unmarshal(data, &userWorkflows); err == nil {
 				for _, w := range userWorkflows {
-					workflowsMap[w.Name] = w
+					if w.ID == "" {
+						w.ID = Slugify(w.Name)
+					}
+					workflowsMap[w.ID] = w
 				}
 			} else {
 				return nil, fmt.Errorf("failed to parse user workflows in %s: %w", userFile, err)
@@ -171,7 +224,7 @@ func LoadWorkflows(cfg *config.Config) ([]config.Workflow, error) {
 	return res, nil
 }
 
-func DeleteWorkflow(name string) error {
+func DeleteWorkflow(idOrName string) error {
 	root := config.FindProjectRoot()
 	projectFiles := []string{
 		filepath.Join(root, "cleat.workflows.yaml"),
@@ -182,7 +235,11 @@ func DeleteWorkflow(name string) error {
 		newWorkflows := []config.Workflow{}
 		modified := false
 		for _, w := range workflows {
-			if w.Name != name {
+			id := w.ID
+			if id == "" {
+				id = Slugify(w.Name)
+			}
+			if id != idOrName && w.Name != idOrName {
 				newWorkflows = append(newWorkflows, w)
 			} else {
 				modified = true

@@ -9,7 +9,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Enhanced workflow creation: Slugified IDs, upsert logic based on ID, name validation, and TUI UI improvements.**
+- [x] **Track: Enhanced workflow creation: Slugified IDs, upsert logic based on ID, name validation, and TUI UI improvements.**
 *Link: [./conductor/tracks/workflow_creation_improvement_20260205/](./conductor/tracks/workflow_creation_improvement_20260205/)*
 
 ---
