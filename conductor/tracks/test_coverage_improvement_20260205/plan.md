@@ -38,9 +38,9 @@ Increase project-wide code coverage to >= 75%, ensuring individual modules hit >
     - [x] Target: >= 75% coverage for `internal/ui`
 - [x] Task: Conductor - User Manual Verification 'Phase 4: TUI Robustness' (Protocol in workflow.md)
 
-## Phase 5: Final Validation
-- [~] Task: Final Coverage Sweep
-    - [ ] Run final project-wide coverage report
-    - [ ] Verify no function is below 50% coverage
-    - [ ] Verify overall coverage is >= 75%
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Final Validation' (Protocol in workflow.md)
+## Phase 5: Final Validation [checkpoint: 04e5476]
+- [x] Task: Final Coverage Sweep
+    - [x] Run final project-wide coverage report
+    - [x] Verify no function is below 50% coverage
+    - [x] Verify overall coverage is >= 75%
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Final Validation' (Protocol in workflow.md)
