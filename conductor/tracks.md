@@ -19,5 +19,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [x] **Track: Fix issue where a created workflow won't run, it says it doesn't know about it**
+- [~] **Track: Fix issue where a created workflow won't run, it says it doesn't know about it**
 *Link: [./tracks/fix_workflow_command_20260205/](./tracks/fix_workflow_command_20260205/)*
