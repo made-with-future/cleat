@@ -17,12 +17,12 @@ This phase focuses on ensuring that multi-step workflows execute commands in the
 ## Phase 2: Input Prompting Verification
 This phase focuses on ensuring that workflows correctly handle and prompt for user inputs as defined by their constituent tasks.
 
-- [ ] Task: Write failing tests for workflow input prompting
-    - [ ] Define a workflow with a step that requires user input.
-    - [ ] Write a test that simulates user input and asserts it's correctly passed to the command.
-    - [ ] Write a test that asserts default values are used when no input is provided.
-- [ ] Task: Implement/Refactor input prompting logic to pass tests (if necessary)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Input Prompting Verification' (Protocol in workflow.md)
+- [x] Task: Write failing tests for workflow input prompting [checkpoint: 1190335]
+    - [x] Define a workflow with a step that requires user input.
+    - [x] Write a test that simulates user input and asserts it's correctly passed to the command.
+    - [x] Write a test that asserts default values are used when no input is provided.
+- [x] Task: Implement/Refactor input prompting logic to pass tests (if necessary)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Input Prompting Verification' (Protocol in workflow.md) [checkpoint: 9ff177b]
 
 ## Phase 3: Fail-Fast Error Reporting Verification
 This phase focuses on verifying that workflows terminate immediately and report clear errors upon step failure.
