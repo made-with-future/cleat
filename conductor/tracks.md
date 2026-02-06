@@ -26,3 +26,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - [x] **Track: Test coverage is thin for the special workflow command**
 *Link: [./tracks/workflow_test_coverage_20260205/](./tracks/workflow_test_coverage_20260205/)*
+
+---
+
+- [ ] **Track: Core Engine Fixes: Silent error swallowing, double task resolution, non-deterministic prompting, and recursive workflow cycle detection.**
+*Link: [./tracks/workflow_engine_fixes_20260205/](./tracks/workflow_engine_fixes_20260205/)*
