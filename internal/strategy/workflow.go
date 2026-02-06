@@ -2,6 +2,7 @@ package strategy
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/madewithfuture/cleat/internal/logger"
@@ -56,6 +57,27 @@ func (s *WorkflowStrategy) Tasks() []task.Task {
 }
 
 func (s *WorkflowStrategy) ResolveTasks(sess *session.Session) ([]task.Task, error) {
+	// 1. Detect cycles
+	for _, name := range sess.WorkflowStack {
+		if name == s.name {
+			return nil, fmt.Errorf("cycle detected: %s -> %s", strings.Join(sess.WorkflowStack, " -> "), s.name)
+		}
+	}
+
+	// 2. Enforce depth limit (failsafe)
+	if len(sess.WorkflowStack) > 50 { // Hard limit of 50 nested workflows
+		return nil, fmt.Errorf("max workflow nesting depth (50) exceeded")
+	}
+
+	// 3. Push to stack
+	sess.WorkflowStack = append(sess.WorkflowStack, s.name)
+	defer func() {
+		// Pop from stack
+		if len(sess.WorkflowStack) > 0 {
+			sess.WorkflowStack = sess.WorkflowStack[:len(sess.WorkflowStack)-1]
+		}
+	}()
+
 	var allTasks []task.Task
 	for _, cmd := range s.commands {
 		tasks, err := ResolveCommandTasks(cmd, sess)
@@ -85,7 +107,14 @@ func (s *WorkflowStrategy) Execute(sess *session.Session) error {
 	}
 
 	// 3. Prompt for missing inputs
-	for key, req := range requirements {
+	var keys []string
+	for k := range requirements {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		req := requirements[key]
 		if _, ok := sess.Inputs[key]; !ok {
 			val, err := sess.Exec.Prompt(req.Prompt, req.Default)
 			if err != nil {
@@ -95,25 +124,11 @@ func (s *WorkflowStrategy) Execute(sess *session.Session) error {
 		}
 	}
 
-	// 4. Execute steps sequentially
-	for _, cmd := range s.commands {
-		logger.Debug("workflow step", map[string]interface{}{"workflow": s.name, "command": cmd})
-		strat := GetStrategyForCommand(cmd, sess)
-		if strat == nil {
-			return fmt.Errorf("workflow '%s' step '%s' failed: unknown command", s.name, cmd)
-		}
-
-		// Note: We don't call strat.Execute(sess) because that would re-prompt for inputs.
-		// Instead, we resolve tasks for this step and run them.
-		tasks, err := strat.ResolveTasks(sess)
-		if err != nil {
-			return fmt.Errorf("workflow '%s' step '%s' failed to resolve tasks: %w", s.name, cmd, err)
-		}
-
-		for _, t := range tasks {
-			if err := t.Run(sess); err != nil {
-				return fmt.Errorf("workflow '%s' step '%s' task '%s' failed: %w", s.name, cmd, t.Name(), err)
-			}
+	// 4. Execute tasks sequentially
+	for _, t := range allTasks {
+		logger.Debug("running workflow task", map[string]interface{}{"workflow": s.name, "task": t.Name()})
+		if err := t.Run(sess); err != nil {
+			return fmt.Errorf("workflow '%s' task '%s' failed: %w", s.name, t.Name(), err)
 		}
 	}
 

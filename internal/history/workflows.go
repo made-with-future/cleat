@@ -142,7 +142,7 @@ func LoadWorkflows(cfg *config.Config) ([]config.Workflow, error) {
 					workflowsMap[w.Name] = w
 				}
 			} else {
-				logger.Warn("failed to unmarshal project workflows", map[string]interface{}{"path": projectFile, "error": err.Error()})
+				return nil, fmt.Errorf("failed to parse project workflows in %s: %w", projectFile, err)
 			}
 		}
 	}
@@ -156,7 +156,7 @@ func LoadWorkflows(cfg *config.Config) ([]config.Workflow, error) {
 					workflowsMap[w.Name] = w
 				}
 			} else {
-				logger.Warn("failed to unmarshal user workflows", map[string]interface{}{"path": userFile, "error": err.Error()})
+				return nil, fmt.Errorf("failed to parse user workflows in %s: %w", userFile, err)
 			}
 		}
 	}
