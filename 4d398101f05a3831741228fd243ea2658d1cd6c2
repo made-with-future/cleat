@@ -1,0 +1,1 @@
+Fixed TUI workflow resolution by injecting the full merged workflow list (including user workflows) into the Session before strategy resolution. This ensures WorkflowProvider can find workflows that aren't in the project-local config.
