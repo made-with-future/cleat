@@ -1,6 +1,6 @@
 BINARY_NAME=cleat
 MAIN_PATH=cmd/cleat/main.go
-VERSION?=0.1.7
+VERSION?=0.1.8
 LDFLAGS=-ldflags "-X github.com/madewithfuture/cleat/internal/cmd.Version=$(VERSION)"
 
 all: build

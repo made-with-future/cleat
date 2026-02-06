@@ -255,6 +255,16 @@ func TestTaskHelpers(t *testing.T) {
 }
 
 func TestTerraformOpWrapping(t *testing.T) {
+	// Mock op CLI to be present
+	oldLookPath := LookPath
+	LookPath = func(file string) (string, error) {
+		if file == "op" {
+			return "/usr/bin/op", nil
+		}
+		return oldLookPath(file)
+	}
+	defer func() { LookPath = oldLookPath }()
+
 	tmpDir, err := os.MkdirTemp("", "cleat-tf-op-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)

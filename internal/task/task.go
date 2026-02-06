@@ -10,6 +10,11 @@ import (
 	"github.com/madewithfuture/cleat/internal/session"
 )
 
+var (
+	// LookPath is a mockable version of exec.LookPath
+	LookPath = exec.LookPath
+)
+
 // Task represents an atomic unit of work
 type Task interface {
 	// Name returns a unique identifier for this task
@@ -57,7 +62,7 @@ func (t *BaseTask) Requirements(sess *session.Session) []InputRequirement {
 
 // ShouldUseOp checks if 1Password CLI is available and if any .env file in .envs/ contains "op://"
 func ShouldUseOp(baseDir string) bool {
-	if _, err := exec.LookPath("op"); err != nil {
+	if _, err := LookPath("op"); err != nil {
 		logger.Debug("op CLI not found in PATH", nil)
 		return false
 	}
@@ -83,7 +88,7 @@ func ShouldUseOp(baseDir string) bool {
 
 // FileUsesOp checks if 1Password CLI is available and if the specified .env file contains "op://"
 func FileUsesOp(envFile string) bool {
-	if _, err := exec.LookPath("op"); err != nil {
+	if _, err := LookPath("op"); err != nil {
 		return false
 	}
 

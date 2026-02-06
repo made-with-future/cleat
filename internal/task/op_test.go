@@ -2,7 +2,6 @@ package task
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -19,8 +18,21 @@ func TestShouldUseOp(t *testing.T) {
 		t.Fatalf("failed to create .envs dir: %v", err)
 	}
 
-	// Test case 1: No op CLI (hard to test without mocking exec.LookPath)
-	// We'll assume op is NOT in path for this test environment unless it's there.
+	// Test case 1: No op CLI
+	t.Run("no op CLI", func(t *testing.T) {
+		oldLookPath := LookPath
+		LookPath = func(file string) (string, error) {
+			if file == "op" {
+				return "", os.ErrNotExist
+			}
+			return oldLookPath(file)
+		}
+		defer func() { LookPath = oldLookPath }()
+
+		if ShouldUseOp(tempDir) {
+			t.Errorf("ShouldUseOp() should return false when op CLI is not installed")
+		}
+	})
 
 	// Test case 2: op:// present in .env file
 	err = os.WriteFile(filepath.Join(envsDir, "dev.env"), []byte("DB_PASSWORD=op://vault/item/password\n"), 0644)
@@ -37,20 +49,18 @@ func TestShouldUseOp(t *testing.T) {
 			t.Fatalf("failed to write .env file: %v", err)
 		}
 
-		// Check if 'op' CLI is actually installed
-		_, opErr := exec.LookPath("op")
-		result := ShouldUseOp(tempDir)
+		// Mock op CLI to be present
+		oldLookPath := LookPath
+		LookPath = func(file string) (string, error) {
+			if file == "op" {
+				return "/usr/bin/op", nil
+			}
+			return oldLookPath(file)
+		}
+		defer func() { LookPath = oldLookPath }()
 
-		if opErr != nil {
-			// op CLI not installed, ShouldUseOp should return false
-			if result {
-				t.Errorf("ShouldUseOp() should return false when op:// is present but op CLI is not installed")
-			}
-		} else {
-			// op CLI is installed, ShouldUseOp should return true
-			if !result {
-				t.Errorf("ShouldUseOp() should return true when op:// is present and op CLI exists")
-			}
+		if !ShouldUseOp(tempDir) {
+			t.Errorf("ShouldUseOp() should return true when op:// is present and op CLI exists")
 		}
 	})
 
