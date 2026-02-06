@@ -27,12 +27,12 @@ This phase focuses on ensuring that workflows correctly handle and prompt for us
 ## Phase 3: Fail-Fast Error Reporting Verification
 This phase focuses on verifying that workflows terminate immediately and report clear errors upon step failure.
 
-- [ ] Task: Write failing tests for fail-fast error reporting
-    - [ ] Define a workflow with a step designed to fail.
-    - [ ] Write a test that asserts the workflow stops at the failing step.
-    - [ ] Write a test that asserts a clear error message is reported.
-- [ ] Task: Implement/Refactor error handling to pass fail-fast tests (if necessary)
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Fail-Fast Error Reporting Verification' (Protocol in workflow.md)
+- [x] Task: Write failing tests for fail-fast error reporting [checkpoint: 1191089]
+    - [x] Define a workflow with a step designed to fail.
+    - [x] Write a test that asserts the workflow stops at the failing step.
+    - [x] Write a test that asserts a clear error message is reported.
+- [x] Task: Implement/Refactor error handling to pass fail-fast tests (if necessary)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Fail-Fast Error Reporting Verification' (Protocol in workflow.md) [checkpoint: e87332c]
 
 ## Phase 4: Load-Time Workflow Definition Validation
 This phase focuses on ensuring workflow definitions are validated at load time to prevent runtime errors.
