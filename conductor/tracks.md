@@ -9,7 +9,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Workflow Refactoring: Deduplicate persistence logic, reuse Project ID hash, and clarify Strategy interface.**
+- [x] **Track: Workflow Refactoring: Deduplicate persistence logic, reuse Project ID hash, and clarify Strategy interface.**
 *Link: [./tracks/workflow_refactoring_20260205/](./tracks/workflow_refactoring_20260205/)*
 
 ---

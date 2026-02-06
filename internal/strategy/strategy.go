@@ -15,7 +15,10 @@ type Strategy interface {
 	// Name returns the command name (e.g., "build", "run")
 	Name() string
 
-	// Tasks returns all tasks this strategy may execute
+	// Tasks returns all tasks this strategy may execute.
+	// NOTE: For dynamic strategies like workflows, this may return nil.
+	// Callers should prefer ResolveTasks(session) when a session is available
+	// to get the actual list of tasks to be executed.
 	Tasks() []task.Task
 
 	// Execute runs the strategy with dependency resolution
