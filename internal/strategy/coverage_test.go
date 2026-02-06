@@ -83,25 +83,25 @@ func TestGetStrategyForCommand_EdgeCases(t *testing.T) {
 
 	// Unknown command
 	s := GetStrategyForCommand("unknown-cmd", sess)
-	if s != nil {
-		t.Errorf("expected nil for unknown command, got %v", s)
+	if s == nil || s.Name() != "passthrough:unknown-cmd" {
+		t.Errorf("expected passthrough:unknown-cmd for unknown command, got %v", s)
 	}
 
 	// Docker command with missing service
 	s = GetStrategyForCommand("docker down:nonexistent", sess)
-	if s != nil {
-		t.Errorf("expected nil for docker down with missing service, got %v", s)
+	if s == nil || s.Name() != "passthrough:docker down:nonexistent" {
+		t.Errorf("expected passthrough:docker down:nonexistent for docker down with missing service, got %v", s)
 	}
 
 	// Django command with missing service
 	s = GetStrategyForCommand("django migrate:nonexistent", sess)
-	if s != nil {
-		t.Errorf("expected nil for django migrate with missing service, got %v", s)
+	if s == nil || s.Name() != "passthrough:django migrate:nonexistent" {
+		t.Errorf("expected passthrough:django migrate:nonexistent for django migrate with missing service, got %v", s)
 	}
 
 	// GCP deploy without app.yaml or service match
 	s = GetStrategyForCommand("gcp app-engine deploy", sess)
-	if s != nil {
-		t.Errorf("expected nil for gcp deploy without app.yaml, got %v", s)
+	if s == nil || s.Name() != "passthrough:gcp app-engine deploy" {
+		t.Errorf("expected passthrough:gcp app-engine deploy for gcp deploy without app.yaml, got %v", s)
 	}
 }
