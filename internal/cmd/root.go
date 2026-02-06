@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"strings"
 	"time"
@@ -19,7 +20,14 @@ import (
 
 var (
 	UIStart = func(version string) (string, map[string]string, error) {
-		return ui.Start(version)
+		root := config.FindProjectRoot()
+		configPath := filepath.Join(root, "cleat.yaml")
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(root, "cleat.yml")); err == nil {
+				configPath = filepath.Join(root, "cleat.yml")
+			}
+		}
+		return ui.Start(version, configPath)
 	}
 	Exit = os.Exit
 	Wait = waitForAnyKey

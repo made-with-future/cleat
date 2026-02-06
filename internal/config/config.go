@@ -92,10 +92,20 @@ func LoadDefaultConfig() (*Config, error) {
 		curr = parent
 	}
 
-	return LoadConfig("cleat.yaml")
+	// No config file found, return a default config with auto-detection from current dir
+	return LoadConfigWithDefault("cleat.yaml")
 }
 
 func LoadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
+	}
+
+	return parseConfig(data, path)
+}
+
+func LoadConfigWithDefault(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -105,6 +115,10 @@ func LoadConfig(path string) (*Config, error) {
 		}
 	}
 
+	return parseConfig(data, path)
+}
+
+func parseConfig(data []byte, path string) (*Config, error) {
 	var cfg Config
 	var absErr error
 	cfg.SourcePath, absErr = filepath.Abs(path)
@@ -113,7 +127,7 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.SourcePath = path
 	}
 
-	err = yaml.Unmarshal(data, &cfg)
+	err := yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config from %s: %w", path, err)
 	}

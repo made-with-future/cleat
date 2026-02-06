@@ -107,6 +107,98 @@ func TestNpmDetector(t *testing.T) {
 	}
 }
 
+func TestNpmDetector_InvalidJson(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-npm-invalid-*")
+	defer os.RemoveAll(tmpDir)
+
+	os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte("{invalid json"), 0644)
+
+	d := &NpmDetector{}
+	cfg := &schema.Config{
+		Services: []schema.ServiceConfig{
+			{Name: "frontend", Dir: "."},
+		},
+	}
+	err := d.Detect(tmpDir, cfg)
+	if err == nil {
+		t.Error("expected error for invalid package.json")
+	}
+}
+
+func TestDockerDetector_InvalidDir(t *testing.T) {
+	d := &DockerDetector{}
+	cfg := &schema.Config{}
+	err := d.Detect("/non/existent/path", cfg)
+	if err != nil {
+		t.Fatalf("Detect should not return error for non-existent path, got %v", err)
+	}
+}
+
+func TestDockerDetector_YmlFallback(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-docker-yml-*")
+	defer os.RemoveAll(tmpDir)
+
+	os.WriteFile(filepath.Join(tmpDir, "docker-compose.yml"), []byte("services: {web: {build: .}}"), 0644)
+
+	d := &DockerDetector{}
+	cfg := &schema.Config{}
+	d.Detect(tmpDir, cfg)
+	if !cfg.Docker {
+		t.Error("expected Docker to be true for .yml file")
+	}
+}
+
+func TestDockerDetector_BuildFormats(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-docker-formats-*")
+	defer os.RemoveAll(tmpDir)
+
+	dc := `
+services:
+  s1:
+    build: 
+      context: ./s1
+  s2:
+    build: ./s2
+  s3:
+    image: redis
+`
+	os.WriteFile(filepath.Join(tmpDir, "docker-compose.yaml"), []byte(dc), 0644)
+
+	d := &DockerDetector{}
+	cfg := &schema.Config{}
+	d.Detect(tmpDir, cfg)
+
+	expected := map[string]string{
+		"s1": "./s1",
+		"s2": "./s2",
+		"s3": "",
+	}
+
+	for _, s := range cfg.Services {
+		if dir, ok := expected[s.Name]; ok {
+			if s.Dir != dir {
+				t.Errorf("expected %s dir %q, got %q", s.Name, dir, s.Dir)
+			}
+		} else {
+			t.Errorf("unexpected service %s", s.Name)
+		}
+	}
+}
+
+func TestDockerDetector_Malformed(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-docker-malformed-*")
+	defer os.RemoveAll(tmpDir)
+
+	os.WriteFile(filepath.Join(tmpDir, "docker-compose.yaml"), []byte("invalid: yaml: ["), 0644)
+
+	d := &DockerDetector{}
+	cfg := &schema.Config{}
+	err := d.Detect(tmpDir, cfg)
+	if err == nil {
+		t.Error("expected error for malformed docker-compose.yaml")
+	}
+}
+
 func TestTerraformDetector(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "cleat-tf-detect-*")
 	defer os.RemoveAll(tmpDir)
