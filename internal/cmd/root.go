@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,12 +20,16 @@ import (
 )
 
 var (
-	UIStart = func(version string) (string, map[string]string, error) {
-		root := config.FindProjectRoot()
-		configPath := filepath.Join(root, "cleat.yaml")
-		if _, err := os.Stat(configPath); os.IsNotExist(err) {
-			if _, err := os.Stat(filepath.Join(root, "cleat.yml")); err == nil {
-				configPath = filepath.Join(root, "cleat.yml")
+	ConfigPath string
+	UIStart    = func(version string) (string, map[string]string, error) {
+		configPath := ConfigPath
+		if configPath == "" {
+			root := config.FindProjectRoot()
+			configPath = filepath.Join(root, "cleat.yaml")
+			if _, err := os.Stat(configPath); os.IsNotExist(err) {
+				if _, err := os.Stat(filepath.Join(root, "cleat.yml")); err == nil {
+					configPath = filepath.Join(root, "cleat.yml")
+				}
 			}
 		}
 		return ui.Start(version, configPath)
@@ -92,45 +97,7 @@ func run(args []string) {
 
 		if selected != "" {
 			preCollectedInputs = inputs
-
-			var cmdArgs []string
-			if selected == "build" {
-				cmdArgs = []string{"build"}
-			} else if selected == "run" {
-				cmdArgs = []string{"run"}
-			} else if strings.HasPrefix(selected, "workflow:") {
-				// Let the dispatcher handle it
-				cmdArgs = []string{"workflow", strings.TrimPrefix(selected, "workflow:")}
-			} else if strings.HasPrefix(selected, "docker ") || strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
-				cmdArgs = strings.Fields(selected)
-				if strings.Contains(selected, ":") {
-					parts := strings.Split(selected, ":")
-					cmdArgs = strings.Fields(parts[0])
-					if len(parts) == 2 {
-						cmdArgs = append(cmdArgs, parts[1])
-					}
-				}
-			} else if strings.HasPrefix(selected, "django ") {
-				if colonIdx := strings.LastIndex(selected, ":"); colonIdx != -1 {
-					cmdPart := selected[:colonIdx]
-					svcName := selected[colonIdx+1:]
-					cmdArgs = strings.Fields(cmdPart)
-					cmdArgs = append(cmdArgs, svcName)
-				} else {
-					cmdArgs = strings.Fields(selected)
-				}
-			} else if strings.HasPrefix(selected, "npm run ") {
-				scriptPart := strings.TrimPrefix(selected, "npm run ")
-				parts := strings.SplitN(scriptPart, ":", 2)
-				if len(parts) == 2 {
-					cmdArgs = []string{"npm", parts[1], parts[0]}
-				} else {
-					cmdArgs = []string{"npm", scriptPart}
-				}
-			} else if strings.HasPrefix(selected, "npm install:") {
-				svcName := strings.TrimPrefix(selected, "npm install:")
-				cmdArgs = []string{"npm", "install", svcName}
-			}
+			cmdArgs := mapSelectedToArgs(selected)
 
 			if len(cmdArgs) > 0 {
 				rootCmd.SetArgs(cmdArgs)
@@ -201,6 +168,48 @@ func run(args []string) {
 	}
 }
 
+func mapSelectedToArgs(selected string) []string {
+	var cmdArgs []string
+	if selected == "build" {
+		cmdArgs = []string{"build"}
+	} else if selected == "run" {
+		cmdArgs = []string{"run"}
+	} else if strings.HasPrefix(selected, "workflow:") {
+		// Let the dispatcher handle it
+		cmdArgs = []string{"workflow", strings.TrimPrefix(selected, "workflow:")}
+	} else if strings.HasPrefix(selected, "docker ") || strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
+		cmdArgs = strings.Fields(selected)
+		if strings.Contains(selected, ":") {
+			parts := strings.Split(selected, ":")
+			cmdArgs = strings.Fields(parts[0])
+			if len(parts) == 2 {
+				cmdArgs = append(cmdArgs, parts[1])
+			}
+		}
+	} else if strings.HasPrefix(selected, "django ") {
+		if colonIdx := strings.LastIndex(selected, ":"); colonIdx != -1 {
+			cmdPart := selected[:colonIdx]
+			svcName := selected[colonIdx+1:]
+			cmdArgs = strings.Fields(cmdPart)
+			cmdArgs = append(cmdArgs, svcName)
+		} else {
+			cmdArgs = strings.Fields(selected)
+		}
+	} else if strings.HasPrefix(selected, "npm run ") {
+		scriptPart := strings.TrimPrefix(selected, "npm run ")
+		parts := strings.SplitN(scriptPart, ":", 2)
+		if len(parts) == 2 {
+			cmdArgs = []string{"npm", parts[1], parts[0]}
+		} else {
+			cmdArgs = []string{"npm", scriptPart}
+		}
+	} else if strings.HasPrefix(selected, "npm install:") {
+		svcName := strings.TrimPrefix(selected, "npm install:")
+		cmdArgs = []string{"npm", "install", svcName}
+	}
+	return cmdArgs
+}
+
 func init() {
 }
 
@@ -209,9 +218,10 @@ func waitForAnyKey() bool {
 
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
-		var b [1]byte
-		os.Stdin.Read(b[:])
-		return false
+		// Fallback for non-terminal (e.g. tests)
+		reader := bufio.NewReader(os.Stdin)
+		r, _, _ := reader.ReadRune()
+		return r == 'r' || r == 'R'
 	}
 
 	oldState, err := term.MakeRaw(fd)

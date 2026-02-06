@@ -308,9 +308,78 @@ func TestRunLoop(t *testing.T) {
 		if uiCalls != 2 {
 			t.Errorf("expected UIStart to be called 2 times, got %d", uiCalls)
 		}
-		// Wait should be called twice: once after first run (returned true), once after second run (returned false)
 		if waitCalls != 2 {
 			t.Errorf("expected Wait to be called 2 times, got %d", waitCalls)
+		}
+	})
+}
+
+func TestMapSelectedToArgs(t *testing.T) {
+	tests := []struct {
+		selected string
+		want     []string
+	}{
+		{"build", []string{"build"}},
+		{"run", []string{"run"}},
+		{"workflow:test", []string{"workflow", "test"}},
+		{"docker up", []string{"docker", "up"}},
+		{"docker up:svc", []string{"docker", "up", "svc"}},
+		{"django migrate", []string{"django", "migrate"}},
+		{"django migrate:svc", []string{"django", "migrate", "svc"}},
+		{"npm run dev", []string{"npm", "dev"}},
+		{"npm run test:svc", []string{"npm", "svc", "test"}},
+		{"npm install:svc", []string{"npm", "install", "svc"}},
+		{"gcp init", []string{"gcp", "init"}},
+		{"terraform plan", []string{"terraform", "plan"}},
+		{"terraform plan:prod", []string{"terraform", "plan", "prod"}},
+		{"unknown", nil},
+	}
+
+	for _, tt := range tests {
+		got := mapSelectedToArgs(tt.selected)
+		if len(got) != len(tt.want) {
+			t.Errorf("mapSelectedToArgs(%q) len = %d, want %d", tt.selected, len(got), len(tt.want))
+			continue
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Errorf("mapSelectedToArgs(%q) [%d] = %q, want %q", tt.selected, i, got[i], tt.want[i])
+			}
+		}
+	}
+}
+
+func TestWaitForAnyKey(t *testing.T) {
+	oldStdin := os.Stdin
+	defer func() { os.Stdin = oldStdin }()
+
+	t.Run("Return 'r'", func(t *testing.T) {
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.Write([]byte("r"))
+		w.Close()
+		if !waitForAnyKey() {
+			t.Error("expected true for 'r'")
+		}
+	})
+
+	t.Run("Return 'R'", func(t *testing.T) {
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.Write([]byte("R"))
+		w.Close()
+		if !waitForAnyKey() {
+			t.Error("expected true for 'R'")
+		}
+	})
+
+	t.Run("Return other", func(t *testing.T) {
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.Write([]byte("x"))
+		w.Close()
+		if waitForAnyKey() {
+			t.Error("expected false for 'x'")
 		}
 	})
 }
