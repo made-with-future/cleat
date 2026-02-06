@@ -1,7 +1,6 @@
 package history
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,21 +17,38 @@ func GetUserWorkflowFilePath() (string, error) {
 		return "", fmt.Errorf("failed to get user home dir: %w", err)
 	}
 
-	root := config.FindProjectRoot()
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute project root: %w", err)
-	}
-
-	hash := sha256.Sum256([]byte(absRoot))
-	projectDirName := filepath.Base(absRoot)
-	if projectDirName == "/" || projectDirName == "." || projectDirName == "" {
-		projectDirName = "root"
-	}
-
-	id := fmt.Sprintf("%s-%x", projectDirName, hash[:8])
+	id := config.GetProjectID()
 
 	return filepath.Join(home, ".cleat", id+".workflows.yaml"), nil
+}
+
+func modifyWorkflowFile(path string, op func([]config.Workflow) ([]config.Workflow, bool, error)) error {
+	var workflows []config.Workflow
+	if data, err := os.ReadFile(path); err == nil {
+		if err := yaml.Unmarshal(data, &workflows); err != nil {
+			return fmt.Errorf("failed to parse workflows in %s: %w", path, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to read workflows in %s: %w", path, err)
+	}
+
+	newWorkflows, modified, err := op(workflows)
+	if err != nil {
+		return err
+	}
+	if !modified {
+		return nil
+	}
+
+	data, err := yaml.Marshal(newWorkflows)
+	if err != nil {
+		return fmt.Errorf("failed to marshal workflows: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write workflows to %s: %w", path, err)
+	}
+	return nil
 }
 
 func SaveWorkflowToProject(workflow config.Workflow) error {
@@ -46,35 +62,21 @@ func SaveWorkflowToProject(workflow config.Workflow) error {
 		}
 	}
 
-	var workflows []config.Workflow
-	if data, err := os.ReadFile(projectFile); err == nil {
-		if err := yaml.Unmarshal(data, &workflows); err != nil {
-			logger.Warn("failed to unmarshal project workflows before saving", map[string]interface{}{"path": projectFile, "error": err.Error()})
+	return modifyWorkflowFile(projectFile, func(workflows []config.Workflow) ([]config.Workflow, bool, error) {
+		// Update existing or add new
+		found := false
+		for i, w := range workflows {
+			if w.Name == workflow.Name {
+				workflows[i] = workflow
+				found = true
+				break
+			}
 		}
-	}
-
-	// Update existing or add new
-	found := false
-	for i, w := range workflows {
-		if w.Name == workflow.Name {
-			workflows[i] = workflow
-			found = true
-			break
+		if !found {
+			workflows = append(workflows, workflow)
 		}
-	}
-	if !found {
-		workflows = append(workflows, workflow)
-	}
-
-	data, err := yaml.Marshal(workflows)
-	if err != nil {
-		return fmt.Errorf("failed to marshal workflows: %w", err)
-	}
-
-	if err := os.WriteFile(projectFile, data, 0644); err != nil {
-		return fmt.Errorf("failed to write project workflows: %w", err)
-	}
-	return nil
+		return workflows, true, nil
+	})
 }
 
 func SaveWorkflowToUser(workflow config.Workflow) error {
@@ -87,35 +89,21 @@ func SaveWorkflowToUser(workflow config.Workflow) error {
 		return fmt.Errorf("failed to create user config directory: %w", err)
 	}
 
-	var workflows []config.Workflow
-	if data, err := os.ReadFile(userFile); err == nil {
-		if err := yaml.Unmarshal(data, &workflows); err != nil {
-			logger.Warn("failed to unmarshal user workflows before saving", map[string]interface{}{"path": userFile, "error": err.Error()})
+	return modifyWorkflowFile(userFile, func(workflows []config.Workflow) ([]config.Workflow, bool, error) {
+		// Update existing or add new
+		found := false
+		for i, w := range workflows {
+			if w.Name == workflow.Name {
+				workflows[i] = workflow
+				found = true
+				break
+			}
 		}
-	}
-
-	// Update existing or add new
-	found := false
-	for i, w := range workflows {
-		if w.Name == workflow.Name {
-			workflows[i] = workflow
-			found = true
-			break
+		if !found {
+			workflows = append(workflows, workflow)
 		}
-	}
-	if !found {
-		workflows = append(workflows, workflow)
-	}
-
-	data, err := yaml.Marshal(workflows)
-	if err != nil {
-		return fmt.Errorf("failed to marshal workflows: %w", err)
-	}
-
-	if err := os.WriteFile(userFile, data, 0644); err != nil {
-		return fmt.Errorf("failed to write user workflows: %w", err)
-	}
-	return nil
+		return workflows, true, nil
+	})
 }
 
 func LoadWorkflows(cfg *config.Config) ([]config.Workflow, error) {
@@ -190,58 +178,30 @@ func DeleteWorkflow(name string) error {
 		filepath.Join(root, "cleat.workflows.yml"),
 	}
 
-	for _, projectFile := range projectFiles {
-		data, err := os.ReadFile(projectFile)
-		if err != nil {
-			continue
-		}
-
-		var workflows []config.Workflow
-		if err := yaml.Unmarshal(data, &workflows); err != nil {
-			logger.Warn("failed to unmarshal workflows during delete", map[string]interface{}{"path": projectFile, "error": err.Error()})
-			continue
-		}
-
+	op := func(workflows []config.Workflow) ([]config.Workflow, bool, error) {
 		newWorkflows := []config.Workflow{}
+		modified := false
 		for _, w := range workflows {
 			if w.Name != name {
 				newWorkflows = append(newWorkflows, w)
+			} else {
+				modified = true
 			}
 		}
+		return newWorkflows, modified, nil
+	}
 
-		if len(newWorkflows) == len(workflows) {
-			continue
-		}
-
-		newData, err := yaml.Marshal(newWorkflows)
-		if err != nil {
-			return fmt.Errorf("failed to marshal workflows after delete: %w", err)
-		}
-
-		if err := os.WriteFile(projectFile, newData, 0644); err != nil {
-			return fmt.Errorf("failed to write project workflows after delete: %w", err)
+	for _, projectFile := range projectFiles {
+		if err := modifyWorkflowFile(projectFile, op); err != nil {
+			return err
 		}
 	}
 
 	// Also check user file
 	userFile, err := GetUserWorkflowFilePath()
 	if err == nil {
-		if data, err := os.ReadFile(userFile); err == nil {
-			var workflows []config.Workflow
-			if err := yaml.Unmarshal(data, &workflows); err == nil {
-				newWorkflows := []config.Workflow{}
-				for _, w := range workflows {
-					if w.Name != name {
-						newWorkflows = append(newWorkflows, w)
-					}
-				}
-				if len(newWorkflows) != len(workflows) {
-					newData, err := yaml.Marshal(newWorkflows)
-					if err == nil {
-						os.WriteFile(userFile, newData, 0644)
-					}
-				}
-			}
+		if err := modifyWorkflowFile(userFile, op); err != nil {
+			return err
 		}
 	}
 
