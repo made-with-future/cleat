@@ -31,7 +31,7 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 			}
 
 			if cfg.Terraform == nil {
-				return fmt.Errorf("terraform is not configured in cleat.yaml")
+				return fmt.Errorf("terraform not detected or configured")
 			}
 
 			var env string

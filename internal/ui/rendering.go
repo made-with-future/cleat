@@ -160,7 +160,7 @@ func (m model) renderMainUI() string {
 		helpText = lipgloss.NewStyle().Foreground(comment).Render("↑/↓: scroll • enter: edit • c/esc/q: close")
 	}
 	if !m.cfgFound {
-		warning := lipgloss.NewStyle().Foreground(themeRed).Render("(no cleat.yaml)")
+		warning := lipgloss.NewStyle().Foreground(themeOrange).Render("(no cleat.yaml)")
 		separator := lipgloss.NewStyle().Foreground(comment).Render(" • ")
 		helpText = warning + separator + helpText
 	}
@@ -446,7 +446,7 @@ func (m model) buildConfigLines() []string {
 	var configLines []string
 
 	if !m.cfgFound {
-		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(themeRed).Italic(true).Render("No cleat.yaml found"))
+		configLines = append(configLines, " "+lipgloss.NewStyle().Foreground(themeOrange).Italic(true).Render("No cleat.yaml found"))
 		configLines = append(configLines, "")
 	}
 	configLines = append(configLines, fmt.Sprintf(" version: %d", m.cfg.Version))

@@ -45,7 +45,7 @@ func TestTerraformCmd(t *testing.T) {
 		os.WriteFile(ConfigPath, []byte("version: 1"), 0644)
 		rootCmd.SetArgs([]string{"terraform", "plan"})
 		err := rootCmd.Execute()
-		if err == nil || err.Error() != "terraform is not configured in cleat.yaml" {
+		if err == nil || err.Error() != "terraform not detected or configured" {
 			t.Errorf("expected terraform config error, got %v", err)
 		}
 	})
@@ -105,6 +105,36 @@ func TestTerraformCmd(t *testing.T) {
 
 		if err != nil {
 			t.Errorf("expected dev env to be valid from general envs, got error: %v", err)
+		}
+		if !mock.runCalled {
+			t.Error("expected executor.Run to be called")
+		}
+	})
+
+	t.Run("NoConfigFile", func(t *testing.T) {
+		tmpDir, _ := os.MkdirTemp("", "cleat-tf-cmd-no-file-*")
+		defer os.RemoveAll(tmpDir)
+
+		// Set current working directory to the temp dir
+		oldWd, _ := os.Getwd()
+		os.Chdir(tmpDir)
+		defer os.Chdir(oldWd)
+
+		// Create .iac/main.tf to trigger detection
+		iacDir := filepath.Join(tmpDir, ".iac")
+		os.Mkdir(iacDir, 0755)
+		os.WriteFile(filepath.Join(iacDir, "main.tf"), []byte(""), 0644)
+
+		// We need to reset ConfigPath so it uses LoadDefaultConfig
+		oldConfigPath := ConfigPath
+		ConfigPath = ""
+		defer func() { ConfigPath = oldConfigPath }()
+
+		rootCmd.SetArgs([]string{"terraform", "plan"})
+		mock.runCalled = false
+		err := rootCmd.Execute()
+		if err != nil {
+			t.Errorf("expected terraform to be auto-detected without config file, got error: %v", err)
 		}
 		if !mock.runCalled {
 			t.Error("expected executor.Run to be called")

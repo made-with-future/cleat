@@ -13,7 +13,7 @@ import (
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run the project",
-	Long:  `Runs the project based on cleat.yaml. If Docker is enabled, it runs 'docker compose up'.`,
+	Long:  `Runs the project based on detected configuration. If Docker is enabled, it runs 'docker compose up'.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {

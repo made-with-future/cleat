@@ -19,20 +19,21 @@ var runnerFactory = func(m tea.Model) programRunner {
 
 // Start launches the TUI and returns the selected command and collected inputs
 func Start(version string, configPath string) (string, map[string]string, error) {
-	cfg, err := config.LoadConfig(configPath)
+	cfg, err := config.LoadConfigWithDefault(configPath)
 	cfgFound := true
 	var initialErr error
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			cfg = &config.Config{SourcePath: configPath}
+		// This should only happen if there's a syntax error or similar,
+		// as LoadConfigWithDefault handles missing files.
+		logger.Error("failed to load config during TUI startup", err, nil)
+		cfg = &config.Config{SourcePath: configPath}
+		cfgFound = false
+		initialErr = err
+	} else {
+		// Check if the file actually exists to set cfgFound correctly
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
 			cfgFound = false
-		} else {
-			// Configuration exists but failed to load (e.g., syntax error)
-			logger.Error("failed to load config during TUI startup", err, nil)
-			cfg = &config.Config{SourcePath: configPath}
-			cfgFound = false
-			initialErr = err
 		}
 	}
 

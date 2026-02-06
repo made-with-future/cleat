@@ -12,8 +12,8 @@ import (
 
 var buildCmd = &cobra.Command{
 	Use:   "build",
-	Short: "Build the project based on cleat.yaml",
-	Long:  `Executes build steps based on the project configuration in cleat.yaml. Supports Docker, Django, and NPM project types.`,
+	Short: "Build the project",
+	Long:  `Executes build steps based on the project configuration. Supports Docker, Django, and NPM project types.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefaultConfig()
 		if err != nil {
