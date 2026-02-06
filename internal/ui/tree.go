@@ -47,22 +47,22 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		})
 	}
 
-	// Add top 3 commands
-	if topCmds, err := history.GetTopCommands(3); err == nil && len(topCmds) > 0 {
-		var topChildren []CommandItem
-		for _, cmd := range topCmds {
+	// Add recent commands
+	if recentCmds, err := history.GetTopCommands(3); err == nil && len(recentCmds) > 0 {
+		var recentChildren []CommandItem
+		for _, cmd := range recentCmds {
 			label := cmd.Command
 			if strings.HasPrefix(label, "workflow:") {
 				label = fmt.Sprintf("Workflow: %s", strings.TrimPrefix(label, "workflow:"))
 			}
-			topChildren = append(topChildren, CommandItem{
+			recentChildren = append(recentChildren, CommandItem{
 				Label:   label,
 				Command: cmd.Command,
 			})
 		}
 		tree = append(tree, CommandItem{
-			Label:    "most used",
-			Children: topChildren,
+			Label:    "recent",
+			Children: recentChildren,
 			Expanded: true,
 		})
 	}
