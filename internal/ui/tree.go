@@ -111,9 +111,26 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 	}
 
 	if cfg.Terraform != nil {
-		if cfg.Terraform.UseFolders && len(cfg.Terraform.Envs) > 0 {
+		tfEnvs := cfg.Terraform.Envs
+		if !cfg.Terraform.UseFolders {
+			// Merge with general environments for UI options
+			for _, e := range cfg.Envs {
+				found := false
+				for _, existing := range tfEnvs {
+					if existing == e {
+						found = true
+						break
+					}
+				}
+				if !found {
+					tfEnvs = append(tfEnvs, e)
+				}
+			}
+		}
+
+		if len(tfEnvs) > 0 {
 			var tfChildren []CommandItem
-			for _, env := range cfg.Terraform.Envs {
+			for _, env := range tfEnvs {
 				tfChildren = append(tfChildren, CommandItem{
 					Label: env,
 					Children: []CommandItem{

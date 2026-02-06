@@ -34,7 +34,7 @@ func TestTerraformCmd(t *testing.T) {
 	mock := &mockTFExecutor{}
 	executor.Default = mock
 	defer func() { executor.Default = oldExec }()
-	
+
 	oldConfigPath := ConfigPath
 	defer func() { ConfigPath = oldConfigPath }()
 
@@ -51,7 +51,7 @@ func TestTerraformCmd(t *testing.T) {
 	t.Run("MultiEnvRequired", func(t *testing.T) {
 		ConfigPath = filepath.Join(tmpDir, "multi-tf.yaml")
 		os.WriteFile(ConfigPath, []byte("version: 1\nterraform: {envs: [dev, prod], dir: .}"), 0644)
-		
+
 		// Create a directory structure that triggers UseFolders
 		iacDir := filepath.Join(tmpDir, ".iac")
 		os.Mkdir(iacDir, 0755)
@@ -59,10 +59,10 @@ func TestTerraformCmd(t *testing.T) {
 		os.Mkdir(filepath.Join(iacDir, "prod"), 0755)
 		os.WriteFile(filepath.Join(iacDir, "dev", "main.tf"), []byte(""), 0644)
 		os.WriteFile(filepath.Join(iacDir, "prod", "main.tf"), []byte(""), 0644)
-		
+
 		// Since we're using ConfigPath, we need to make sure detector runs on the right baseDir
 		// LoadConfig will run detector on filepath.Dir(ConfigPath) which is tmpDir.
-		
+
 		rootCmd.SetArgs([]string{"terraform", "plan"})
 		err := rootCmd.Execute()
 		if err == nil {
@@ -78,6 +78,28 @@ func TestTerraformCmd(t *testing.T) {
 		err := rootCmd.Execute()
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
+		}
+		if !mock.runCalled {
+			t.Error("expected executor.Run to be called")
+		}
+	})
+
+	t.Run("EnvFromGeneralEnvs", func(t *testing.T) {
+		ConfigPath = filepath.Join(tmpDir, "general-envs-tf.yaml")
+		// No envs in terraform config
+		os.WriteFile(ConfigPath, []byte("version: 1\nterraform: {dir: .}"), 0644)
+
+		// Create .envs/dev.env to populate cfg.Envs
+		envsDir := filepath.Join(tmpDir, ".envs")
+		os.MkdirAll(envsDir, 0755)
+		os.WriteFile(filepath.Join(envsDir, "dev.env"), []byte("OP_SECRET=op://vault/item/secret"), 0644)
+
+		rootCmd.SetArgs([]string{"terraform", "plan", "dev"})
+		mock.runCalled = false
+		err := rootCmd.Execute()
+
+		if err != nil {
+			t.Errorf("expected dev env to be valid from general envs, got error: %v", err)
 		}
 		if !mock.runCalled {
 			t.Error("expected executor.Run to be called")

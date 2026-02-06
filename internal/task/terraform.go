@@ -2,6 +2,7 @@ package task
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/madewithfuture/cleat/internal/session"
@@ -35,23 +36,86 @@ func (t *Terraform) ShouldRun(sess *session.Session) bool {
 }
 
 func (t *Terraform) Run(sess *session.Session) error {
-	dir := ".iac"
-	if sess.Config.Terraform != nil && sess.Config.Terraform.Dir != "" {
-		dir = sess.Config.Terraform.Dir
-	}
-	if sess.Config.Terraform != nil && sess.Config.Terraform.UseFolders && t.Env != "" {
-		dir = filepath.Join(dir, t.Env)
+	baseDir := "."
+	if sess.Config.SourcePath != "" {
+		baseDir = filepath.Dir(sess.Config.SourcePath)
 	}
 
-	fmt.Printf("==> Running terraform %s in %s\n", t.Action, dir)
+	tfDir := t.getTfDir(sess)
+
+	// Ensure folder matches env if UseFolders is true
+	if sess.Config.Terraform != nil && sess.Config.Terraform.UseFolders && t.Env != "" {
+		absTfDir := tfDir
+		if !filepath.IsAbs(absTfDir) {
+			absTfDir = filepath.Join(baseDir, tfDir)
+		}
+		info, err := os.Stat(absTfDir)
+		if err != nil || !info.IsDir() {
+			return fmt.Errorf("terraform folder for environment '%s' not found: %s", t.Env, tfDir)
+		}
+	}
+
+	fmt.Printf("==> Running terraform %s in %s\n", t.Action, tfDir)
+
+	// 1Password integration message
+	if absPath, displayPath := t.getEnvFile(sess); absPath != "" && FileUsesOp(absPath) {
+		fmt.Printf("--> Detected %s, using 1Password CLI (op)\n", displayPath)
+	}
+
 	cmds := t.Commands(sess)
-	if err := sess.Exec.RunWithDir(dir, cmds[0][0], cmds[0][1:]...); err != nil {
-		return fmt.Errorf("terraform %s failed in %s: %w", t.Action, dir, err)
+	// We run from baseDir (cleat root) and use -chdir in the command
+	if err := sess.Exec.RunWithDir(baseDir, cmds[0][0], cmds[0][1:]...); err != nil {
+		return fmt.Errorf("terraform %s failed: %w", t.Action, err)
 	}
 	return nil
 }
 
 func (t *Terraform) Commands(sess *session.Session) [][]string {
-	cmd := append([]string{"terraform", t.Action}, t.Args...)
+	tfDir := t.getTfDir(sess)
+
+	// Basic terraform command with -chdir
+	cmd := []string{"terraform", "-chdir=" + tfDir, t.Action}
+	cmd = append(cmd, t.Args...)
+
+	if absPath, displayPath := t.getEnvFile(sess); absPath != "" && FileUsesOp(absPath) {
+		// Use displayPath because it is already relative to cleat root
+		wrappedCmd := []string{"op", "run", "--env-file=" + displayPath, "--"}
+		wrappedCmd = append(wrappedCmd, cmd...)
+		return [][]string{wrappedCmd}
+	}
+
 	return [][]string{cmd}
+}
+
+func (t *Terraform) getEnvFile(sess *session.Session) (absPath string, displayPath string) {
+	baseDir := "."
+	if sess.Config.SourcePath != "" {
+		baseDir = filepath.Dir(sess.Config.SourcePath)
+	}
+
+	// If t.Env is set (e.g. "prod"), try to find .envs/prod.env
+	if t.Env != "" {
+		path := filepath.Join(baseDir, ".envs", t.Env+".env")
+		if _, err := os.Stat(path); err == nil {
+			return path, filepath.Join(".envs", t.Env+".env")
+		}
+		// If t.Env is set, we don't want to fall back to other environment files
+		// as that could lead to using wrong secrets.
+		return "", ""
+	}
+
+	// Fallback to DetectEnvFile logic only if t.Env is empty
+	_, absPath, displayPath = DetectEnvFile(baseDir)
+	return absPath, displayPath
+}
+
+func (t *Terraform) getTfDir(sess *session.Session) string {
+	tfDir := ".iac"
+	if sess.Config.Terraform != nil && sess.Config.Terraform.Dir != "" {
+		tfDir = sess.Config.Terraform.Dir
+	}
+	if sess.Config.Terraform != nil && sess.Config.Terraform.UseFolders && t.Env != "" {
+		tfDir = filepath.Join(tfDir, t.Env)
+	}
+	return tfDir
 }

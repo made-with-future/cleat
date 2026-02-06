@@ -38,7 +38,7 @@ make test
 
 ### Code Coverage
 
-Check test coverage and verify it meets the 70% threshold:
+Check test coverage and verify it meets the 80% threshold:
 
 ```bash
 make coverage
@@ -51,7 +51,7 @@ make coverage-html
 # Opens coverage.html in your browser
 ```
 
-The CI pipeline enforces a minimum coverage of 70%. The `make coverage` command will fail if coverage drops below this threshold.
+The CI pipeline enforces a minimum coverage of 80%. The `make coverage` command will fail if coverage drops below this threshold.
 
 ### Code Quality
 

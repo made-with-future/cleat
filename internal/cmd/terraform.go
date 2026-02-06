@@ -39,11 +39,28 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 				env = args[0]
 			}
 
+			validEnvs := cfg.Terraform.Envs
+			if !cfg.Terraform.UseFolders {
+				// Also allow general environments when not using folders
+				for _, e := range cfg.Envs {
+					found := false
+					for _, existing := range validEnvs {
+						if existing == e {
+							found = true
+							break
+						}
+					}
+					if !found {
+						validEnvs = append(validEnvs, e)
+					}
+				}
+			}
+
 			if env == "" {
-				if len(cfg.Terraform.Envs) == 1 {
-					env = cfg.Terraform.Envs[0]
-				} else if len(cfg.Terraform.Envs) > 1 {
-					return fmt.Errorf("environment is required, must be one of: %v", cfg.Terraform.Envs)
+				if len(validEnvs) == 1 {
+					env = validEnvs[0]
+				} else if len(validEnvs) > 1 {
+					return fmt.Errorf("environment is required, must be one of: %v", validEnvs)
 				} else if cfg.Terraform.UseFolders {
 					return fmt.Errorf("environment is required when using terraform folders")
 				}
@@ -51,8 +68,6 @@ func newTerraformSubcommand(action string, short string, tfAction string, tfArgs
 
 			if env != "" {
 				validEnv := false
-				validEnvs := cfg.Terraform.Envs
-				
 				for _, e := range validEnvs {
 					if e == env {
 						validEnv = true

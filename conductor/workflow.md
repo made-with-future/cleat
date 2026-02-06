@@ -165,6 +165,7 @@ All tasks follow a strict lifecycle:
 
 10.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been created, with the detailed verification report attached as a git note.
 
+
 ### Quality Gates
 
 Before marking any task complete, verify:
@@ -362,3 +363,5 @@ A task is complete when:
 - Document lessons learned
 - Optimize for user happiness
 - Keep things simple and maintainable
+
+**REMEMBER -> MANDATORY:** You must **NEVER** start work on a track without first creating and switching to a feature branch.
