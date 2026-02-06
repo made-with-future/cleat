@@ -196,3 +196,17 @@ func TestWorkflowInputPrompting(t *testing.T) {
 		t.Errorf("Expected input 'user-input', got '%s' (ok=%v)", val, ok)
 	}
 }
+
+func TestUnknownWorkflowError(t *testing.T) {
+	mockExec := &mockWorkflowExecutor{}
+	cfg := &config.Config{
+		Workflows: []config.Workflow{},
+	}
+	sess := session.NewSession(cfg, mockExec)
+
+	// Verify GetStrategyForCommand returns nil for unknown workflow
+	strat := GetStrategyForCommand("workflow:unknown", sess)
+	if strat != nil {
+		t.Errorf("Expected nil strategy for unknown workflow, got %v", strat)
+	}
+}

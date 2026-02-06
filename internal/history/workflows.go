@@ -161,9 +161,17 @@ func LoadWorkflows(cfg *config.Config) ([]config.Workflow, error) {
 		}
 	}
 
-	// Convert map back to slice
+	// Convert map back to slice and validate
 	res := make([]config.Workflow, 0, len(workflowsMap))
 	for _, w := range workflowsMap {
+		if w.Name == "" {
+			logger.Warn("skipping workflow with empty name", nil)
+			continue
+		}
+		if len(w.Commands) == 0 {
+			logger.Warn("skipping workflow with no commands", map[string]interface{}{"workflow": w.Name})
+			continue
+		}
 		res = append(res, w)
 	}
 
