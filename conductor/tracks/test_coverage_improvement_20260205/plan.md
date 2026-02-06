@@ -30,13 +30,13 @@ Increase project-wide code coverage to >= 75%, ensuring individual modules hit >
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Command and Strategy Refactoring' (Protocol in workflow.md)
 
 ## Phase 4: TUI Robustness
-- [ ] Task: Improve coverage for `internal/ui`
-    - [ ] Identify complex event handlers in `internal/ui/events.go` and `internal/ui/model.go`
-    - [ ] Extract state transition logic from TUI rendering loops
-    - [ ] Write failing tests for keyboard shortcuts and state transitions (Red Phase)
-    - [ ] Implement/Refactor to pass tests (Green Phase)
-    - [ ] Target: >= 75% coverage for `internal/ui`
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: TUI Robustness' (Protocol in workflow.md)
+- [x] Task: Improve coverage for `internal/ui`
+    - [x] Identify complex event handlers in `internal/ui/events.go` and `internal/ui/model.go`
+    - [x] Extract state transition logic from TUI rendering loops
+    - [x] Write failing tests for keyboard shortcuts and state transitions (Red Phase)
+    - [x] Implement/Refactor to pass tests (Green Phase)
+    - [x] Target: >= 75% coverage for `internal/ui`
+- [x] Task: Conductor - User Manual Verification 'Phase 4: TUI Robustness' (Protocol in workflow.md)
 
 ## Phase 5: Final Validation
 - [ ] Task: Final Coverage Sweep
