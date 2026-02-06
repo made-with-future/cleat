@@ -54,3 +54,25 @@ func TestLoadWorkflows_Validation(t *testing.T) {
 		t.Fatal("Expected invalid workflow 'invalid-wf' to be rejected due to empty commands, but it was loaded")
 	}
 }
+
+func TestLoadWorkflows_Malformed(t *testing.T) {
+	// Setup tmp dir
+	tmpDir, err := os.MkdirTemp("", "cleat-history-malformed-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	// Create a malformed workflow file
+	os.WriteFile("cleat.workflows.yaml", []byte("invalid: yaml: content: ["), 0644)
+
+	cfg := &config.Config{}
+	_, err = LoadWorkflows(cfg)
+	if err == nil {
+		t.Fatal("Expected error for malformed workflow file, got nil")
+	}
+}
