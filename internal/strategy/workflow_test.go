@@ -107,6 +107,36 @@ func TestWorkflowFailFast(t *testing.T) {
 	}
 }
 
+func TestWorkflowErrorMessage(t *testing.T) {
+	mockExec := &mockWorkflowExecutor{
+		failOnCommand: "step1",
+	}
+	cfg := &config.Config{
+		Workflows: []config.Workflow{
+			{
+				Name:     "err-test",
+				Commands: []string{"echo step1"},
+			},
+		},
+	}
+	sess := session.NewSession(cfg, mockExec)
+
+	provider := &WorkflowProvider{}
+	strat := provider.GetStrategy("workflow:err-test", sess)
+	
+	err := strat.Execute(sess)
+	if err == nil {
+		t.Fatal("Expected error, got nil")
+	}
+
+	// Verify error message structure
+	// Expected: "workflow 'err-test' step 'echo step1' task 'shell:echo' failed: command execution failed"
+	expectedPart := "workflow 'err-test' step 'echo step1' task"
+	if !strings.Contains(err.Error(), expectedPart) {
+		t.Errorf("Error message '%s' does not contain expected context '%s'", err.Error(), expectedPart)
+	}
+}
+
 // mockTaskWithReqs
 type mockTaskWithReqs struct {
 	name string
