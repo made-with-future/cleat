@@ -20,7 +20,7 @@ Increase project-wide code coverage to >= 75%, ensuring individual modules hit >
     - [x] Target: >= 75% coverage for these modules
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Core Logic and Utility Strengthening' (Protocol in workflow.md)
 
-## Phase 3: Command and Strategy Refactoring
+## Phase 3: Command and Strategy Refactoring [checkpoint: a550759]
 - [x] Task: Refactor and Test `internal/cmd`
     - [x] Identify complex `RunE` blocks in `internal/cmd/*.go`
     - [x] Extract logic into testable helper functions or methods
