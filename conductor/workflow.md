@@ -9,6 +9,35 @@
 5. **User Experience First:** Every decision should prioritize user experience
 6. **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
 
+## Track Lifecycle Workflow
+
+This workflow governs the high-level execution of a "Track" (a feature, bug fix, or chore defined in `tracks.md`).
+
+1.  **Start Track & Create Branch:**
+    -   When a track is selected for implementation (status moves to `[~] In Progress`):
+    -   Create a new Git feature branch named `feature/<track-id>` (e.g., `feature/user-auth-20240101`).
+    -   Checkout this branch.
+
+2.  **Continuous Commits:**
+    -   As individual tasks within the track are completed (following the "Task Workflow" below), commit changes directly to this feature branch.
+    -   Regularly push the feature branch to the remote repository to ensure backup and collaboration.
+
+3.  **Track Completion & Pull Request:**
+    -   When all tasks in the track's `plan.md` are marked as complete (`[x]`):
+    -   Ensure all tests pass and the project builds successfully.
+    -   Push the final state of the feature branch to the remote.
+    -   Create a Pull Request (PR) from `feature/<track-id>` to the main branch.
+    -   The PR description should include a summary of the track's objectives and a link to the track's `spec.md` and `plan.md`.
+
+4.  **Merge & Archive:**
+    -   Once the PR is approved and merged:
+    -   Update the track status in `conductor/tracks.md` to `[x] Completed`.
+    -   **Reorder Tracks Registry:** Organize `conductor/tracks.md` so that tracks are listed in the following order:
+        1.  **Top:** In Progress (`[~]`)
+        2.  **Middle:** Unstarted (`[ ]`)
+        3.  **Bottom:** Completed (`[x]`)
+    -   Follow the standard "Track Cleanup" protocol (Archive or Delete) as guided by the Conductor agent.
+
 ## Task Workflow
 
 All tasks follow a strict lifecycle:
