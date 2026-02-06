@@ -780,6 +780,114 @@ func TestInit(t *testing.T) {
 	}
 }
 
+func TestBuildHistoryContent_Advanced(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.width = 100
+	now := time.Now()
+	m.history = []history.HistoryEntry{
+		{Command: "success-cmd", Success: true, Timestamp: now},
+		{Command: "fail-cmd", Success: false, Timestamp: now},
+		{Command: "workflow-cmd", Success: true, Timestamp: now, WorkflowRunID: "123"},
+		{Command: "a-very-long-command-that-should-be-truncated-when-the-pane-is-too-narrow", Success: true, Timestamp: now},
+	}
+
+	comment := lipgloss.Color("1")
+	cyan := lipgloss.Color("2")
+	green := lipgloss.Color("3")
+	red := lipgloss.Color("4")
+	orange := lipgloss.Color("5")
+
+	t.Run("Normal", func(t *testing.T) {
+		lines := m.buildHistoryContent(comment, cyan, green, red, orange, 50)
+		if len(lines) != 4 {
+			t.Errorf("expected 4 lines, got %d", len(lines))
+		}
+	})
+
+	t.Run("CreatingWorkflow", func(t *testing.T) {
+		m.state = stateCreatingWorkflow
+		m.selectedWorkflowIndices = []int{0, 2}
+		lines := m.buildHistoryContent(comment, cyan, green, red, orange, 50)
+		if !strings.Contains(lines[0], "[1]") {
+			t.Error("expected selection mark [1]")
+		}
+		if !strings.Contains(lines[1], "[ ]") {
+			t.Error("expected empty selection mark [ ]")
+		}
+		m.state = stateBrowsing
+	})
+
+	t.Run("NarrowPane", func(t *testing.T) {
+		// Content width will be very small
+		m.buildHistoryContent(comment, cyan, green, red, orange, 20)
+	})
+
+	t.Run("Scrolling", func(t *testing.T) {
+		m.historyOffset = 1
+		m.history = append(m.history, history.HistoryEntry{Command: "extra", Timestamp: now})
+		m.height = 10 // Force scrolling
+		lines := m.buildHistoryContent(comment, cyan, green, red, orange, 50)
+		foundMore := false
+		for _, l := range lines {
+			if strings.Contains(l, "▲ more") {
+				foundMore = true
+			}
+		}
+		if !foundMore {
+			t.Error("expected 'more' indicator")
+		}
+		m.historyOffset = 0
+	})
+
+	t.Run("UnfocusedHistory", func(t *testing.T) {
+		m.focus = focusCommands
+		m.historyCursor = 0
+		m.buildHistoryContent(comment, cyan, green, red, orange, 50)
+	})
+}
+
+func TestHandleEnterKey_Advanced(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	
+	t.Run("HistoryFocus", func(t *testing.T) {
+		m.focus = focusHistory
+		m.history = []history.HistoryEntry{{Command: "echo hello", Inputs: map[string]string{"foo": "bar"}}}
+		m.historyCursor = 0
+		
+		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		res := updatedModel.(model)
+		if res.selectedCommand != "echo hello" {
+			t.Errorf("expected command 'echo hello', got %q", res.selectedCommand)
+		}
+		if res.collectedInputs["foo"] != "bar" {
+			t.Error("expected inputs to be restored from history")
+		}
+		if !res.quitting {
+			t.Error("expected quitting true after enter on history")
+		}
+	})
+}
+
+func TestHandleConfirmClearHistory_Advanced(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.state = stateConfirmClearHistory
+	
+	t.Run("CtrlC", func(t *testing.T) {
+		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+		if !updatedModel.(model).quitting {
+			t.Error("expected quitting on Ctrl+C")
+		}
+	})
+
+	t.Run("EnterToConfirm", func(t *testing.T) {
+		m.state = stateConfirmClearHistory
+		updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if updatedModel.(model).state != stateBrowsing {
+			t.Error("expected state browsing after confirm")
+		}
+	})
+}
+
 func TestNavigationHandlers(t *testing.T) {
     cfg := &config.Config{
         Services: []config.ServiceConfig{{Name: "s1"}, {Name: "s2"}},
