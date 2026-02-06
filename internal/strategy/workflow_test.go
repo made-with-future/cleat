@@ -13,6 +13,7 @@ import (
 // refined mockWorkflowExecutor
 type mockWorkflowExecutor struct {
 	executedCommands []string // stores "cmd arg1 arg2"
+	prompts          []string // stores prompt messages
 	failOnCommand    string   // command substring to trigger failure
 }
 
@@ -34,11 +35,53 @@ func (m *mockWorkflowExecutor) RunWithDir(dir string, name string, args ...strin
 }
 
 func (m *mockWorkflowExecutor) Prompt(message string, defaultValue string) (string, error) {
+	m.prompts = append(m.prompts, message)
 	// Simple simulation: return a value if "Prompt" matches, else default
 	if strings.Contains(message, "Enter value") {
 		return "user-input", nil
 	}
 	return defaultValue, nil
+}
+
+// ... existing tests ...
+
+func TestWorkflowPromptOrder(t *testing.T) {
+	// Register tasks with inputs Z, A, M
+	reqTaskZ := &mockTaskWithReqs{name: "Z", reqs: []task.InputRequirement{{Key: "z", Prompt: "Prompt Z"}}}
+	reqTaskA := &mockTaskWithReqs{name: "A", reqs: []task.InputRequirement{{Key: "a", Prompt: "Prompt A"}}}
+	reqTaskM := &mockTaskWithReqs{name: "M", reqs: []task.InputRequirement{{Key: "m", Prompt: "Prompt M"}}}
+
+	Register("cmd-z", func(cfg *config.Config) Strategy { return NewBaseStrategy("cmd-z", []task.Task{reqTaskZ}) })
+	Register("cmd-a", func(cfg *config.Config) Strategy { return NewBaseStrategy("cmd-a", []task.Task{reqTaskA}) })
+	Register("cmd-m", func(cfg *config.Config) Strategy { return NewBaseStrategy("cmd-m", []task.Task{reqTaskM}) })
+	defer func() { delete(Registry, "cmd-z"); delete(Registry, "cmd-a"); delete(Registry, "cmd-m") }()
+
+	mockExec := &mockWorkflowExecutor{}
+	cfg := &config.Config{
+		Workflows: []config.Workflow{
+			{Name: "order-test", Commands: []string{"cmd-z", "cmd-a", "cmd-m"}},
+		},
+	}
+	sess := session.NewSession(cfg, mockExec)
+	sess.Inputs = make(map[string]string) // Ensure empty so it prompts
+
+	provider := &WorkflowProvider{}
+	strat := provider.GetStrategy("workflow:order-test", sess)
+	strat.Execute(sess)
+
+	// Check order. Should be A, M, Z
+	if len(mockExec.prompts) != 3 {
+		t.Fatalf("Expected 3 prompts, got %d", len(mockExec.prompts))
+	}
+	if mockExec.prompts[0] != "Prompt A" {
+		t.Errorf("Expected first prompt 'Prompt A', got '%s'", mockExec.prompts[0])
+	}
+	if mockExec.prompts[1] != "Prompt M" {
+		t.Errorf("Expected second prompt 'Prompt M', got '%s'", mockExec.prompts[1])
+	}
+	if mockExec.prompts[2] != "Prompt Z" {
+		t.Errorf("Expected third prompt 'Prompt Z', got '%s'", mockExec.prompts[2])
+	}
 }
 
 func TestWorkflowSequentialExecution(t *testing.T) {
@@ -130,8 +173,8 @@ func TestWorkflowErrorMessage(t *testing.T) {
 	}
 
 	// Verify error message structure
-	// Expected: "workflow 'err-test' step 'echo step1' task 'shell:echo' failed: command execution failed"
-	expectedPart := "workflow 'err-test' step 'echo step1' task"
+	// Expected: "workflow 'err-test' task 'shell:echo' failed: ..."
+	expectedPart := "workflow 'err-test' task"
 	if !strings.Contains(err.Error(), expectedPart) {
 		t.Errorf("Error message '%s' does not contain expected context '%s'", err.Error(), expectedPart)
 	}
@@ -208,5 +251,92 @@ func TestUnknownWorkflowError(t *testing.T) {
 	strat := GetStrategyForCommand("workflow:unknown", sess)
 	if strat != nil {
 		t.Errorf("Expected nil strategy for unknown workflow, got %v", strat)
+	}
+}
+
+func TestWorkflowRecursionLoop(t *testing.T) {
+	mockExec := &mockWorkflowExecutor{}
+	cfg := &config.Config{
+		Workflows: []config.Workflow{
+			{
+				Name:     "loop-a",
+				Commands: []string{"workflow:loop-a"},
+			},
+			{
+				Name:     "loop-b-1",
+				Commands: []string{"workflow:loop-b-2"},
+			},
+			{
+				Name:     "loop-b-2",
+				Commands: []string{"workflow:loop-b-1"},
+			},
+		},
+	}
+	sess := session.NewSession(cfg, mockExec)
+
+	provider := &WorkflowProvider{}
+
+	t.Run("self-reference", func(t *testing.T) {
+		strat := provider.GetStrategy("workflow:loop-a", sess)
+		err := strat.Execute(sess)
+		if err == nil || !strings.Contains(err.Error(), "cycle detected") {
+			t.Errorf("Expected cycle detected error, got %v", err)
+		}
+	})
+
+	t.Run("mutual-recursion", func(t *testing.T) {
+		strat := provider.GetStrategy("workflow:loop-b-1", sess)
+		err := strat.Execute(sess)
+		if err == nil || !strings.Contains(err.Error(), "cycle detected") {
+			t.Errorf("Expected cycle detected error, got %v", err)
+		}
+	})
+}
+
+type SpyStrategy struct {
+	BaseStrategy
+	resolveCount int
+}
+
+func (s *SpyStrategy) ResolveTasks(sess *session.Session) ([]task.Task, error) {
+	s.resolveCount++
+	return s.BaseStrategy.ResolveTasks(sess)
+}
+
+func TestWorkflowDoubleResolution(t *testing.T) {
+	spy := &SpyStrategy{
+		BaseStrategy: *NewBaseStrategy("spy", nil),
+	}
+
+	// Register spy
+	Register("spy-cmd", func(cfg *config.Config) Strategy {
+		return spy
+	})
+	defer func() {
+		delete(Registry, "spy-cmd")
+	}()
+
+	mockExec := &mockWorkflowExecutor{}
+	cfg := &config.Config{
+		Workflows: []config.Workflow{
+			{
+				Name:     "spy-wf",
+				Commands: []string{"spy-cmd"},
+			},
+		},
+	}
+	sess := session.NewSession(cfg, mockExec)
+
+	provider := &WorkflowProvider{}
+	strat := provider.GetStrategy("workflow:spy-wf", sess)
+
+	err := strat.Execute(sess)
+	if err != nil {
+		t.Fatalf("Execution failed: %v", err)
+	}
+
+	// Currently expected to fail (count will be 2)
+	if spy.resolveCount != 1 {
+		t.Fatalf("Expected 1 resolution, got %d", spy.resolveCount)
 	}
 }

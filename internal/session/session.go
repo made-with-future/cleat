@@ -7,9 +7,10 @@ import (
 
 // Session encapsulates the runtime state of a Cleat execution
 type Session struct {
-	Config *schema.Config
-	Inputs map[string]string
-	Exec   executor.Executor
+	Config        *schema.Config
+	Inputs        map[string]string
+	Exec          executor.Executor
+	WorkflowStack []string // Track active workflows during resolution to detect cycles
 }
 
 // NewSession creates a new session with the provided configuration and executor
