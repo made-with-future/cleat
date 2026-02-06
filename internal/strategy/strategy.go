@@ -294,7 +294,11 @@ func GetProviders() []CommandProvider {
 type PassthroughProvider struct{}
 
 func (p *PassthroughProvider) CanHandle(command string) bool {
-	return true // Can handle any command not caught by others
+	// Don't handle internal workflow commands that failed to match a known workflow
+	if strings.HasPrefix(command, "workflow:") {
+		return false
+	}
+	return true // Can handle any other command not caught by others
 }
 
 func (p *PassthroughProvider) GetStrategy(command string, sess *session.Session) Strategy {
