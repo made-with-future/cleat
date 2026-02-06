@@ -286,25 +286,154 @@ func TestJumpWithNumbers(t *testing.T) {
 	}
 }
 
-func TestWorkflowLocationSelection(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "cleat-ui-wf-loc-*")
+func TestWorkflowCreationFlow_Advanced(t *testing.T) {
+	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
+	m.history = []history.HistoryEntry{
+		{Command: "ls", Timestamp: time.Now()},
+		{Command: "pwd", Timestamp: time.Now()},
+	}
+
+	// 1. Selection in stateCreatingWorkflow
+	m.state = stateCreatingWorkflow
+	m.historyCursor = 0
+	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if len(m.selectedWorkflowIndices) != 1 || m.selectedWorkflowIndices[0] != 0 {
+		t.Error("Expected index 0 to be selected")
+	}
+
+	m.historyCursor = 1
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	m = updatedModel.(model)
+	if len(m.selectedWorkflowIndices) != 2 {
+		t.Error("Expected 2 indices to be selected")
+	}
+
+	// Toggle off
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if len(m.selectedWorkflowIndices) != 1 || m.selectedWorkflowIndices[0] != 0 {
+		t.Error("Expected index 1 to be deselected")
+	}
+
+	// 2. Transition to name input
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = updatedModel.(model)
+	if m.state != stateWorkflowNameInput {
+		t.Error("Expected transition to stateWorkflowNameInput")
+	}
+
+	// 3. Invalid name input
+	m.textInput.SetValue("   ")
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateWorkflowNameInput || m.fatalError == nil {
+		t.Error("Expected error for empty name")
+	}
+
+	// Dismiss error
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
+	m = updatedModel.(model)
+	if m.fatalError != nil {
+		t.Error("Expected error to be dismissed")
+	}
+
+	// 4. Valid name input
+	m.textInput.SetValue("my-wf")
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(model)
+	if m.state != stateWorkflowLocationSelection {
+		t.Error("Expected transition to stateWorkflowLocationSelection")
+	}
+
+	// 5. Location selection
+	// Default is Project (0)
+	// Go down to User (1)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = updatedModel.(model)
+	if m.workflowLocationIdx != 1 {
+		t.Error("Expected User location selected")
+	}
+
+	// Go up to Project (0)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = updatedModel.(model)
+	if m.workflowLocationIdx != 0 {
+		t.Error("Expected Project location selected")
+	}
+
+	// 6. Confirm Save
+	tmpDir, _ := os.MkdirTemp("", "cleat-ui-wf-save-*")
 	defer os.RemoveAll(tmpDir)
 	oldWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
-	
 	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
 
-	m := InitialModel(&config.Config{}, true, "0.1.0", &executor.ShellExecutor{})
-	m.state = stateWorkflowLocationSelection
-	m.selectedWorkflowIndices = []int{0}
-	m.history = []history.HistoryEntry{{Command: "build", Timestamp: time.Now()}}
-	m.textInput.SetValue("my-wf")
-	
-	updatedModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = updatedModel.(model)
 	if m.state != stateBrowsing {
-		t.Error("expected state browsing after saving")
+		t.Error("Expected stateBrowsing after save")
+	}
+	
+	if _, err := os.Stat("cleat.workflows.yaml"); os.IsNotExist(err) {
+		t.Error("cleat.workflows.yaml was not created")
+	}
+
+	// 7. Save to User
+	m.state = stateWorkflowLocationSelection
+	m.workflowLocationIdx = 1 // User
+	
+	// Mock UserHomeDir
+	userHome, _ := os.MkdirTemp("", "cleat-ui-user-home-*")
+	defer os.RemoveAll(userHome)
+	oldUserHomeDir := history.UserHomeDir
+	history.UserHomeDir = func() (string, error) { return userHome, nil }
+	defer func() { history.UserHomeDir = oldUserHomeDir }()
+
+	m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	
+	// 8. Esc cases
+	m.state = stateWorkflowNameInput
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("Esc failed in stateWorkflowNameInput")
+	}
+
+	m.state = stateWorkflowLocationSelection
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("Esc failed in stateWorkflowLocationSelection")
+	}
+
+	m.state = stateCreatingWorkflow
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(model)
+	if m.state != stateBrowsing {
+		t.Error("Esc failed in stateCreatingWorkflow")
+	}
+
+	// 9. Confirm with no selection
+	m.state = stateCreatingWorkflow
+	m.selectedWorkflowIndices = []int{}
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = updatedModel.(model)
+	// 10. Navigation in stateCreatingWorkflow
+	m.state = stateCreatingWorkflow
+	m.focus = focusHistory
+	m.historyCursor = 1
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updatedModel.(model)
+	if m.historyCursor != 0 {
+		t.Error("KeyUp failed in stateCreatingWorkflow")
+	}
+
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(model)
+	if m.historyCursor != 1 {
+		t.Error("KeyDown failed in stateCreatingWorkflow")
 	}
 }
 

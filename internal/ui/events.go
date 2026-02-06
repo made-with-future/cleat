@@ -116,19 +116,20 @@ func (m model) handleInputCollection(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) handleWorkflowNameInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		m.fatalError = nil
 		switch msg.Type {
 		case tea.KeyEnter:
 			name := m.textInput.Value()
-			if name != "" {
-				m.state = stateWorkflowLocationSelection
-				m.workflowLocationIdx = 0 // 0: Project, 1: User
+			if err := history.ValidateWorkflowName(name); err != nil {
+				m.fatalError = err
 				return m, nil
 			}
-			m.state = stateBrowsing
-			m.selectedWorkflowIndices = []int{}
+			m.state = stateWorkflowLocationSelection
+			m.workflowLocationIdx = 0 // 0: Project, 1: User
 			return m, nil
 		case tea.KeyEsc:
 			m.state = stateBrowsing
+			m.selectedWorkflowIndices = []int{}
 			return m, nil
 		case tea.KeyCtrlC:
 			m.quitting = true
@@ -227,7 +228,7 @@ func (m model) handleCreatingWorkflow(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "c":
 			if len(m.selectedWorkflowIndices) > 0 {
 				m.state = stateWorkflowNameInput
-				m.textInput.Prompt = "Workflow Name: "
+				m.textInput.Prompt = ""
 				m.textInput.SetValue("")
 				m.textInput.Focus()
 				return m, nil
