@@ -546,6 +546,8 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"build", []string{"docker:build", "npm:run:build", "django:collectstatic"}},
 		{"run", []string{"docker:up"}},
 		{"django runserver", []string{"django:runserver"}},
+		{"docker up", []string{"docker:up"}},
+		{"docker up:default", []string{"docker:up:default"}},
 		{"docker down", []string{"docker:down"}},
 		{"docker down:default", []string{"docker:down:default"}},
 		{"docker rebuild", []string{"docker:rebuild"}},
