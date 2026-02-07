@@ -13,6 +13,39 @@ var dockerCmd = &cobra.Command{
 	Short: "Docker related commands",
 }
 
+var dockerUpCmd = &cobra.Command{
+	Use:   "up [service]",
+	Short: "Start Docker containers and remove orphans",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadDefaultConfig()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
+
+		sess := createSessionAndMerge(cfg)
+		var s strategy.Strategy
+		if len(args) > 0 {
+			var targetSvc *config.ServiceConfig
+			for i := range cfg.Services {
+				if cfg.Services[i].Name == args[0] {
+					targetSvc = &cfg.Services[i]
+					break
+				}
+			}
+			if targetSvc == nil {
+				return fmt.Errorf("service '%s' not found", args[0])
+			}
+			s = strategy.NewDockerUpStrategyForService(targetSvc)
+		} else {
+			s = strategy.NewDockerUpStrategy(cfg)
+		}
+		if err := s.Execute(sess); err != nil {
+			return fmt.Errorf("docker up failed: %w", err)
+		}
+		return nil
+	},
+}
+
 var dockerDownCmd = &cobra.Command{
 	Use:   "down [service]",
 	Short: "Stop Docker containers and remove orphans for all profiles",
@@ -113,6 +146,7 @@ var dockerRebuildCmd = &cobra.Command{
 }
 
 func init() {
+	dockerCmd.AddCommand(dockerUpCmd)
 	dockerCmd.AddCommand(dockerDownCmd)
 	dockerCmd.AddCommand(dockerRemoveOrphansCmd)
 	dockerCmd.AddCommand(dockerRebuildCmd)
