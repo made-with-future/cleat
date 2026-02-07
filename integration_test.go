@@ -513,3 +513,197 @@ func TestServiceIsolation(t *testing.T) {
 		t.Errorf("expected task name 'docker:down:backend', got %q", tasks[0].Name())
 	}
 }
+
+// TestDockerUpCommand tests the docker up command across different fixtures
+func TestDockerUpCommand(t *testing.T) {
+	tests := []struct {
+		name          string
+		fixture       string
+		command       string
+		expectSuccess bool
+		expectedTasks []string
+	}{
+		{
+			name:          "docker up on simple-django",
+			fixture:       "simple-django",
+			command:       "docker up",
+			expectSuccess: true,
+			expectedTasks: []string{"docker:up"},
+		},
+		{
+			name:          "docker up on multi-service",
+			fixture:       "multi-service",
+			command:       "docker up",
+			expectSuccess: true,
+			expectedTasks: []string{"docker:up"},
+		},
+		{
+			name:          "docker up on docker-compose-only",
+			fixture:       "docker-compose-only",
+			command:       "docker up",
+			expectSuccess: true,
+			expectedTasks: []string{"docker:up"},
+		},
+		{
+			name:          "docker up on no-config (auto-detected)",
+			fixture:       "no-config",
+			command:       "docker up",
+			expectSuccess: true,
+			expectedTasks: []string{"docker:up"},
+		},
+		{
+			name:          "docker up on complex-monorepo",
+			fixture:       "complex-monorepo",
+			command:       "docker up",
+			expectSuccess: true,
+			expectedTasks: []string{"docker:up"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testutil.LoadFixture(t, tt.fixture)
+			mock := &testutil.MockExecutor{}
+			sess := session.NewSession(cfg, mock)
+
+			strat := strategy.GetStrategyForCommand(tt.command, sess)
+			if tt.expectSuccess {
+				if strat == nil {
+					t.Fatalf("expected strategy for %q, got nil", tt.command)
+				}
+
+				// Verify task names
+				tasks := strat.Tasks()
+				taskNames := make([]string, len(tasks))
+				for i, task := range tasks {
+					taskNames[i] = task.Name()
+				}
+
+				if len(taskNames) != len(tt.expectedTasks) {
+					t.Errorf("expected %d tasks, got %d: %v", len(tt.expectedTasks), len(taskNames), taskNames)
+					return
+				}
+
+				for i, expected := range tt.expectedTasks {
+					if taskNames[i] != expected {
+						t.Errorf("task[%d]: expected %q, got %q", i, expected, taskNames[i])
+					}
+				}
+
+				// Test execution
+				err := strat.Execute(sess)
+				if err != nil {
+					t.Errorf("unexpected error executing strategy: %v", err)
+				}
+
+				// Verify docker command was executed
+				if len(mock.Commands) == 0 {
+					t.Error("expected commands to be executed")
+				} else {
+					foundDocker := false
+					for _, cmd := range mock.Commands {
+						if cmd.Name == "docker" || cmd.Name == "op" {
+							foundDocker = true
+							break
+						}
+					}
+					if !foundDocker {
+						t.Error("expected docker command to be executed")
+					}
+				}
+			} else {
+				if strat != nil {
+					t.Errorf("expected no strategy for %q, but got one", tt.command)
+				}
+			}
+		})
+	}
+}
+
+// TestDockerUpWithServiceArgument tests docker up with specific service
+func TestDockerUpWithServiceArgument(t *testing.T) {
+	cfg := testutil.LoadFixture(t, "multi-service")
+	mock := &testutil.MockExecutor{}
+	sess := session.NewSession(cfg, mock)
+
+	// Test service-specific docker up
+	strat := strategy.GetStrategyForCommand("docker up:backend", sess)
+	if strat == nil {
+		t.Fatal("expected docker up:backend strategy")
+	}
+
+	tasks := strat.Tasks()
+	if len(tasks) != 1 {
+		t.Errorf("expected 1 task for service-specific command, got %d", len(tasks))
+	}
+
+	// Verify task name includes service
+	if len(tasks) > 0 && tasks[0].Name() != "docker:up:backend" {
+		t.Errorf("expected task name 'docker:up:backend', got %q", tasks[0].Name())
+	}
+
+	// Test execution
+	err := strat.Execute(sess)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Verify command was executed
+	if len(mock.Commands) == 0 {
+		t.Error("expected commands to be executed")
+	}
+}
+
+// TestDockerUpCommandOutput tests that docker up executes with correct arguments
+func TestDockerUpCommandOutput(t *testing.T) {
+	cfg := testutil.LoadFixture(t, "simple-django")
+	mock := &testutil.MockExecutor{}
+	sess := session.NewSession(cfg, mock)
+
+	strat := strategy.GetStrategyForCommand("docker up", sess)
+	if strat == nil {
+		t.Fatal("expected docker up strategy")
+	}
+
+	err := strat.Execute(sess)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify docker compose up was called with correct args
+	if len(mock.Commands) == 0 {
+		t.Fatal("expected at least one command to be executed")
+	}
+
+	cmd := mock.Commands[0]
+	if cmd.Name != "docker" && cmd.Name != "op" {
+		t.Errorf("expected command to be 'docker' or 'op', got %q", cmd.Name)
+	}
+
+	// Check for compose up in arguments
+	foundCompose := false
+	foundUp := false
+	foundRemoveOrphans := false
+
+	for _, arg := range cmd.Args {
+		if arg == "compose" {
+			foundCompose = true
+		}
+		if arg == "up" {
+			foundUp = true
+		}
+		if arg == "--remove-orphans" {
+			foundRemoveOrphans = true
+		}
+	}
+
+	if !foundCompose {
+		t.Error("expected 'compose' in docker arguments")
+	}
+	if !foundUp {
+		t.Error("expected 'up' in docker arguments")
+	}
+	if !foundRemoveOrphans {
+		t.Error("expected '--remove-orphans' in docker arguments")
+	}
+}
