@@ -1,0 +1,8 @@
+{
+  "name": "frontend",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "test": "vitest"
+  }
+}

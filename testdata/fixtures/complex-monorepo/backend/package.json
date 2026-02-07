@@ -1,0 +1,6 @@
+{
+  "name": "backend-assets",
+  "scripts": {
+    "build": "webpack --mode production"
+  }
+}

@@ -1,0 +1,18 @@
+version: 1
+docker: true
+services:
+  - name: backend
+    dir: ./backend
+    modules:
+      - python:
+          django: true
+          django_service: backend
+  - name: frontend
+    dir: ./frontend
+    modules:
+      - npm:
+          scripts:
+            - build
+            - test
+  - name: worker
+    dir: ./backend

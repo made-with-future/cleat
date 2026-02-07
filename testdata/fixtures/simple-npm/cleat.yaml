@@ -1,0 +1,11 @@
+version: 1
+docker: false
+services:
+  - name: frontend
+    dir: .
+    modules:
+      - npm:
+          scripts:
+            - build
+            - test
+            - lint
