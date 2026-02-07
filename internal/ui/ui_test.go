@@ -497,6 +497,50 @@ func TestBuildCommandTreeDeep(t *testing.T) {
 	if len(tree) == 0 {
 		t.Error("tree should not be empty")
 	}
+
+	// Verify docker up is in the global docker commands
+	foundDockerSection := false
+	foundDockerUp := false
+	for _, item := range tree {
+		if item.Label == "docker" {
+			foundDockerSection = true
+			for _, child := range item.Children {
+				if child.Label == "up" && child.Command == "docker up" {
+					foundDockerUp = true
+					break
+				}
+			}
+			break
+		}
+	}
+	if !foundDockerSection {
+		t.Error("expected docker section in tree")
+	}
+	if !foundDockerUp {
+		t.Error("expected 'docker up' command in docker section")
+	}
+
+	// Verify docker up is in service-specific docker commands
+	foundServiceDockerUp := false
+	for _, item := range tree {
+		if item.Label == "s1" {
+			for _, child := range item.Children {
+				if child.Label == "docker" {
+					for _, dockerCmd := range child.Children {
+						if dockerCmd.Label == "up" && dockerCmd.Command == "docker up:s1" {
+							foundServiceDockerUp = true
+							break
+						}
+					}
+					break
+				}
+			}
+			break
+		}
+	}
+	if !foundServiceDockerUp {
+		t.Error("expected 'docker up' command in service docker section")
+	}
 }
 
 func TestTUIStateRendering(t *testing.T) {

@@ -84,6 +84,7 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		tree = append(tree, CommandItem{
 			Label: "docker",
 			Children: []CommandItem{
+				{Label: "up", Command: "docker up"},
 				{Label: "down", Command: "docker down"},
 				{Label: "rebuild", Command: "docker rebuild"},
 				{Label: "remove-orphans", Command: "docker remove-orphans"},
@@ -209,6 +210,7 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 			svcItem.Children = append(svcItem.Children, CommandItem{
 				Label: "docker",
 				Children: []CommandItem{
+					{Label: "up", Command: fmt.Sprintf("docker up:%s", svc.Name)},
 					{Label: "down", Command: fmt.Sprintf("docker down:%s", svc.Name)},
 					{Label: "rebuild", Command: fmt.Sprintf("docker rebuild:%s", svc.Name)},
 					{Label: "remove-orphans", Command: fmt.Sprintf("docker remove-orphans:%s", svc.Name)},
