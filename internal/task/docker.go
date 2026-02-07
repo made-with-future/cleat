@@ -135,6 +135,11 @@ func (t *DockerUp) Commands(sess *session.Session) [][]string {
 	args := []string{"--log-level", "error", "compose"}
 	args = append(args, "up", "--remove-orphans")
 
+	// Add service name if specific service is targeted
+	if t.Service != nil {
+		args = append(args, t.Service.Name)
+	}
+
 	// 1Password integration
 	searchDir := "."
 	if t.Service != nil && t.Service.Dir != "" {
