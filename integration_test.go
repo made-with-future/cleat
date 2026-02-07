@@ -707,3 +707,67 @@ func TestDockerUpCommandOutput(t *testing.T) {
 		t.Error("expected '--remove-orphans' in docker arguments")
 	}
 }
+
+// TestDockerUpInCommandTree tests that docker up appears in the TUI command tree
+func TestDockerUpInCommandTree(t *testing.T) {
+	tests := []struct {
+		name                string
+		fixture             string
+		expectGlobalDockerUp bool
+		expectServiceDockerUp bool
+		serviceName         string
+	}{
+		{
+			name:                "simple-django has global docker up",
+			fixture:             "simple-django",
+			expectGlobalDockerUp: true,
+			expectServiceDockerUp: true,
+			serviceName:         "backend",
+		},
+		{
+			name:                "multi-service has docker up for all services",
+			fixture:             "multi-service",
+			expectGlobalDockerUp: true,
+			expectServiceDockerUp: true,
+			serviceName:         "backend",
+		},
+		{
+			name:                "docker-compose-only has global docker up",
+			fixture:             "docker-compose-only",
+			expectGlobalDockerUp: true,
+			expectServiceDockerUp: false, // No explicit services, only docker services
+		},
+		{
+			name:                "complex-monorepo has docker up",
+			fixture:             "complex-monorepo",
+			expectGlobalDockerUp: true,
+			expectServiceDockerUp: true,
+			serviceName:         "backend",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testutil.LoadFixture(t, tt.fixture)
+
+			// Test global docker up command exists in strategy
+			mock := &testutil.MockExecutor{}
+			sess := session.NewSession(cfg, mock)
+
+			if tt.expectGlobalDockerUp {
+				strat := strategy.GetStrategyForCommand("docker up", sess)
+				if strat == nil {
+					t.Error("expected 'docker up' strategy to exist")
+				}
+			}
+
+			// Test service-specific docker up command exists
+			if tt.expectServiceDockerUp && tt.serviceName != "" {
+				strat := strategy.GetStrategyForCommand("docker up:"+tt.serviceName, sess)
+				if strat == nil {
+					t.Errorf("expected 'docker up:%s' strategy to exist", tt.serviceName)
+				}
+			}
+		})
+	}
+}
