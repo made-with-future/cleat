@@ -9,15 +9,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/executor"
 	"github.com/madewithfuture/cleat/internal/history"
 	"github.com/madewithfuture/cleat/internal/logger"
 	"github.com/madewithfuture/cleat/internal/session"
 	"github.com/madewithfuture/cleat/internal/ui"
+	"github.com/madewithfuture/cleat/internal/ui/theme"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+type WaitAction int
+
+const (
+	WaitReturn WaitAction = iota // any other key: return to cleat
+	WaitRerun                    // 'r' or 'R'
+	WaitExit                     // 'q' or 'Q'
+)
+
+type WaitFunc func() WaitAction
 
 var (
 	ConfigPath string
@@ -34,8 +46,8 @@ var (
 		}
 		return ui.Start(version, configPath)
 	}
-	Exit = os.Exit
-	Wait = waitForAnyKey
+	Exit          = os.Exit
+	Wait WaitFunc = waitForAnyKey
 )
 
 var preCollectedInputs map[string]string
@@ -147,7 +159,8 @@ func run(args []string) {
 			}
 
 			if tuiMode {
-				if Wait() {
+				switch Wait() {
+				case WaitRerun:
 					fmt.Println()
 					if selected != "" {
 						commandQueue = append(commandQueue, struct {
@@ -157,6 +170,10 @@ func run(args []string) {
 						}{selected, inputs, workflowRunID})
 					}
 					break
+				case WaitExit:
+					return
+				default:
+					// any other key: return to Cleat (go back to TUI)
 				}
 			}
 			break
@@ -213,29 +230,47 @@ func mapSelectedToArgs(selected string) []string {
 func init() {
 }
 
-func waitForAnyKey() bool {
-	fmt.Print("\nPress any key to return to Cleat, or 'r' to re-run...")
+func waitForAnyKey() WaitAction {
+	fmt.Printf("\nPress %s to exit, %s to rerun, or %s to return to cleat",
+		lipgloss.NewStyle().Foreground(theme.Red).Render("q"),
+		lipgloss.NewStyle().Foreground(theme.Purple).Render("r"),
+		lipgloss.NewStyle().Foreground(theme.Green).Render("any other key"),
+	)
 
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
 		// Fallback for non-terminal (e.g. tests)
 		reader := bufio.NewReader(os.Stdin)
 		r, _, _ := reader.ReadRune()
-		return r == 'r' || r == 'R'
+		switch r {
+		case 'r', 'R':
+			return WaitRerun
+		case 'q', 'Q':
+			return WaitExit
+		default:
+			return WaitReturn
+		}
 	}
 
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
 		var b [1]byte
 		os.Stdin.Read(b[:])
-		return false
+		return WaitReturn
 	}
 	defer term.Restore(fd, oldState)
 
 	var b [1]byte
 	n, _ := os.Stdin.Read(b[:])
-	if n > 0 && (b[0] == 'r' || b[0] == 'R') {
-		return true
+	if n > 0 {
+		switch b[0] {
+		case 'r', 'R':
+			return WaitRerun
+		case 'q', 'Q':
+			return WaitExit
+		default:
+			return WaitReturn
+		}
 	}
-	return false
+	return WaitReturn
 }

@@ -36,9 +36,9 @@ func TestRun(t *testing.T) {
 	}
 
 	var waitCalls int
-	Wait = func() bool {
+	Wait = func() WaitAction {
 		waitCalls++
-		return false
+		return WaitReturn
 	}
 
 	t.Run("No args, TUI returns build", func(t *testing.T) {
@@ -213,9 +213,9 @@ func TestRunLoop(t *testing.T) {
 	Exit = func(code int) {}
 
 	var waitCalls int
-	Wait = func() bool {
+	Wait = func() WaitAction {
 		waitCalls++
-		return false
+		return WaitReturn
 	}
 
 	t.Run("Loop for run command", func(t *testing.T) {
@@ -294,12 +294,12 @@ func TestRunLoop(t *testing.T) {
 			return "", nil, nil
 		}
 
-		Wait = func() bool {
+		Wait = func() WaitAction {
 			waitCalls++
 			if waitCalls == 1 {
-				return true // Re-run
+				return WaitRerun // Re-run
 			}
-			return false // Back to TUI
+			return WaitReturn // Back to TUI
 		}
 
 		run([]string{"cleat"})
@@ -358,8 +358,8 @@ func TestWaitForAnyKey(t *testing.T) {
 		os.Stdin = r
 		w.Write([]byte("r"))
 		w.Close()
-		if !waitForAnyKey() {
-			t.Error("expected true for 'r'")
+		if got := waitForAnyKey(); got != WaitRerun {
+			t.Errorf("expected WaitRerun for 'r', got %v", got)
 		}
 	})
 
@@ -368,8 +368,18 @@ func TestWaitForAnyKey(t *testing.T) {
 		os.Stdin = r
 		w.Write([]byte("R"))
 		w.Close()
-		if !waitForAnyKey() {
-			t.Error("expected true for 'R'")
+		if got := waitForAnyKey(); got != WaitRerun {
+			t.Errorf("expected WaitRerun for 'R', got %v", got)
+		}
+	})
+
+	t.Run("Return 'q'", func(t *testing.T) {
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.Write([]byte("q"))
+		w.Close()
+		if got := waitForAnyKey(); got != WaitExit {
+			t.Errorf("expected WaitExit for 'q', got %v", got)
 		}
 	})
 
@@ -378,8 +388,8 @@ func TestWaitForAnyKey(t *testing.T) {
 		os.Stdin = r
 		w.Write([]byte("x"))
 		w.Close()
-		if waitForAnyKey() {
-			t.Error("expected false for 'x'")
+		if got := waitForAnyKey(); got != WaitReturn {
+			t.Errorf("expected WaitReturn for 'x', got %v", got)
 		}
 	})
 }
