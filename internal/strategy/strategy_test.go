@@ -311,7 +311,7 @@ func TestGetStrategyForCommand(t *testing.T) {
 		t.Errorf("expected name 'gcp:init', got %q", s.Name())
 	}
 	tasks := s.Tasks()
-	expectedTasks := []string{"gcp:create-project", "gcp:adc-login", "gcp:set-config"}
+	expectedTasks := []string{"gcp:create-config", "gcp:adc-login", "gcp:set-config"}
 	if len(tasks) != len(expectedTasks) {
 		t.Fatalf("expected %d tasks, got %d", len(expectedTasks), len(tasks))
 	}

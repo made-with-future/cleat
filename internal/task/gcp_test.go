@@ -61,7 +61,7 @@ func TestGCPInit(t *testing.T) {
 	}
 }
 
-func TestGCPCreateProject(t *testing.T) {
+func TestGCPCreateConfig(t *testing.T) {
 	cfg := &config.Config{
 		GoogleCloudPlatform: &config.GCPConfig{
 			ProjectName: "test-project",
@@ -70,7 +70,7 @@ func TestGCPCreateProject(t *testing.T) {
 	mock := &mockExecutor{}
 	sess := session.NewSession(cfg, mock)
 
-	task := NewGCPCreateProject()
+	task := NewGCPCreateConfig()
 	if !task.ShouldRun(sess) {
 		t.Fatal("ShouldRun should be true")
 	}
@@ -81,7 +81,7 @@ func TestGCPCreateProject(t *testing.T) {
 	}
 
 	expected := [][]string{
-		{"gcloud", "projects", "create", "test-project"},
+		{"gcloud", "config", "configurations", "create", "test-project"},
 	}
 
 	if len(mock.commands) != len(expected) {
