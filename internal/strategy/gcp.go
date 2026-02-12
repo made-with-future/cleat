@@ -34,7 +34,9 @@ func NewGCPActivateStrategy() Strategy {
 
 func NewGCPInitStrategy() Strategy {
 	return NewBaseStrategy("gcp:init", []task.Task{
-		task.NewGCPInit(),
+		task.NewGCPCreateProject(),
+		task.NewGCPADCLogin(),
+		task.NewGCPSetConfig(),
 	})
 }
 

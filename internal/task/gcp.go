@@ -6,6 +6,43 @@ import (
 	"github.com/madewithfuture/cleat/internal/session"
 )
 
+type GCPCreateProject struct {
+	BaseTask
+}
+
+func NewGCPCreateProject() *GCPCreateProject {
+	return &GCPCreateProject{
+		BaseTask: BaseTask{
+			TaskName:        "gcp:create-project",
+			TaskDescription: "Create GCP project",
+		},
+	}
+}
+
+func (t *GCPCreateProject) ShouldRun(sess *session.Session) bool {
+	return sess.Config.GoogleCloudPlatform != nil
+}
+
+func (t *GCPCreateProject) Run(sess *session.Session) error {
+	PrintStep(fmt.Sprintf("Creating GCP project %s", sess.Config.GoogleCloudPlatform.ProjectName))
+	cmds := t.Commands(sess)
+	for _, cmd := range cmds {
+		if err := sess.Exec.Run(cmd[0], cmd[1:]...); err != nil {
+			return fmt.Errorf("gcp create-project failed: %w", err)
+		}
+	}
+	return nil
+}
+
+func (t *GCPCreateProject) Commands(sess *session.Session) [][]string {
+	if sess.Config.GoogleCloudPlatform == nil {
+		return nil
+	}
+	return [][]string{
+		{"gcloud", "projects", "create", sess.Config.GoogleCloudPlatform.ProjectName},
+	}
+}
+
 type GCPInit struct {
 	BaseTask
 }

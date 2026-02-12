@@ -307,6 +307,19 @@ func TestGetStrategyForCommand(t *testing.T) {
 	if s == nil {
 		t.Fatal("expected to get gcp init strategy")
 	}
+	if s.Name() != "gcp:init" {
+		t.Errorf("expected name 'gcp:init', got %q", s.Name())
+	}
+	tasks := s.Tasks()
+	expectedTasks := []string{"gcp:create-project", "gcp:adc-login", "gcp:set-config"}
+	if len(tasks) != len(expectedTasks) {
+		t.Fatalf("expected %d tasks, got %d", len(expectedTasks), len(tasks))
+	}
+	for i, task := range tasks {
+		if task.Name() != expectedTasks[i] {
+			t.Errorf("expected task %d to be %s, got %s", i, expectedTasks[i], task.Name())
+		}
+	}
 
 	// gcp adc-impersonate-login strategy
 	s = GetStrategyForCommand("gcp adc-impersonate-login", sess)
@@ -333,7 +346,7 @@ func TestGetStrategyForCommand(t *testing.T) {
 	if s.Name() != "terraform:plan:production" {
 		t.Errorf("expected name 'terraform:plan:production', got %q", s.Name())
 	}
-	tasks := s.Tasks()
+	tasks = s.Tasks()
 	if len(tasks) != 1 {
 		t.Errorf("expected 1 task, got %d", len(tasks))
 	}
