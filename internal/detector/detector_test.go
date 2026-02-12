@@ -281,3 +281,78 @@ func TestTerraformDetector_Recursive(t *testing.T) {
 		t.Errorf("expected staging env to be detected from deep .tf file, got %v", cfg2.Terraform.Envs)
 	}
 }
+
+func TestPythonPackageManagerDetection(t *testing.T) {
+	tests := []struct {
+		name     string
+		files    []string
+		expected string
+	}{
+		{
+			name:     "default to uv",
+			files:    []string{"manage.py"},
+			expected: "uv",
+		},
+		{
+			name:     "detect uv.lock",
+			files:    []string{"manage.py", "uv.lock"},
+			expected: "uv",
+		},
+		{
+			name:     "detect requirements.txt",
+			files:    []string{"manage.py", "requirements.txt"},
+			expected: "pip",
+		},
+		{
+			name:     "detect poetry.lock",
+			files:    []string{"manage.py", "poetry.lock"},
+			expected: "poetry",
+		},
+		{
+			name:     "uv.lock takes priority over requirements.txt",
+			files:    []string{"manage.py", "uv.lock", "requirements.txt"},
+			expected: "uv",
+		},
+		{
+			name:     "detect requirements.txt in backend/",
+			files:    []string{"backend/manage.py", "backend/requirements.txt"},
+			expected: "pip",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, _ := os.MkdirTemp("", "cleat-python-pm-*")
+			defer os.RemoveAll(tmpDir)
+
+			for _, f := range tt.files {
+				path := filepath.Join(tmpDir, f)
+				os.MkdirAll(filepath.Dir(path), 0755)
+				os.WriteFile(path, []byte(""), 0644)
+			}
+
+			d := &DjangoDetector{}
+			cfg := &schema.Config{
+				Services: []schema.ServiceConfig{
+					{Name: "backend", Dir: "."},
+				},
+			}
+			err := d.Detect(tmpDir, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			pm := ""
+			for _, mod := range cfg.Services[0].Modules {
+				if mod.Python != nil {
+					pm = mod.Python.PackageManager
+					break
+				}
+			}
+
+			if pm != tt.expected {
+				t.Errorf("expected package manager %q, got %q", tt.expected, pm)
+			}
+		})
+	}
+}

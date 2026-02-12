@@ -69,6 +69,11 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 	// Apply defaults
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
+		searchDir := baseDir
+		if svc.Dir != "" {
+			searchDir = filepath.Join(baseDir, svc.Dir)
+		}
+
 		for j := range svc.Modules {
 			mod := &svc.Modules[j]
 			if mod.Python != nil && mod.Python.IsEnabled() {
@@ -80,13 +85,36 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 					}
 				}
 				if mod.Python.PackageManager == "" {
-					mod.Python.PackageManager = "uv"
+					mod.Python.PackageManager = detectPackageManager(searchDir)
 				}
 			}
 		}
 	}
 
 	return nil
+}
+
+func detectPackageManager(dir string) string {
+	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); err == nil {
+		return "uv"
+	}
+	if _, err := os.Stat(filepath.Join(dir, "requirements.txt")); err == nil {
+		return "pip"
+	}
+	if _, err := os.Stat(filepath.Join(dir, "poetry.lock")); err == nil {
+		return "poetry"
+	}
+	// Fallback for cases where manage.py is in backend/ but lock files might be in root or backend/
+	if _, err := os.Stat(filepath.Join(dir, "backend/uv.lock")); err == nil {
+		return "uv"
+	}
+	if _, err := os.Stat(filepath.Join(dir, "backend/requirements.txt")); err == nil {
+		return "pip"
+	}
+	if _, err := os.Stat(filepath.Join(dir, "backend/poetry.lock")); err == nil {
+		return "poetry"
+	}
+	return "uv"
 }
 
 func matchesPython(name string) bool {
