@@ -50,6 +50,10 @@ func (m model) View() string {
 		return m.overlay(base, m.renderConfigModal())
 	}
 
+	if m.state == stateConfirmDeleteWorkflow {
+		return m.overlay(base, m.renderDeleteWorkflowModal())
+	}
+
 	// Show help overlay if active
 	if m.showHelp {
 		return m.overlay(base, m.renderHelpOverlay())
@@ -578,6 +582,37 @@ func (m model) renderConfirmModal() string {
 		title,
 		"",
 		lipgloss.NewStyle().Foreground(fg).Render("Are you sure you want to clear history?"),
+		"",
+		lipgloss.NewStyle().Foreground(themeComment).Render("  y: confirm • n/Esc: cancel"),
+	}
+
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(purple).
+		Foreground(fg).
+		Padding(0, 2)
+
+	box := boxStyle.Render(strings.Join(content, "\n"))
+	return box
+}
+
+func (m model) renderDeleteWorkflowModal() string {
+	purple := themePurple
+	fg := themeFG
+	red := themeRed
+
+	title := lipgloss.NewStyle().Bold(true).Foreground(red).Render("Delete Workflow")
+
+	workflowName := ""
+	if len(m.visibleItems) > 0 {
+		item := m.visibleItems[m.cursor]
+		workflowName = strings.TrimPrefix(item.item.Command, "workflow:")
+	}
+
+	content := []string{
+		title,
+		"",
+		lipgloss.NewStyle().Foreground(fg).Render(fmt.Sprintf("Are you sure you want to delete workflow '%s'?", workflowName)),
 		"",
 		lipgloss.NewStyle().Foreground(themeComment).Render("  y: confirm • n/Esc: cancel"),
 	}

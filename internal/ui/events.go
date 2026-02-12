@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/madewithfuture/cleat/internal/config"
@@ -40,6 +41,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleShowingConfig(msg)
 	}
 
+	if m.state == stateConfirmDeleteWorkflow {
+		return m.handleConfirmDeleteWorkflow(msg)
+	}
+
 	switch msg := msg.(type) {
 	case editorFinishedMsg:
 		return m.handleEditorFinished(msg)
@@ -71,6 +76,51 @@ func (m model) handleConfirmClearHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.historyCursor = 0
 			m.historyOffset = 0
+			m.state = stateBrowsing
+			m.updateTaskPreview()
+			return m, nil
+		case "n", "esc":
+			m.state = stateBrowsing
+			return m, nil
+		case "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m model) handleConfirmDeleteWorkflow(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "y", "enter":
+			// Get workflow name from current item
+			var name string
+			if len(m.visibleItems) > 0 {
+				item := m.visibleItems[m.cursor]
+				if strings.HasPrefix(item.item.Command, "workflow:") {
+					name = strings.TrimPrefix(item.item.Command, "workflow:")
+				}
+			}
+
+			if name != "" {
+				if err := history.DeleteWorkflow(name); err != nil {
+					m.fatalError = fmt.Errorf("failed to delete workflow: %w", err)
+				} else {
+					// Reload workflows
+					var err error
+					m.workflows, err = history.LoadWorkflows(m.cfg)
+					if err != nil {
+						logger.Warn("failed to reload workflows after deletion", map[string]interface{}{"error": err.Error()})
+					}
+					m.tree = buildCommandTree(m.cfg, m.workflows)
+					m.updateVisibleItems()
+					m.cursor = 0
+					m.scrollOffset = 0
+				}
+			}
+
 			m.state = stateBrowsing
 			m.updateTaskPreview()
 			return m, nil
@@ -599,6 +649,16 @@ func (m model) handleRuneKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.scrollOffset = 0
 			m.updateTaskPreview()
 			return m, nil
+		}
+	case "d":
+		if m.focus == focusCommands {
+			if len(m.visibleItems) > 0 {
+				item := m.visibleItems[m.cursor]
+				if strings.HasPrefix(item.item.Command, "workflow:") {
+					m.state = stateConfirmDeleteWorkflow
+					return m, nil
+				}
+			}
 		}
 	case "t":
 		if m.focus == focusCommands || m.focus == focusHistory {

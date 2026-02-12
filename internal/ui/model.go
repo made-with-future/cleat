@@ -35,6 +35,7 @@ const (
 	stateWorkflowNameInput
 	stateWorkflowLocationSelection
 	stateShowingConfig
+	stateConfirmDeleteWorkflow
 )
 
 // CommandItem represents a node in the command tree
