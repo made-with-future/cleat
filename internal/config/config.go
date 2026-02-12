@@ -41,7 +41,6 @@ func FindProjectRoot() string {
 		"manage.py",
 		"docker-compose.yaml",
 		"docker-compose.yml",
-		".git",
 		".iac",
 	}
 
@@ -65,7 +64,13 @@ func FindProjectRoot() string {
 
 // GetProjectID returns a unique identifier for the current project based on its absolute path.
 func GetProjectID() string {
-	root := FindProjectRoot()
+	// User requested to use CWD for history isolation, preventing parent directories from
+	// causing history mixing between unrelated sub-projects.
+	root, err := os.Getwd()
+	if err != nil {
+		logger.Error("failed to get current working directory for project ID", err, nil)
+		return "unknown"
+	}
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return "unknown"

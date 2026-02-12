@@ -119,6 +119,19 @@ func InitialModel(cfg *config.Config, cfgFound bool, version string, exec execut
 	}
 
 	m.tree = buildCommandTree(cfg, m.workflows)
+
+	// Auto-expand if there's only one item (ignoring recent and workflows)
+	var realItems []*CommandItem
+	for i := range m.tree {
+		if m.tree[i].Label != "recent" && m.tree[i].Label != "workflows" {
+			realItems = append(realItems, &m.tree[i])
+		}
+	}
+
+	if len(realItems) == 1 {
+		realItems[0].Expanded = true
+	}
+
 	m.updateVisibleItems()
 	m.updateTaskPreview()
 	return m

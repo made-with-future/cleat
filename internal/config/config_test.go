@@ -1331,8 +1331,9 @@ func TestFindProjectRoot(t *testing.T) {
 
 		os.Chdir(subDir)
 		root := FindProjectRoot()
-		if root != gitDir {
-			t.Errorf("expected root %q, got %q", gitDir, root)
+		// .git is no longer a signal, so it should not find gitDir as root, but fallback to CWD
+		if root != subDir {
+			t.Errorf("expected root %q (cwd), got %q", subDir, root)
 		}
 	})
 
