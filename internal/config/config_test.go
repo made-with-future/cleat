@@ -1247,8 +1247,8 @@ func TestLoadDefaultConfig_UpwardsSearch(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "cleat-test-upwards-*")
 	if err != nil {
 		t.Fatal(err)
-	} 
-	
+	}
+
 	projectRoot := tmpDir
 	subDir := filepath.Join(projectRoot, "a", "b", "c")
 	os.MkdirAll(subDir, 0755)
@@ -1319,30 +1319,30 @@ terraform:
 func TestFindProjectRoot(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "cleat-root-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	oldWd, _ := os.Getwd()
 	defer os.Chdir(oldWd)
-	
+
 	t.Run("GitRoot", func(t *testing.T) {
 		gitDir := filepath.Join(tmpDir, "git-project")
 		os.MkdirAll(filepath.Join(gitDir, ".git"), 0755)
 		subDir := filepath.Join(gitDir, "sub/dir")
 		os.MkdirAll(subDir, 0755)
-		
+
 		os.Chdir(subDir)
 		root := FindProjectRoot()
 		if root != gitDir {
 			t.Errorf("expected root %q, got %q", gitDir, root)
 		}
 	})
-	
+
 	t.Run("ConfigRoot", func(t *testing.T) {
 		cfgDir := filepath.Join(tmpDir, "cfg-project")
 		os.MkdirAll(cfgDir, 0755)
 		os.WriteFile(filepath.Join(cfgDir, "cleat.yaml"), []byte(""), 0644)
 		subDir := filepath.Join(cfgDir, "sub/dir")
 		os.MkdirAll(subDir, 0755)
-		
+
 		os.Chdir(subDir)
 		root := FindProjectRoot()
 		if root != cfgDir {
@@ -1354,10 +1354,10 @@ func TestFindProjectRoot(t *testing.T) {
 func TestGetProjectID(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "cleat-id-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	oldWd, _ := os.Getwd()
 	defer os.Chdir(oldWd)
-	
+
 	os.Chdir(tmpDir)
 	id := GetProjectID()
 	if id == "" || id == "unknown" {
@@ -1371,7 +1371,7 @@ func TestGetProjectID(t *testing.T) {
 func TestLoadConfigErrors(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "cleat-cfg-err-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	t.Run("InvalidYAML", func(t *testing.T) {
 		path := filepath.Join(tmpDir, "invalid.yaml")
 		os.WriteFile(path, []byte("invalid: : yaml"), 0644)
@@ -1380,7 +1380,7 @@ func TestLoadConfigErrors(t *testing.T) {
 			t.Error("expected error for invalid YAML")
 		}
 	})
-	
+
 	t.Run("InvalidEnvs", func(t *testing.T) {
 		path := filepath.Join(tmpDir, "invalid_envs.yaml")
 		os.WriteFile(path, []byte("version: 1\nenvs: []"), 0644)

@@ -957,7 +957,10 @@ func TestHandleConfirmClearHistory_Advanced(t *testing.T) {
 
 func TestNavigationHandlers(t *testing.T) {
 	cfg := &config.Config{
-		Services: []config.ServiceConfig{{Name: "s1"}, {Name: "s2"}},
+		Services: []config.ServiceConfig{
+			{Name: "s1", Docker: ptrBool(true)},
+			{Name: "s2", Docker: ptrBool(true)},
+		},
 	}
 	m := InitialModel(cfg, true, "0.1.0", &executor.ShellExecutor{})
 	m.updateVisibleItems()

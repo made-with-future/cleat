@@ -8,7 +8,7 @@ import (
 func NewDockerDownStrategy(cfg *config.Config) Strategy {
 	var tasks []task.Task
 	tasks = append(tasks, task.NewDockerDown(nil))
-	// Only add service-specific tasks if they are explicitly different from the root one 
+	// Only add service-specific tasks if they are explicitly different from the root one
 	// or if the test expects it. Based on TestResolveCommandTasks, it only expects the root one.
 	return NewBaseStrategy("docker down", tasks)
 }

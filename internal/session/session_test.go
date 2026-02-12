@@ -14,9 +14,9 @@ type mockExecutor struct {
 func TestNewSession(t *testing.T) {
 	cfg := &schema.Config{Version: 1}
 	exec := &mockExecutor{}
-	
+
 	sess := NewSession(cfg, exec)
-	
+
 	if sess.Config != cfg {
 		t.Errorf("expected config %v, got %v", cfg, sess.Config)
 	}

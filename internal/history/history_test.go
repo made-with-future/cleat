@@ -286,27 +286,27 @@ func TestHistoryWithInputs(t *testing.T) {
 func TestStats(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "cleat-stats-test-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	oldUserHomeDir := UserHomeDir
 	UserHomeDir = func() (string, error) {
 		return tmpDir, nil
 	}
 	defer func() { UserHomeDir = oldUserHomeDir }()
-	
+
 	oldWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
-	
+
 	// Test UpdateStats
 	UpdateStats("build")
 	UpdateStats("build")
 	UpdateStats("run")
-	
+
 	top, err := GetTopCommands(10)
 	if err != nil {
 		t.Fatalf("GetTopCommands failed: %v", err)
 	}
-	
+
 	if len(top) != 2 {
 		t.Errorf("expected 2 top commands, got %d", len(top))
 	}
@@ -318,31 +318,31 @@ func TestStats(t *testing.T) {
 func TestWorkflows(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "cleat-wf-test-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	oldUserHomeDir := UserHomeDir
 	UserHomeDir = func() (string, error) {
 		return tmpDir, nil
 	}
 	defer func() { UserHomeDir = oldUserHomeDir }()
-	
+
 	oldWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
-	
+
 	// Create a dummy cleat.yaml
 	os.WriteFile("cleat.yaml", []byte("version: 1"), 0644)
-	
+
 	wf := config.Workflow{
 		Name:     "deploy",
 		Commands: []string{"build", "gcp app-engine deploy"},
 	}
-	
+
 	t.Run("SaveToProject", func(t *testing.T) {
 		err := SaveWorkflowToProject(wf)
 		if err != nil {
 			t.Fatalf("SaveWorkflowToProject failed: %v", err)
 		}
-		
+
 		loaded, _ := LoadWorkflows(nil)
 		found := false
 		for _, w := range loaded {
@@ -355,7 +355,7 @@ func TestWorkflows(t *testing.T) {
 			t.Error("workflow not found in project")
 		}
 	})
-	
+
 	t.Run("SaveToUser", func(t *testing.T) {
 		wfUser := wf
 		wfUser.Name = "user-wf"
@@ -363,7 +363,7 @@ func TestWorkflows(t *testing.T) {
 		if err != nil {
 			t.Fatalf("SaveWorkflowToUser failed: %v", err)
 		}
-		
+
 		loaded, _ := LoadWorkflows(nil)
 		found := false
 		for _, w := range loaded {
@@ -376,13 +376,13 @@ func TestWorkflows(t *testing.T) {
 			t.Error("workflow not found in user config")
 		}
 	})
-	
+
 	t.Run("DeleteWorkflow", func(t *testing.T) {
 		err := DeleteWorkflow("deploy")
 		if err != nil {
 			t.Fatalf("DeleteWorkflow failed: %v", err)
 		}
-		
+
 		loaded, _ := LoadWorkflows(nil)
 		for _, w := range loaded {
 			if w.Name == "deploy" {

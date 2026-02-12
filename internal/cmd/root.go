@@ -187,11 +187,7 @@ func run(args []string) {
 
 func mapSelectedToArgs(selected string) []string {
 	var cmdArgs []string
-	if selected == "build" {
-		cmdArgs = []string{"build"}
-	} else if selected == "run" {
-		cmdArgs = []string{"run"}
-	} else if strings.HasPrefix(selected, "workflow:") {
+	if strings.HasPrefix(selected, "workflow:") {
 		// Let the dispatcher handle it
 		cmdArgs = []string{"workflow", strings.TrimPrefix(selected, "workflow:")}
 	} else if strings.HasPrefix(selected, "docker ") || strings.HasPrefix(selected, "gcp ") || strings.HasPrefix(selected, "terraform ") {
@@ -223,6 +219,15 @@ func mapSelectedToArgs(selected string) []string {
 	} else if strings.HasPrefix(selected, "npm install:") {
 		svcName := strings.TrimPrefix(selected, "npm install:")
 		cmdArgs = []string{"npm", "install", svcName}
+	} else if strings.HasPrefix(selected, "go ") {
+		if colonIdx := strings.LastIndex(selected, ":"); colonIdx != -1 {
+			cmdPart := selected[:colonIdx]
+			svcName := selected[colonIdx+1:]
+			cmdArgs = strings.Fields(cmdPart)
+			cmdArgs = append(cmdArgs, svcName)
+		} else {
+			cmdArgs = strings.Fields(selected)
+		}
 	}
 	return cmdArgs
 }

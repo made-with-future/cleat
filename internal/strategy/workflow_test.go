@@ -135,7 +135,7 @@ func TestWorkflowFailFast(t *testing.T) {
 
 	provider := &WorkflowProvider{}
 	strat := provider.GetStrategy("workflow:fail-test", sess)
-	
+
 	err := strat.Execute(sess)
 	if err == nil {
 		t.Fatal("Expected workflow to fail, but it succeeded")
@@ -166,7 +166,7 @@ func TestWorkflowErrorMessage(t *testing.T) {
 
 	provider := &WorkflowProvider{}
 	strat := provider.GetStrategy("workflow:err-test", sess)
-	
+
 	err := strat.Execute(sess)
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -186,11 +186,11 @@ type mockTaskWithReqs struct {
 	reqs []task.InputRequirement
 }
 
-func (t *mockTaskWithReqs) Name() string           { return t.name }
-func (t *mockTaskWithReqs) Description() string    { return "mock task" }
-func (t *mockTaskWithReqs) Dependencies() []string { return nil }
-func (t *mockTaskWithReqs) ShouldRun(sess *session.Session) bool { return true }
-func (t *mockTaskWithReqs) Run(sess *session.Session) error { return nil }
+func (t *mockTaskWithReqs) Name() string                              { return t.name }
+func (t *mockTaskWithReqs) Description() string                       { return "mock task" }
+func (t *mockTaskWithReqs) Dependencies() []string                    { return nil }
+func (t *mockTaskWithReqs) ShouldRun(sess *session.Session) bool      { return true }
+func (t *mockTaskWithReqs) Run(sess *session.Session) error           { return nil }
 func (t *mockTaskWithReqs) Commands(sess *session.Session) [][]string { return nil }
 func (t *mockTaskWithReqs) Requirements(sess *session.Session) []task.InputRequirement {
 	return t.reqs

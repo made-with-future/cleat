@@ -16,21 +16,11 @@ This entropy forces developers to memorize project-specific idiosyncrasies, lead
 
 ## Features
 
-### Unified Build Command
-Cleat provides a standardized `build` command that adapts to your project's stack. By defining a `cleat.yaml` file in your project root, you can orchestrate complex build steps across Docker, Django, and NPM with a single command:
+### Standardized Commands
+Cleat provides standardized commands that adapt to your project's stack. By defining a `cleat.yaml` file in your project root, Cleat will auto-detect your tools (Docker, Go, Django, NPM, Terraform, GCP) and provide a consistent interface to interact with them via the TUI or CLI.
 
-```bash
-cleat build
-```
-
-### Unified Run Command
-Similarly, the `run` command provides a consistent way to start your project's development environment:
-
-```bash
-cleat run
-```
-
-It automatically handles `docker compose up`, Django's `runserver`, or `npm start` based on your project's configuration. It also features built-in support for [1Password CLI](https://developer.1password.com/docs/cli/) (`op`) if a `.envs/dev.env` file is detected.
+### Workflows
+For more complex sequences of tasks, Cleat supports custom workflows. Define them in `cleat.yaml` to orchestrate multiple steps into a single named command.
 
 ### Configuration (`cleat.yaml`)
 
@@ -116,17 +106,20 @@ Cleat is distributed as a single binary. For now, please see [CONTRIBUTING.md](C
 
 ### Basic Usage
 
-Once you have the `cleat` binary in your path, you can use it to orchestrate your project:
+Once you have the `cleat` binary in your path, you can use it to orchestrate your project. Launch the interactive TUI to see all available commands for your project:
 
 ```bash
-# Build your project (runs docker-compose build, npm scripts, etc.)
-cleat build
-
-# Start your development environment
-cleat run
-
-# Launch the interactive TUI
 cleat
+```
+
+You can also run specific commands directly:
+
+```bash
+# Example: run a service-specific command
+cleat docker up
+
+# Example: run a named workflow
+cleat workflow ci
 ```
 
 To check the version:
@@ -141,7 +134,7 @@ You can test Cleat using the included example project:
 
 ```bash
 cd examples/test-project
-../../cleat build
+../../cleat
 ```
 
 ## Contributing

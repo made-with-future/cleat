@@ -711,38 +711,38 @@ func TestDockerUpCommandOutput(t *testing.T) {
 // TestDockerUpInCommandTree tests that docker up appears in the TUI command tree
 func TestDockerUpInCommandTree(t *testing.T) {
 	tests := []struct {
-		name                string
-		fixture             string
-		expectGlobalDockerUp bool
+		name                  string
+		fixture               string
+		expectGlobalDockerUp  bool
 		expectServiceDockerUp bool
-		serviceName         string
+		serviceName           string
 	}{
 		{
-			name:                "simple-django has global docker up",
-			fixture:             "simple-django",
-			expectGlobalDockerUp: true,
+			name:                  "simple-django has global docker up",
+			fixture:               "simple-django",
+			expectGlobalDockerUp:  true,
 			expectServiceDockerUp: true,
-			serviceName:         "backend",
+			serviceName:           "backend",
 		},
 		{
-			name:                "multi-service has docker up for all services",
-			fixture:             "multi-service",
-			expectGlobalDockerUp: true,
+			name:                  "multi-service has docker up for all services",
+			fixture:               "multi-service",
+			expectGlobalDockerUp:  true,
 			expectServiceDockerUp: true,
-			serviceName:         "backend",
+			serviceName:           "backend",
 		},
 		{
-			name:                "docker-compose-only has global docker up",
-			fixture:             "docker-compose-only",
-			expectGlobalDockerUp: true,
+			name:                  "docker-compose-only has global docker up",
+			fixture:               "docker-compose-only",
+			expectGlobalDockerUp:  true,
 			expectServiceDockerUp: false, // No explicit services, only docker services
 		},
 		{
-			name:                "complex-monorepo has docker up",
-			fixture:             "complex-monorepo",
-			expectGlobalDockerUp: true,
+			name:                  "complex-monorepo has docker up",
+			fixture:               "complex-monorepo",
+			expectGlobalDockerUp:  true,
 			expectServiceDockerUp: true,
-			serviceName:         "backend",
+			serviceName:           "backend",
 		},
 	}
 

@@ -6,6 +6,11 @@ type NpmConfig struct {
 	Scripts []string `yaml:"scripts"`
 }
 
+type GoConfig struct {
+	Enabled *bool  `yaml:"enabled,omitempty"`
+	Service string `yaml:"service"`
+}
+
 type PythonConfig struct {
 	Enabled        *bool  `yaml:"enabled,omitempty"`
 	Django         bool   `yaml:"django"`
@@ -28,6 +33,7 @@ type TerraformConfig struct {
 type ModuleConfig struct {
 	Python *PythonConfig `yaml:"python,omitempty"`
 	Npm    *NpmConfig    `yaml:"npm,omitempty"`
+	Go     *GoConfig     `yaml:"go,omitempty"`
 }
 
 type ServiceConfig struct {
@@ -57,6 +63,13 @@ func (n *NpmConfig) IsEnabled() bool {
 		return false
 	}
 	return n.Enabled == nil || *n.Enabled
+}
+
+func (g *GoConfig) IsEnabled() bool {
+	if g == nil {
+		return false
+	}
+	return g.Enabled == nil || *g.Enabled
 }
 
 type Workflow struct {

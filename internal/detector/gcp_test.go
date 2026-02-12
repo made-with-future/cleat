@@ -26,170 +26,145 @@ func TestGcpDetector(t *testing.T) {
 		t.Fatalf("Detect failed: %v", err)
 	}
 
-		if cfg.AppYaml != "app.yaml" {
+	if cfg.AppYaml != "app.yaml" {
 
-			t.Errorf("expected AppYaml to be 'app.yaml', got %s", cfg.AppYaml)
-
-		}
+		t.Errorf("expected AppYaml to be 'app.yaml', got %s", cfg.AppYaml)
 
 	}
 
-	
+}
 
-	func TestGcpDetector_NilConfig(t *testing.T) {
+func TestGcpDetector_NilConfig(t *testing.T) {
 
-		d := &GcpDetector{}
+	d := &GcpDetector{}
 
-		cfg := &schema.Config{}
+	cfg := &schema.Config{}
 
-		err := d.Detect(".", cfg)
+	err := d.Detect(".", cfg)
 
-		if err != nil {
+	if err != nil {
 
-			t.Fatalf("Detect failed: %v", err)
-
-		}
-
-		if cfg.AppYaml != "" {
-
-			t.Error("expected AppYaml to be empty")
-
-		}
+		t.Fatalf("Detect failed: %v", err)
 
 	}
 
-	
+	if cfg.AppYaml != "" {
 
-	func TestGcpDetector_NestedServices(t *testing.T) {
+		t.Error("expected AppYaml to be empty")
 
-		tmpDir, _ := os.MkdirTemp("", "cleat-gcp-nested-*")
+	}
 
-		defer os.RemoveAll(tmpDir)
+}
 
-	
+func TestGcpDetector_NestedServices(t *testing.T) {
 
-		// Create a service directory
+	tmpDir, _ := os.MkdirTemp("", "cleat-gcp-nested-*")
 
-		svcDir := filepath.Join(tmpDir, "web-service")
+	defer os.RemoveAll(tmpDir)
 
-		os.Mkdir(svcDir, 0755)
+	// Create a service directory
 
-		os.WriteFile(filepath.Join(svcDir, "app.yaml"), []byte(""), 0644)
+	svcDir := filepath.Join(tmpDir, "web-service")
 
-	
+	os.Mkdir(svcDir, 0755)
 
-		// Create a directory that should be ignored
+	os.WriteFile(filepath.Join(svcDir, "app.yaml"), []byte(""), 0644)
 
-		ignoredDir := filepath.Join(tmpDir, ".git")
+	// Create a directory that should be ignored
 
-		os.Mkdir(ignoredDir, 0755)
+	ignoredDir := filepath.Join(tmpDir, ".git")
 
-		os.WriteFile(filepath.Join(ignoredDir, "app.yaml"), []byte(""), 0644)
+	os.Mkdir(ignoredDir, 0755)
 
-	
+	os.WriteFile(filepath.Join(ignoredDir, "app.yaml"), []byte(""), 0644)
 
-		cfg := &schema.Config{
+	cfg := &schema.Config{
 
-			GoogleCloudPlatform: &schema.GCPConfig{ProjectName: "test"},
+		GoogleCloudPlatform: &schema.GCPConfig{ProjectName: "test"},
 
-			Services: []schema.ServiceConfig{
+		Services: []schema.ServiceConfig{
 
-				{Name: "web-service", Dir: "web-service"},
+			{Name: "web-service", Dir: "web-service"},
+		},
+	}
 
-			},
+	d := &GcpDetector{}
 
-		}
+	err := d.Detect(tmpDir, cfg)
 
-		d := &GcpDetector{}
+	if err != nil {
 
-		err := d.Detect(tmpDir, cfg)
+		t.Fatal(err)
 
-		if err != nil {
+	}
 
-			t.Fatal(err)
+	found := false
 
-		}
+	for _, svc := range cfg.Services {
 
-	
+		if svc.Name == "web-service" {
 
-		found := false
+			if svc.AppYaml != "web-service/app.yaml" {
 
-		for _, svc := range cfg.Services {
-
-			if svc.Name == "web-service" {
-
-				if svc.AppYaml != "web-service/app.yaml" {
-
-					t.Errorf("expected AppYaml 'web-service/app.yaml', got %s", svc.AppYaml)
-
-				}
-
-				found = true
+				t.Errorf("expected AppYaml 'web-service/app.yaml', got %s", svc.AppYaml)
 
 			}
 
-			if svc.Name == ".git" {
-
-				t.Error(".git directory should have been ignored")
-
-			}
+			found = true
 
 		}
 
-		if !found {
+		if svc.Name == ".git" {
 
-			t.Error("expected web-service to be updated")
+			t.Error(".git directory should have been ignored")
 
 		}
 
 	}
 
-	
+	if !found {
 
-	func TestGcpDetector_NewServiceDiscovery(t *testing.T) {
-
-		tmpDir, _ := os.MkdirTemp("", "cleat-gcp-discovery-*")
-
-		defer os.RemoveAll(tmpDir)
-
-	
-
-		svcDir := filepath.Join(tmpDir, "new-service")
-
-		os.Mkdir(svcDir, 0755)
-
-		os.WriteFile(filepath.Join(svcDir, "app.yaml"), []byte(""), 0644)
-
-	
-
-		cfg := &schema.Config{
-
-			GoogleCloudPlatform: &schema.GCPConfig{ProjectName: "test"},
-
-		}
-
-		d := &GcpDetector{}
-
-		err := d.Detect(tmpDir, cfg)
-
-		if err != nil {
-
-			t.Fatal(err)
-
-		}
-
-	
-
-		if len(cfg.Services) != 1 {
-
-			t.Errorf("expected 1 service, got %d", len(cfg.Services))
-
-		} else if cfg.Services[0].Name != "new-service" {
-
-			t.Errorf("expected new-service, got %s", cfg.Services[0].Name)
-
-		}
+		t.Error("expected web-service to be updated")
 
 	}
 
-	
+}
+
+func TestGcpDetector_NewServiceDiscovery(t *testing.T) {
+
+	tmpDir, _ := os.MkdirTemp("", "cleat-gcp-discovery-*")
+
+	defer os.RemoveAll(tmpDir)
+
+	svcDir := filepath.Join(tmpDir, "new-service")
+
+	os.Mkdir(svcDir, 0755)
+
+	os.WriteFile(filepath.Join(svcDir, "app.yaml"), []byte(""), 0644)
+
+	cfg := &schema.Config{
+
+		GoogleCloudPlatform: &schema.GCPConfig{ProjectName: "test"},
+	}
+
+	d := &GcpDetector{}
+
+	err := d.Detect(tmpDir, cfg)
+
+	if err != nil {
+
+		t.Fatal(err)
+
+	}
+
+	if len(cfg.Services) != 1 {
+
+		t.Errorf("expected 1 service, got %d", len(cfg.Services))
+
+	} else if cfg.Services[0].Name != "new-service" {
+
+		t.Errorf("expected new-service, got %s", cfg.Services[0].Name)
+
+	}
+
+}

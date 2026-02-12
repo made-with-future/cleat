@@ -30,7 +30,7 @@ var workflowCmd = &cobra.Command{
 		}
 
 		sess := createSessionAndMerge(cfg)
-		
+
 		// Use the dispatcher to get the workflow strategy
 		s := strategy.GetStrategyForCommand("workflow:"+wfName, sess)
 		if s == nil {

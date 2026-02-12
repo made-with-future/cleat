@@ -41,12 +41,12 @@ func TestRun(t *testing.T) {
 		return WaitReturn
 	}
 
-	t.Run("No args, TUI returns build", func(t *testing.T) {
+	t.Run("No args, TUI returns docker up", func(t *testing.T) {
 		calls := 0
 		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
-				return "build", nil, nil
+				return "docker up", nil, nil
 			}
 			return "", nil, nil
 		}
@@ -194,8 +194,8 @@ workflows:
 		}
 
 		// The inner command should NOT be tracked
-		if _, ok := stats.Commands["build"]; ok {
-			t.Errorf("Did not expect 'build' command to be tracked in stats for a workflow run")
+		if _, ok := stats.Commands["docker up"]; ok {
+			t.Errorf("Did not expect 'docker up' command to be tracked in stats for a workflow run")
 		}
 	})
 }
@@ -218,13 +218,13 @@ func TestRunLoop(t *testing.T) {
 		return WaitReturn
 	}
 
-	t.Run("Loop for run command", func(t *testing.T) {
+	t.Run("Loop for docker up command", func(t *testing.T) {
 		waitCalls = 0
 		calls := 0
 		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
-				return "run", nil, nil
+				return "docker up", nil, nil
 			}
 			return "", nil, nil // Quit on second call
 		}
@@ -262,13 +262,13 @@ func TestRunLoop(t *testing.T) {
 		}
 	})
 
-	t.Run("Loop for build command", func(t *testing.T) {
+	t.Run("Loop for docker down command", func(t *testing.T) {
 		waitCalls = 0
 		calls := 0
 		UIStart = func(string) (string, map[string]string, error) {
 			calls++
 			if calls == 1 {
-				return "build", nil, nil
+				return "docker down", nil, nil
 			}
 			return "", nil, nil
 		}
@@ -289,7 +289,7 @@ func TestRunLoop(t *testing.T) {
 		UIStart = func(string) (string, map[string]string, error) {
 			uiCalls++
 			if uiCalls == 1 {
-				return "build", nil, nil
+				return "docker up", nil, nil
 			}
 			return "", nil, nil
 		}
@@ -304,7 +304,7 @@ func TestRunLoop(t *testing.T) {
 
 		run([]string{"cleat"})
 
-		// UIStart should be called twice: once for "build", once for "" (to quit)
+		// UIStart should be called twice: once for "docker up", once for "" (to quit)
 		if uiCalls != 2 {
 			t.Errorf("expected UIStart to be called 2 times, got %d", uiCalls)
 		}
@@ -319,8 +319,6 @@ func TestMapSelectedToArgs(t *testing.T) {
 		selected string
 		want     []string
 	}{
-		{"build", []string{"build"}},
-		{"run", []string{"run"}},
 		{"workflow:test", []string{"workflow", "test"}},
 		{"docker up", []string{"docker", "up"}},
 		{"docker up:svc", []string{"docker", "up", "svc"}},

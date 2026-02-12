@@ -40,10 +40,10 @@ func TestLoadWorkflows_Validation(t *testing.T) {
 
 	// We want to assert that invalid workflows are filtered out or error is returned.
 	// For this "Red" phase, we'll assert that we WANT an error or the workflow to be rejected.
-	
+
 	// Let's assert that we expect LoadWorkflows to validate and return error or filter it.
 	// Since the current implementation doesn't validate, we expect this test to FAIL if we check for validation.
-	
+
 	found := false
 	for _, w := range workflows {
 		if w.Name == "invalid-wf" {
@@ -130,7 +130,7 @@ func TestSaveWorkflowToProject(t *testing.T) {
 	// 4. Fallback to .yml
 	os.Remove("cleat.workflows.yaml")
 	os.WriteFile("cleat.workflows.yml", []byte("- name: yml-wf\n  commands: [ls]"), 0644)
-	
+
 	err = SaveWorkflowToProject(wf)
 	if err != nil {
 		t.Fatalf("SaveWorkflowToProject with .yml failed: %v", err)
@@ -143,7 +143,7 @@ func TestSaveWorkflowToProject(t *testing.T) {
 	data, _ := os.ReadFile("cleat.workflows.yml")
 	var ymlWorkflows []config.Workflow
 	yaml.Unmarshal(data, &ymlWorkflows)
-	
+
 	found := false
 	for _, w := range ymlWorkflows {
 		if w.Name == "test-wf" {

@@ -477,7 +477,7 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 			m.updateTaskPreview()
 		} else {
 			m.selectedCommand = item.item.Command
-			
+
 			// Create session and inject merged workflows so WorkflowProvider can find them
 			sess := session.NewSession(m.cfg, m.exec)
 			sess.Config.Workflows = m.workflows

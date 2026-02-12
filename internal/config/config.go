@@ -20,11 +20,12 @@ type ServiceConfig = schema.ServiceConfig
 type ModuleConfig = schema.ModuleConfig
 type PythonConfig = schema.PythonConfig
 type NpmConfig = schema.NpmConfig
+type GoConfig = schema.GoConfig
 type GCPConfig = schema.GCPConfig
 type TerraformConfig = schema.TerraformConfig
 type Workflow = schema.Workflow
 
-// FindProjectRoot searches upwards from the current directory for a cleat.yaml/cleat.yml file or a .git directory.
+// FindProjectRoot searches upwards from the current directory for a cleat.yaml/cleat.yml file, or other project markers like package.json, go.mod, etc.
 func FindProjectRoot() string {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -32,16 +33,24 @@ func FindProjectRoot() string {
 		return "."
 	}
 
+	projectSignals := []string{
+		"cleat.yaml",
+		"cleat.yml",
+		"package.json",
+		"go.mod",
+		"manage.py",
+		"docker-compose.yaml",
+		"docker-compose.yml",
+		".git",
+		".iac",
+	}
+
 	curr := cwd
 	for {
-		if _, err := os.Stat(filepath.Join(curr, "cleat.yaml")); err == nil {
-			return curr
-		}
-		if _, err := os.Stat(filepath.Join(curr, "cleat.yml")); err == nil {
-			return curr
-		}
-		if _, err := os.Stat(filepath.Join(curr, ".git")); err == nil {
-			return curr
+		for _, signal := range projectSignals {
+			if _, err := os.Stat(filepath.Join(curr, signal)); err == nil {
+				return curr
+			}
 		}
 
 		parent := filepath.Dir(curr)
@@ -75,6 +84,23 @@ func GetProjectID() string {
 // LoadDefaultConfig searches upwards for cleat.yaml/cleat.yml and loads it.
 func LoadDefaultConfig() (*Config, error) {
 	cwd, _ := os.Getwd()
+
+	// Heuristic: if current dir looks like a project root (has common signals),
+	// prefer loading from here with auto-detection rather than searching upward.
+	projectSignals := []string{
+		"docker-compose.yaml",
+		"docker-compose.yml",
+		"manage.py",
+		"package.json",
+		"go.mod",
+		".iac",
+	}
+	for _, s := range projectSignals {
+		if _, err := os.Stat(filepath.Join(cwd, s)); err == nil {
+			return LoadConfigWithDefault(filepath.Join(cwd, "cleat.yaml"))
+		}
+	}
+
 	curr := cwd
 	for {
 		path := filepath.Join(curr, "cleat.yaml")

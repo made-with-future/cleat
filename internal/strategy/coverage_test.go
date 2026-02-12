@@ -12,7 +12,7 @@ func TestGetStrategyForCommand_AdditionalCoverage(t *testing.T) {
 		Docker: true,
 		Services: []config.ServiceConfig{
 			{
-				Name: "web",
+				Name:    "web",
 				AppYaml: "web/app.yaml",
 				Modules: []config.ModuleConfig{
 					{Npm: &config.NpmConfig{Scripts: []string{"start", "test"}}},

@@ -22,11 +22,11 @@ func executeCommand(root *cobra.Command, args ...string) (output string, err err
 func TestSubcommands(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "cleat-cmd-test-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	oldWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
-	
+
 	os.WriteFile("cleat.yaml", []byte(`
 version: 1
 docker: true
@@ -160,7 +160,7 @@ func TestCreateSessionAndMerge(t *testing.T) {
 	if sess.Inputs["foo"] != "bar" {
 		t.Errorf("expected input foo=bar, got %v", sess.Inputs["foo"])
 	}
-	
+
 	// Test with nil preCollectedInputs
 	preCollectedInputs = nil
 	sess = createSessionAndMerge(cfg)

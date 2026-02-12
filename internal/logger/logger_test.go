@@ -19,7 +19,7 @@ func TestLogger(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	logFile := filepath.Join(tmpDir, "test.log")
-	
+
 	// Initialize logger with the test file and a project context
 	err = Init(logFile, "debug", map[string]interface{}{"project": "test-project"})
 	if err != nil {
@@ -63,7 +63,7 @@ func TestLoggerAllLevels(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	logFile := filepath.Join(tmpDir, "test.log")
-	
+
 	err = Init(logFile, "debug", nil)
 	if err != nil {
 		t.Fatalf("failed to initialize logger: %v", err)
@@ -93,7 +93,7 @@ func TestLoggerAllLevels(t *testing.T) {
 		Error("error msg", err, map[string]interface{}{"e": 4})
 		verifyLog(t, logFile, "error", "error msg", map[string]interface{}{"e": float64(4), "error": "boom"})
 	})
-	
+
 	t.Run("ErrorNil", func(t *testing.T) {
 		os.Truncate(logFile, 0)
 		Error("error msg nil", nil, map[string]interface{}{"e": 5})
@@ -105,17 +105,17 @@ func TestLoggerInitHomeExpansion(t *testing.T) {
 	// We can't easily mock UserHomeDir because it's called inside logger.Init which uses os.UserHomeDir directly.
 	// But we can test the logic if we were to mock it or just rely on the fact that it shouldn't fail on most systems.
 	// For now, let's skip actual home dir writing but test other Init paths.
-	
+
 	tmpDir, _ := os.MkdirTemp("", "cleat-logger-init-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	t.Run("InvalidPath", func(t *testing.T) {
 		err := Init("/proc/invalid/path/log.log", "info", nil)
 		if err == nil {
 			t.Error("expected error for invalid path")
 		}
 	})
-	
+
 	t.Run("DefaultLevel", func(t *testing.T) {
 		logFile := filepath.Join(tmpDir, "default.log")
 		err := Init(logFile, "invalid", nil)
@@ -172,33 +172,32 @@ func jsonLines(data []byte) []string {
 			curr += string(b)
 		}
 	}
-		if curr != "" {
-			lines = append(lines, curr)
-		}
-		return lines
+	if curr != "" {
+		lines = append(lines, curr)
 	}
-	
-	func TestLoggerSetOutput(t *testing.T) {
-		var buf bytes.Buffer
-		SetOutput(&buf)
-		
-		Info("buf message", nil)
-		
-		if !strings.Contains(buf.String(), "buf message") {
-			t.Errorf("expected buffer to contain 'buf message', got %q", buf.String())
-		}
+	return lines
+}
+
+func TestLoggerSetOutput(t *testing.T) {
+	var buf bytes.Buffer
+	SetOutput(&buf)
+
+	Info("buf message", nil)
+
+	if !strings.Contains(buf.String(), "buf message") {
+		t.Errorf("expected buffer to contain 'buf message', got %q", buf.String())
 	}
-	
-	func TestLoggerInit_HomeExpansion(t *testing.T) {
-		// Use a path with ~/ but ensure it's something that won't mess up real home
-		// Since Init creates directories, we must be careful.
-		// We'll just test that it attempts to get the home dir by passing a path starting with ~/
-		// and checking if it returns an error related to directory creation (which we can control).
-		
-		err := Init("~/.cleat-test-log/test.log", "info", nil)
-		if err != nil {
-			// It might fail if we can't write to home, but usually it should work or fail with permission
-			t.Logf("Init with home expansion returned: %v", err)
-		}
+}
+
+func TestLoggerInit_HomeExpansion(t *testing.T) {
+	// Use a path with ~/ but ensure it's something that won't mess up real home
+	// Since Init creates directories, we must be careful.
+	// We'll just test that it attempts to get the home dir by passing a path starting with ~/
+	// and checking if it returns an error related to directory creation (which we can control).
+
+	err := Init("~/.cleat-test-log/test.log", "info", nil)
+	if err != nil {
+		// It might fail if we can't write to home, but usually it should work or fail with permission
+		t.Logf("Init with home expansion returned: %v", err)
 	}
-	
+}

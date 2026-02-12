@@ -47,28 +47,7 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		})
 	}
 
-	// Add recent commands
-	if recentCmds, err := history.GetTopCommands(3); err == nil && len(recentCmds) > 0 {
-		var recentChildren []CommandItem
-		for _, cmd := range recentCmds {
-			label := cmd.Command
-			if strings.HasPrefix(label, "workflow:") {
-				label = fmt.Sprintf("Workflow: %s", strings.TrimPrefix(label, "workflow:"))
-			}
-			recentChildren = append(recentChildren, CommandItem{
-				Label:   label,
-				Command: cmd.Command,
-			})
-		}
-		tree = append(tree, CommandItem{
-			Label:    "recent",
-			Children: recentChildren,
-			Expanded: true,
-		})
-	}
-
-	tree = append(tree, CommandItem{Label: "build", Command: "build"})
-	tree = append(tree, CommandItem{Label: "run", Command: "run"})
+	isFlattened := len(cfg.Services) == 1 && (cfg.Services[0].Name == "default" || cfg.Services[0].Name == "")
 
 	hasDocker := cfg.Docker
 	if !hasDocker {
@@ -80,7 +59,7 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		}
 	}
 
-	if hasDocker {
+	if hasDocker && !isFlattened {
 		tree = append(tree, CommandItem{
 			Label: "docker",
 			Children: []CommandItem{
@@ -161,6 +140,36 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		}
 	}
 
+	foundGo := false
+	for i := range cfg.Services {
+		for j := range cfg.Services[i].Modules {
+			if cfg.Services[i].Modules[j].Go != nil {
+				foundGo = true
+				break
+			}
+		}
+		if foundGo {
+			break
+		}
+	}
+
+	if foundGo && !isFlattened {
+		tree = append(tree, CommandItem{
+			Label: "go",
+			Children: []CommandItem{
+				{Label: "build", Command: "go build"},
+				{Label: "test", Command: "go test"},
+				{Label: "fmt", Command: "go fmt"},
+				{Label: "vet", Command: "go vet"},
+				{Label: "mod tidy", Command: "go mod tidy"},
+				{Label: "generate", Command: "go generate"},
+				{Label: "run", Command: "go run"},
+				{Label: "coverage", Command: "go coverage"},
+				{Label: "install", Command: "go install"},
+			},
+		})
+	}
+
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
 		svcItem := CommandItem{
@@ -204,6 +213,25 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 				}
 				svcItem.Children = append(svcItem.Children, npmItem)
 			}
+
+			// Go
+			if mod.Go != nil {
+				goItem := CommandItem{
+					Label: "go",
+				}
+				goItem.Children = append(goItem.Children, []CommandItem{
+					{Label: "build", Command: fmt.Sprintf("go build:%s", svc.Name)},
+					{Label: "test", Command: fmt.Sprintf("go test:%s", svc.Name)},
+					{Label: "fmt", Command: fmt.Sprintf("go fmt:%s", svc.Name)},
+					{Label: "vet", Command: fmt.Sprintf("go vet:%s", svc.Name)},
+					{Label: "mod tidy", Command: fmt.Sprintf("go mod tidy:%s", svc.Name)},
+					{Label: "generate", Command: fmt.Sprintf("go generate:%s", svc.Name)},
+					{Label: "run", Command: fmt.Sprintf("go run:%s", svc.Name)},
+					{Label: "coverage", Command: fmt.Sprintf("go coverage:%s", svc.Name)},
+					{Label: "install", Command: fmt.Sprintf("go install:%s", svc.Name)},
+				}...)
+				svcItem.Children = append(svcItem.Children, goItem)
+			}
 		}
 
 		if svc.IsDocker() {
@@ -224,11 +252,54 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		}
 
 		if len(svcItem.Children) > 0 {
-			tree = append(tree, svcItem)
+			if len(cfg.Services) == 1 && (svc.Name == "default" || svc.Name == "") {
+				tree = append(tree, svcItem.Children...)
+			} else {
+				tree = append(tree, svcItem)
+			}
+		}
+	}
+
+	// Add recent commands, filtered by what's actually in the tree
+	if recentCmds, err := history.GetTopCommands(3); err == nil && len(recentCmds) > 0 {
+		validCommands := make(map[string]bool)
+		collectCommands(tree, validCommands)
+
+		var recentChildren []CommandItem
+		for _, cmd := range recentCmds {
+			if !validCommands[cmd.Command] {
+				continue
+			}
+			label := cmd.Command
+			if strings.HasPrefix(label, "workflow:") {
+				label = fmt.Sprintf("Workflow: %s", strings.TrimPrefix(label, "workflow:"))
+			}
+			recentChildren = append(recentChildren, CommandItem{
+				Label:   label,
+				Command: cmd.Command,
+			})
+		}
+		if len(recentChildren) > 0 {
+			recentNode := CommandItem{
+				Label:    "recent",
+				Children: recentChildren,
+				Expanded: true,
+			}
+			// Prepend recent commands
+			tree = append([]CommandItem{recentNode}, tree...)
 		}
 	}
 
 	return tree
+}
+
+func collectCommands(items []CommandItem, commands map[string]bool) {
+	for i := range items {
+		if items[i].Command != "" {
+			commands[items[i].Command] = true
+		}
+		collectCommands(items[i].Children, commands)
+	}
 }
 
 // matches checks if an item matches the filter text

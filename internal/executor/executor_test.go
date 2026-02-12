@@ -7,7 +7,7 @@ import (
 
 func TestShellExecutor_Run(t *testing.T) {
 	e := &ShellExecutor{}
-	
+
 	// Test basic command (using 'true' as a reliable cross-platform-ish NOOP command on Unix)
 	// On Windows this might fail, but we're on Linux as per prompt.
 	err := e.Run("true")
@@ -99,7 +99,7 @@ func TestShellExecutor_Prompt(t *testing.T) {
 			t.Errorf("expected 'default' for empty input, got %q", val)
 		}
 	})
-	
+
 	t.Run("InputError", func(t *testing.T) {
 		// Mock a closed stdin or similar to trigger error
 		oldStdin := os.Stdin

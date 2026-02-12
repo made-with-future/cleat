@@ -8,10 +8,18 @@ import (
 	"github.com/madewithfuture/cleat/internal/config/schema"
 )
 
-type DjangoDetector struct{}
+type GoDetector struct{}
 
-func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
-	// Group services by directory for smarter auto-detection
+func (d *GoDetector) Detect(baseDir string, cfg *schema.Config) error {
+	if len(cfg.Services) == 0 {
+		if _, err := os.Stat(filepath.Join(baseDir, "go.mod")); err == nil {
+			cfg.Services = append(cfg.Services, schema.ServiceConfig{
+				Name: "default",
+				Dir:  ".",
+			})
+		}
+	}
+
 	servicesByDir := make(map[string][]*schema.ServiceConfig)
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
@@ -25,20 +33,18 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 	}
 
 	for searchDir, svcs := range servicesByDir {
-		hasManagePy := false
-		if _, err := os.Stat(filepath.Join(searchDir, "manage.py")); err == nil {
-			hasManagePy = true
-		} else if _, err := os.Stat(filepath.Join(searchDir, "backend/manage.py")); err == nil {
-			hasManagePy = true
+		hasGoMod := false
+		if _, err := os.Stat(filepath.Join(searchDir, "go.mod")); err == nil {
+			hasGoMod = true
 		}
 
-		if hasManagePy {
+		if hasGoMod {
 			var matches []*schema.ServiceConfig
 			var others []*schema.ServiceConfig
 			for _, s := range svcs {
 				explicit := false
 				for _, m := range s.Modules {
-					if m.Python != nil {
+					if m.Go != nil {
 						explicit = true
 						break
 					}
@@ -47,7 +53,7 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 					continue
 				}
 
-				if matchesPython(s.Name) {
+				if matchesGo(s.Name) {
 					matches = append(matches, s)
 				} else {
 					others = append(others, s)
@@ -56,40 +62,36 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 
 			if len(matches) > 0 {
 				for _, s := range matches {
-					s.Modules = append(s.Modules, schema.ModuleConfig{Python: &schema.PythonConfig{Django: true}})
+					s.Modules = append(s.Modules, schema.ModuleConfig{Go: &schema.GoConfig{}})
 				}
 			} else if len(others) > 0 {
 				for _, s := range others {
-					s.Modules = append(s.Modules, schema.ModuleConfig{Python: &schema.PythonConfig{Django: true}})
+					s.Modules = append(s.Modules, schema.ModuleConfig{Go: &schema.GoConfig{}})
 				}
 			}
 		}
 	}
 
-	// Apply defaults
+	// set sensible defaults
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
 		for j := range svc.Modules {
 			mod := &svc.Modules[j]
-			if mod.Python != nil && mod.Python.IsEnabled() {
-				if mod.Python.DjangoService == "" {
+			if mod.Go != nil && mod.Go.IsEnabled() {
+				if mod.Go.Service == "" {
 					if svc.Name == "default" || svc.Name == "" {
-						mod.Python.DjangoService = "backend"
+						mod.Go.Service = "backend-go"
 					} else {
-						mod.Python.DjangoService = svc.Name
+						mod.Go.Service = svc.Name
 					}
-				}
-				if mod.Python.PackageManager == "" {
-					mod.Python.PackageManager = "uv"
 				}
 			}
 		}
 	}
-
 	return nil
 }
 
-func matchesPython(name string) bool {
+func matchesGo(name string) bool {
 	name = strings.ToLower(name)
-	return strings.Contains(name, "python") || strings.Contains(name, "django") || strings.Contains(name, "backend") || strings.Contains(name, "api")
+	return strings.Contains(name, "go") || strings.Contains(name, "golang") || strings.Contains(name, "backend") || strings.Contains(name, "api") || strings.Contains(name, "server") || strings.Contains(name, "cli")
 }

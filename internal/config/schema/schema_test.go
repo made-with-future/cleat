@@ -5,7 +5,7 @@ import "testing"
 func TestServiceConfig_IsDocker(t *testing.T) {
 	trueVal := true
 	falseVal := false
-	
+
 	tests := []struct {
 		name string
 		svc  *ServiceConfig
@@ -28,7 +28,7 @@ func TestServiceConfig_IsDocker(t *testing.T) {
 func TestPythonConfig_IsEnabled(t *testing.T) {
 	trueVal := true
 	falseVal := false
-	
+
 	tests := []struct {
 		name string
 		p    *PythonConfig
@@ -51,7 +51,7 @@ func TestPythonConfig_IsEnabled(t *testing.T) {
 func TestNpmConfig_IsEnabled(t *testing.T) {
 	trueVal := true
 	falseVal := false
-	
+
 	tests := []struct {
 		name string
 		n    *NpmConfig

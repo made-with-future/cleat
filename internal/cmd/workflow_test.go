@@ -55,7 +55,7 @@ func TestRunWorkflowCmd_ExternalFile(t *testing.T) {
 	// 3. Mock the executor
 	mockExec := &MockExecutor{}
 	// We need to inject this mock executor into the session created by createSessionAndMerge.
-	// However, createSessionAndMerge uses executor.Default. 
+	// However, createSessionAndMerge uses executor.Default.
 	// We can temporarily swap executor.Default for this test.
 	oldDefault := executor.Default
 	executor.Default = mockExec

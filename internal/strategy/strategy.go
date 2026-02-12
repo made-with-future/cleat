@@ -283,6 +283,7 @@ func GetProviders() []CommandProvider {
 	return []CommandProvider{
 		&WorkflowProvider{},
 		&NpmProvider{},
+		&GoProvider{},
 		&DockerProvider{},
 		&DjangoProvider{},
 		&GcpProvider{},

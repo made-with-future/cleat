@@ -30,7 +30,7 @@ func (d *TerraformDetector) Detect(baseDir string, cfg *schema.Config) error {
 			}
 			// Skip common large/irrelevant directories
 			name := info.Name()
-			if name == ".git" || name == "node_modules" || name == "venv" || name == ".envs" {
+			if name == ".git" || name == "node_modules" || name == "venv" || name == ".envs" || name == "testdata" || name == "vendor" {
 				return filepath.SkipDir
 			}
 			if name == ".iac" {
