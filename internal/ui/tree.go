@@ -307,9 +307,27 @@ func matches(item *CommandItem, text string) bool {
 	if text == "" {
 		return true
 	}
-	text = strings.ToLower(text)
-	return strings.Contains(strings.ToLower(item.Label), text) ||
-		strings.Contains(strings.ToLower(item.Command), text)
+	words := strings.Fields(strings.ToLower(text))
+	if len(words) == 0 {
+		return true
+	}
+
+	label := strings.ToLower(item.Label)
+	command := strings.ToLower(item.Command)
+
+	return matchesWords(label, words) || matchesWords(command, words)
+}
+
+func matchesWords(s string, words []string) bool {
+	lastIdx := 0
+	for _, word := range words {
+		idx := strings.Index(s[lastIdx:], word)
+		if idx == -1 {
+			return false
+		}
+		lastIdx += idx + len(word)
+	}
+	return true
 }
 
 // anyDescendantMatches checks if any descendant of an item matches the filter

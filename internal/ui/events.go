@@ -455,6 +455,13 @@ func (m model) handleFilteringKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.updateTaskPreview()
 		}
 		return m, nil
+	case tea.KeySpace:
+		m.filterText += " "
+		m.updateVisibleItems()
+		m.cursor = 0
+		m.scrollOffset = 0
+		m.updateTaskPreview()
+		return m, nil
 	case tea.KeyRunes:
 		m.filterText += string(msg.Runes)
 		m.updateVisibleItems()
