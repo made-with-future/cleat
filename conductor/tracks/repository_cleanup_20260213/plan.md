@@ -20,7 +20,7 @@ Update `.gitignore` to prevent future tracking of temporary files.
     - [ ] Add `coverage.out` (common Go coverage artifact) if not already present.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Git Configuration Update' (Protocol in workflow.md)
 
-## Phase 3: Finalization and Submission
+## Phase 3: Finalization and Submission [checkpoint: 157999b]
 Clean up history and submit the changes.
 
 - [x] Task: Squash commits and push [ace8a1f]
