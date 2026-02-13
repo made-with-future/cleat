@@ -19,3 +19,6 @@
 # Coverage reports
 coverage.out
 coverage.html
+
+# Logs
+*.log
