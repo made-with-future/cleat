@@ -286,6 +286,7 @@ func GetProviders() []CommandProvider {
 		&GoProvider{},
 		&DockerProvider{},
 		&DjangoProvider{},
+		&RubyProvider{},
 		&GcpProvider{},
 		&TerraformProvider{},
 		&RegistryProvider{},

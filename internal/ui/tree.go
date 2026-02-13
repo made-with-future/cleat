@@ -170,6 +170,31 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 		})
 	}
 
+	foundRuby := false
+	for i := range cfg.Services {
+		for j := range cfg.Services[i].Modules {
+			if cfg.Services[i].Modules[j].Ruby != nil {
+				foundRuby = true
+				break
+			}
+		}
+		if foundRuby {
+			break
+		}
+	}
+
+	if foundRuby && !isFlattened {
+		tree = append(tree, CommandItem{
+			Label: "ruby",
+			Children: []CommandItem{
+				{Label: "migrate", Command: "ruby migrate"},
+				{Label: "console", Command: "ruby console"},
+				{Label: "server", Command: "ruby server"},
+				{Label: "install", Command: "ruby install"},
+			},
+		})
+	}
+
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
 		svcItem := CommandItem{
@@ -231,6 +256,25 @@ func buildCommandTree(cfg *config.Config, workflows []config.Workflow) []Command
 					{Label: "install", Command: fmt.Sprintf("go install:%s", svc.Name)},
 				}...)
 				svcItem.Children = append(svcItem.Children, goItem)
+			}
+
+			// Ruby/Rails
+			if mod.Ruby != nil {
+				rubyItem := CommandItem{
+					Label: "ruby",
+				}
+				rubyItem.Children = append(rubyItem.Children, CommandItem{
+					Label:   "install",
+					Command: fmt.Sprintf("ruby install:%s", svc.Name),
+				})
+				if mod.Ruby.Rails {
+					rubyItem.Children = append(rubyItem.Children, []CommandItem{
+						{Label: "migrate", Command: fmt.Sprintf("ruby migrate:%s", svc.Name)},
+						{Label: "console", Command: fmt.Sprintf("ruby console:%s", svc.Name)},
+						{Label: "server", Command: fmt.Sprintf("ruby server:%s", svc.Name)},
+					}...)
+				}
+				svcItem.Children = append(svcItem.Children, rubyItem)
 			}
 		}
 

@@ -18,6 +18,12 @@ type PythonConfig struct {
 	PackageManager string `yaml:"package_manager"`
 }
 
+type RubyConfig struct {
+	Enabled       *bool  `yaml:"enabled,omitempty"`
+	Rails         bool   `yaml:"rails"`
+	RailsService  string `yaml:"rails_service"`
+}
+
 type GCPConfig struct {
 	ProjectName               string `yaml:"project_name"`
 	Account                   string `yaml:"account,omitempty"`
@@ -34,6 +40,7 @@ type ModuleConfig struct {
 	Python *PythonConfig `yaml:"python,omitempty"`
 	Npm    *NpmConfig    `yaml:"npm,omitempty"`
 	Go     *GoConfig     `yaml:"go,omitempty"`
+	Ruby   *RubyConfig   `yaml:"ruby,omitempty"`
 }
 
 type ServiceConfig struct {
@@ -73,6 +80,13 @@ func (g *GoConfig) IsEnabled() bool {
 		return false
 	}
 	return g.Enabled == nil || *g.Enabled
+}
+
+func (r *RubyConfig) IsEnabled() bool {
+	if r == nil {
+		return false
+	}
+	return r.Enabled == nil || *r.Enabled
 }
 
 type Workflow struct {

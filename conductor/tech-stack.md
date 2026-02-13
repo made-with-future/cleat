@@ -21,6 +21,7 @@
 
 ## Infrastructure & Integrations (Targeted)
 - **Self-Hosting Orchestration:** Cleat (using `cleat.yaml`).
+- **Ecosystem Support:** Go, Python/Django, NPM/Node.js, Ruby/Rails.
 - **Containerization:** Docker & Docker Compose.
 - **Cloud Platform:** Google Cloud Platform (GCP).
 - **CI/CD:** GitHub Actions (Automated Releases).

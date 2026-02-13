@@ -21,6 +21,7 @@ type ModuleConfig = schema.ModuleConfig
 type PythonConfig = schema.PythonConfig
 type NpmConfig = schema.NpmConfig
 type GoConfig = schema.GoConfig
+type RubyConfig = schema.RubyConfig
 type GCPConfig = schema.GCPConfig
 type TerraformConfig = schema.TerraformConfig
 type Workflow = schema.Workflow
@@ -39,6 +40,7 @@ func FindProjectRoot() string {
 		"package.json",
 		"go.mod",
 		"manage.py",
+		"Gemfile",
 		"docker-compose.yaml",
 		"docker-compose.yml",
 		".iac",
@@ -96,6 +98,7 @@ func LoadDefaultConfig() (*Config, error) {
 		"docker-compose.yaml",
 		"docker-compose.yml",
 		"manage.py",
+		"Gemfile",
 		"package.json",
 		"go.mod",
 		".iac",
