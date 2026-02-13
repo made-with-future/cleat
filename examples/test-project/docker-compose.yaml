@@ -1,7 +1,0 @@
-version: '3.8'
-services:
-  backend:
-    build: .
-    image: test-project-backend
-  backend-node:
-    image: node:18-alpine

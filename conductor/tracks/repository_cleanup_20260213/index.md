@@ -1,4 +1,4 @@
-# Track readme_restructuring_20260212 Context
+# Track repository_cleanup_20260213 Context
 
 - [Specification](./spec.md)
 - [Implementation Plan](./plan.md)
