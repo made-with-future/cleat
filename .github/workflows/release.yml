@@ -37,7 +37,7 @@ jobs:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
         run: |
-          go build -ldflags="-s -w" -o cleat ./cmd/cleat
+          go build -ldflags="-s -w -X github.com/madewithfuture/cleat/internal/cmd.Version=${VERSION}" -o cleat ./cmd/cleat
           tar -czf cleat_${VERSION}_${GOOS}_${GOARCH}.tar.gz cleat
 
       - name: Upload Artifact
