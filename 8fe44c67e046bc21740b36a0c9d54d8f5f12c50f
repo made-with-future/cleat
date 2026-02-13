@@ -1,0 +1,4 @@
+Task: Replace LICENSE file content
+Summary: Replaced GPLv3 with MIT license.
+Files: LICENSE
+Why: To make the project more permissive.
