@@ -44,6 +44,17 @@ func NewBuildStrategy(cfg *config.Config) Strategy {
 			}
 		}
 
+		// Add Go build tasks
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
+			for j := range svc.Modules {
+				mod := &svc.Modules[j]
+				if mod.Go != nil {
+					tasks = append(tasks, task.NewGoAction(svc, mod.Go, "build"))
+				}
+			}
+		}
+
 		// Add Django collectstatic tasks
 		for i := range cfg.Services {
 			svc := &cfg.Services[i]

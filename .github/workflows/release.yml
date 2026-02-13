@@ -10,15 +10,8 @@ permissions:
 
 jobs:
   build:
-    name: Build
+    name: Build and Package
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [linux, darwin]
-        arch: [amd64, arm64]
-        exclude:
-          - os: linux
-            arch: arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,19 +25,17 @@ jobs:
         with:
           go-version: '1.25.5'
 
-      - name: Build and Compress
-        env:
-          GOOS: ${{ matrix.os }}
-          GOARCH: ${{ matrix.arch }}
-        run: |
-          go build -ldflags="-s -w -X github.com/madewithfuture/cleat/internal/cmd.Version=${VERSION}" -o cleat ./cmd/cleat
-          tar -czf cleat_${VERSION}_${GOOS}_${GOARCH}.tar.gz cleat
+      - name: Build bootstrap Cleat
+        run: go build -o cleat-bootstrap ./cmd/cleat
 
-      - name: Upload Artifact
+      - name: Build all platforms via Cleat
+        run: ./cleat-bootstrap workflow build-all
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cleat_${{ env.VERSION }}_${{ matrix.os }}_${{ matrix.arch }}
-          path: cleat_${{ env.VERSION }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
+          name: release-artifacts
+          path: "*.tar.gz"
 
   release:
     name: Create Release
@@ -57,9 +48,8 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: cleat_*
+          name: release-artifacts
           path: dist
-          merge-multiple: true
 
       - name: Create Release
         env:

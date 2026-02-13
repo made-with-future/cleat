@@ -24,19 +24,14 @@ jobs:
         run: go mod download
 
       - name: Run tests with coverage
-        run: |
-          echo "Running tests..."
-          go test -coverprofile=coverage.out ./... || { echo "Tests failed with exit code $?"; exit 1; }
+        run: go run cmd/cleat/main.go go coverage
 
       - name: Check coverage threshold
         run: |
           coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
           echo "Total coverage: ${coverage}%"
-          echo "DEBUG: Coverage value='$coverage'"
           threshold=70
-          echo "DEBUG: Threshold=$threshold"
-          echo "DEBUG: Running awk comparison..."
-          if awk -v cov="$coverage" -v thresh="$threshold" 'BEGIN {print "DEBUG awk: cov=" cov " thresh=" thresh " result=" (cov < thresh); if (cov < thresh) exit 1; exit 0}'; then
+          if awk -v cov="$coverage" -v thresh="$threshold" 'BEGIN {if (cov < thresh) exit 1; exit 0}'; then
             echo "✅ Coverage check passed: ${coverage}% >= ${threshold}%"
             exit 0
           else

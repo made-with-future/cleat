@@ -111,11 +111,11 @@ func TestWorkflowSequentialExecution(t *testing.T) {
 	if len(mockExec.executedCommands) != 2 {
 		t.Fatalf("Expected 2 commands, got %d", len(mockExec.executedCommands))
 	}
-	if mockExec.executedCommands[0] != "echo step1" {
-		t.Errorf("Expected first command 'echo step1', got '%s'", mockExec.executedCommands[0])
+	if mockExec.executedCommands[0] != "sh -c echo step1" {
+		t.Errorf("Expected first command 'sh -c echo step1', got '%s'", mockExec.executedCommands[0])
 	}
-	if mockExec.executedCommands[1] != "echo step2" {
-		t.Errorf("Expected second command 'echo step2', got '%s'", mockExec.executedCommands[1])
+	if mockExec.executedCommands[1] != "sh -c echo step2" {
+		t.Errorf("Expected second command 'sh -c echo step2', got '%s'", mockExec.executedCommands[1])
 	}
 }
 

@@ -20,6 +20,7 @@
 - **Terminal Management:** `golang.org/x/term`, `github.com/muesli/termenv`, and `github.com/charmbracelet/x/ansi` for handling terminal resizing, raw mode, and cross-platform ANSI escapes.
 
 ## Infrastructure & Integrations (Targeted)
+- **Self-Hosting Orchestration:** Cleat (using `cleat.yaml`).
 - **Containerization:** Docker & Docker Compose.
 - **Cloud Platform:** Google Cloud Platform (GCP).
 - **CI/CD:** GitHub Actions (Automated Releases).

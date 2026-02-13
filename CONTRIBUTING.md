@@ -7,59 +7,52 @@ Thank you for your interest in contributing to Cleat!
 ### Prerequisites
 
 - [Go](https://go.dev/doc/install) - version specified in `go.mod`
-- [Make](https://www.gnu.org/software/make/)
+- [Cleat](README.md#installation) - Recommended for orchestration, but you can also use Go directly.
 
 ### Building from Source
 
 To build the `cleat` binary for your local platform:
 
 ```bash
-make build
+cleat build
 ```
 
 This will create a `cleat` executable in the project root.
 
 ### Running in Development
 
-To launch the TUI:
+To launch the interactive TUI:
 
 ```bash
-make run
+./cleat
 ```
 *Press **'q'** or **'Ctrl+C'** to exit the TUI.*
 
 ### Running Tests
 
-Execute the full test suite using the `Makefile`:
+Execute the full test suite:
 
 ```bash
-make test
+cleat go test
 ```
 
 ### Code Coverage
 
-Check test coverage and verify it meets the 80% threshold:
+Check test coverage and verify it meets the 70% threshold:
 
 ```bash
-make coverage
+cleat workflow coverage
 ```
 
-Generate an HTML coverage report for detailed analysis:
-
-```bash
-make coverage-html
-# Opens coverage.html in your browser
-```
-
-The CI pipeline enforces a minimum coverage of 80%. The `make coverage` command will fail if coverage drops below this threshold.
+The CI pipeline enforces a minimum coverage of 70%.
 
 ### Code Quality
 
 Run formatting and linting checks:
 
 ```bash
-make fmt
-make vet
+cleat go fmt
+cleat go vet
 ```
 
 ### Cross-Platform Builds
@@ -67,5 +60,5 @@ make vet
 To build binaries for Linux and macOS (amd64 and arm64):
 
 ```bash
-make build-all
+cleat workflow build-all
 ```

@@ -2,58 +2,52 @@ package task
 
 import (
 	"fmt"
-	"strings"
+	"runtime"
 
 	"github.com/madewithfuture/cleat/internal/session"
 )
 
-// ShellTask executes a raw shell command
+// ShellTask executes a raw shell command using the system shell
 type ShellTask struct {
 	BaseTask
-	Command string
-	Args    []string
+	FullCommand string
 }
 
 func NewShellTask(fullCommand string) *ShellTask {
-	parts := strings.Fields(fullCommand) // Split by whitespace
-	if len(parts) == 0 {
-		return &ShellTask{
-			BaseTask: BaseTask{
-				TaskName:        "shell:empty",
-				TaskDescription: "Execute an empty shell command",
-			},
-			Command: "",
-			Args:    nil,
-		}
-	}
-
-	name := parts[0]
-	args := []string{}
-	if len(parts) > 1 {
-		args = parts[1:]
-	}
-
 	return &ShellTask{
 		BaseTask: BaseTask{
-			TaskName:        fmt.Sprintf("shell:%s", name),
+			TaskName:        "shell:run",
 			TaskDescription: fmt.Sprintf("Execute shell command: %s", fullCommand),
 		},
-		Command: name,
-		Args:    args,
+		FullCommand: fullCommand,
 	}
 }
 
 func (t *ShellTask) ShouldRun(sess *session.Session) bool {
-	return t.Command != ""
+	return t.FullCommand != ""
 }
 
 func (t *ShellTask) Run(sess *session.Session) error {
-	if err := sess.Exec.Run(t.Command, t.Args...); err != nil {
-		return fmt.Errorf("shell command '%s %s' failed: %w", t.Command, strings.Join(t.Args, " "), err)
+	shell := "sh"
+	shellArg := "-c"
+	if runtime.GOOS == "windows" {
+		shell = "cmd"
+		shellArg = "/c"
+	}
+
+	// We use the executor's Run method, but we pass the shell as the command
+	if err := sess.Exec.Run(shell, shellArg, t.FullCommand); err != nil {
+		return fmt.Errorf("shell command failed: %w", err)
 	}
 	return nil
 }
 
 func (t *ShellTask) Commands(sess *session.Session) [][]string {
-	return [][]string{append([]string{t.Command}, t.Args...)}
+	shell := "sh"
+	shellArg := "-c"
+	if runtime.GOOS == "windows" {
+		shell = "cmd"
+		shellArg = "/c"
+	}
+	return [][]string{{shell, shellArg, t.FullCommand}}
 }
