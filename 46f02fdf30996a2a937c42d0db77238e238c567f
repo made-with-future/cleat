@@ -1,0 +1,4 @@
+Task: Migrate Configuration Reference
+Summary: Moved detailed configuration tables and complex examples from README.md to docs/configuration.md. Simplified the configuration section in README and added a link to the new guide.
+Files: README.md, docs/configuration.md
+Why: To keep the README focused on introduction and quick start while maintaining comprehensive reference material.
