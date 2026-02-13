@@ -1,0 +1,4 @@
+Task: Remove root log files
+Summary: Deleted coverage_baseline.log and coverage_final.log from the project root.
+Files: coverage_baseline.log, coverage_final.log
+Why: These are temporary artifacts that should not be tracked in the repository.
