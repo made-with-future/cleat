@@ -2,7 +2,7 @@
 
 *The unified orchestration interface for divergent engineering stacks.*
 
-Cleat is a declarative CLI and TUI designed to standardize development and operational tasks across distributed projects. It acts as a structural binding layer, wrapping your project's underlying toolchain—whether that’s Terraform, Django, Google Cloud SDK, or Docker—into a single, consistent entry point.
+Cleat is a declarative CLI and TUI designed to standardize development and operational tasks across distributed projects. It acts as a structural binding layer, wrapping your project's underlying toolchain—whether that’s Terraform, Go, Django, Google Cloud SDK, or Docker—into a single, consistent entry point.
 
 ## The Problem: Operational Drift
 
