@@ -11,6 +11,23 @@ import (
 type DjangoDetector struct{}
 
 func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
+	rootCovered := false
+	for _, svc := range cfg.Services {
+		if svc.Dir == "." || svc.Dir == "" {
+			rootCovered = true
+			break
+		}
+	}
+
+	if !rootCovered {
+		if _, err := os.Stat(filepath.Join(baseDir, "manage.py")); err == nil {
+			cfg.Services = append(cfg.Services, schema.ServiceConfig{
+				Name: "default",
+				Dir:  ".",
+			})
+		}
+	}
+
 	// Group services by directory for smarter auto-detection
 	servicesByDir := make(map[string][]*schema.ServiceConfig)
 	for i := range cfg.Services {
@@ -28,8 +45,16 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 		hasManagePy := false
 		if _, err := os.Stat(filepath.Join(searchDir, "manage.py")); err == nil {
 			hasManagePy = true
-		} else if _, err := os.Stat(filepath.Join(searchDir, "backend/manage.py")); err == nil {
-			hasManagePy = true
+		} else if searchDir == baseDir {
+			// If not found in root, check if any service matches a subdirectory containing manage.py
+			for _, s := range svcs {
+				if (s.Dir == "." || s.Dir == "") && s.Name != "" {
+					if _, err := os.Stat(filepath.Join(baseDir, s.Name, "manage.py")); err == nil {
+						hasManagePy = true
+						break
+					}
+				}
+			}
 		}
 
 		if hasManagePy {
@@ -47,7 +72,7 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 					continue
 				}
 
-				if matchesPython(s.Name) {
+				if matchesPython(s, searchDir) {
 					matches = append(matches, s)
 				} else {
 					others = append(others, s)
@@ -78,14 +103,10 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 			mod := &svc.Modules[j]
 			if mod.Python != nil && mod.Python.IsEnabled() {
 				if mod.Python.DjangoService == "" {
-					if svc.Name == "default" || svc.Name == "" {
-						mod.Python.DjangoService = "backend"
-					} else {
-						mod.Python.DjangoService = svc.Name
-					}
+					mod.Python.DjangoService = svc.Name
 				}
 				if mod.Python.PackageManager == "" {
-					mod.Python.PackageManager = detectPackageManager(searchDir)
+					mod.Python.PackageManager = detectPackageManager(searchDir, baseDir)
 				}
 			}
 		}
@@ -94,7 +115,23 @@ func (d *DjangoDetector) Detect(baseDir string, cfg *schema.Config) error {
 	return nil
 }
 
-func detectPackageManager(dir string) string {
+func detectPackageManager(dir string, baseDir string) string {
+	// 1. Check service root
+	if pm := checkDirForPackageManager(dir); pm != "" {
+		return pm
+	}
+
+	// 2. Check project root if different
+	if dir != baseDir {
+		if pm := checkDirForPackageManager(baseDir); pm != "" {
+			return pm
+		}
+	}
+
+	return "uv"
+}
+
+func checkDirForPackageManager(dir string) string {
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); err == nil {
 		return "uv"
 	}
@@ -104,20 +141,47 @@ func detectPackageManager(dir string) string {
 	if _, err := os.Stat(filepath.Join(dir, "poetry.lock")); err == nil {
 		return "poetry"
 	}
-	// Fallback for cases where manage.py is in backend/ but lock files might be in root or backend/
-	if _, err := os.Stat(filepath.Join(dir, "backend/uv.lock")); err == nil {
-		return "uv"
-	}
-	if _, err := os.Stat(filepath.Join(dir, "backend/requirements.txt")); err == nil {
-		return "pip"
-	}
-	if _, err := os.Stat(filepath.Join(dir, "backend/poetry.lock")); err == nil {
-		return "poetry"
-	}
-	return "uv"
+	return ""
 }
 
-func matchesPython(name string) bool {
-	name = strings.ToLower(name)
-	return strings.Contains(name, "python") || strings.Contains(name, "django") || strings.Contains(name, "backend") || strings.Contains(name, "api")
+func matchesPython(svc *schema.ServiceConfig, searchDir string) bool {
+	if svc.Dockerfile != "" {
+		dfPath := filepath.Join(searchDir, svc.Dockerfile)
+		if data, err := os.ReadFile(dfPath); err == nil {
+			content := strings.ToLower(string(data))
+			if strings.Contains(content, "python") || strings.Contains(content, "requirements.txt") || strings.Contains(content, "manage.py") || strings.Contains(content, "pip ") || strings.Contains(content, "uv ") {
+				return true
+			}
+			// If it mentions other stacks but not python, it's probably NOT python
+			if strings.Contains(content, "node") || strings.Contains(content, "package.json") || strings.Contains(content, "npm") || strings.Contains(content, "go.mod") || strings.Contains(content, "go build") {
+				return false
+			}
+		}
+	}
+
+	if svc.Command != "" {
+		cmd := strings.ToLower(svc.Command)
+		if strings.Contains(cmd, "python") || strings.Contains(cmd, "manage.py") || strings.Contains(cmd, "pip ") || strings.Contains(cmd, "uv ") {
+			return true
+		}
+		if strings.Contains(cmd, "npm") || strings.Contains(cmd, "node") || strings.Contains(cmd, "go build") || strings.Contains(cmd, "go run") {
+			return false
+		}
+	}
+
+	if svc.Image != "" {
+		img := strings.ToLower(svc.Image)
+		if strings.Contains(img, "python") {
+			return true
+		}
+		if strings.Contains(img, "node") || strings.Contains(img, "golang") || strings.Contains(img, "postgres") || strings.Contains(img, "redis") {
+			return false
+		}
+	}
+
+	name := strings.ToLower(svc.Name)
+	if (strings.Contains(name, "node") || strings.Contains(name, "npm") || strings.Contains(name, "js") || strings.Contains(name, "frontend") || strings.Contains(name, "ui")) && !strings.Contains(name, "python") && !strings.Contains(name, "django") {
+		return false
+	}
+	return strings.Contains(name, "python") || strings.Contains(name, "django") || strings.Contains(name, "api") || strings.Contains(name, "backend")
 }

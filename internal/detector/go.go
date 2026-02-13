@@ -11,7 +11,15 @@ import (
 type GoDetector struct{}
 
 func (d *GoDetector) Detect(baseDir string, cfg *schema.Config) error {
-	if len(cfg.Services) == 0 {
+	rootCovered := false
+	for _, svc := range cfg.Services {
+		if svc.Dir == "." || svc.Dir == "" {
+			rootCovered = true
+			break
+		}
+	}
+
+	if !rootCovered {
 		if _, err := os.Stat(filepath.Join(baseDir, "go.mod")); err == nil {
 			cfg.Services = append(cfg.Services, schema.ServiceConfig{
 				Name: "default",
@@ -36,6 +44,16 @@ func (d *GoDetector) Detect(baseDir string, cfg *schema.Config) error {
 		hasGoMod := false
 		if _, err := os.Stat(filepath.Join(searchDir, "go.mod")); err == nil {
 			hasGoMod = true
+		} else if searchDir == baseDir {
+			// If not found in root, check if any service matches a subdirectory containing go.mod
+			for _, s := range svcs {
+				if (s.Dir == "." || s.Dir == "") && s.Name != "" {
+					if _, err := os.Stat(filepath.Join(baseDir, s.Name, "go.mod")); err == nil {
+						hasGoMod = true
+						break
+					}
+				}
+			}
 		}
 
 		if hasGoMod {
@@ -53,7 +71,7 @@ func (d *GoDetector) Detect(baseDir string, cfg *schema.Config) error {
 					continue
 				}
 
-				if matchesGo(s.Name) {
+				if matchesGo(s, searchDir) {
 					matches = append(matches, s)
 				} else {
 					others = append(others, s)
@@ -79,11 +97,7 @@ func (d *GoDetector) Detect(baseDir string, cfg *schema.Config) error {
 			mod := &svc.Modules[j]
 			if mod.Go != nil && mod.Go.IsEnabled() {
 				if mod.Go.Service == "" {
-					if svc.Name == "default" || svc.Name == "" {
-						mod.Go.Service = "backend-go"
-					} else {
-						mod.Go.Service = svc.Name
-					}
+					mod.Go.Service = svc.Name
 				}
 			}
 		}
@@ -91,7 +105,43 @@ func (d *GoDetector) Detect(baseDir string, cfg *schema.Config) error {
 	return nil
 }
 
-func matchesGo(name string) bool {
-	name = strings.ToLower(name)
-	return strings.Contains(name, "go") || strings.Contains(name, "golang") || strings.Contains(name, "backend") || strings.Contains(name, "api") || strings.Contains(name, "server") || strings.Contains(name, "cli")
+func matchesGo(svc *schema.ServiceConfig, searchDir string) bool {
+	if svc.Dockerfile != "" {
+		dfPath := filepath.Join(searchDir, svc.Dockerfile)
+		if data, err := os.ReadFile(dfPath); err == nil {
+			content := strings.ToLower(string(data))
+			if strings.Contains(content, "golang") || strings.Contains(content, "go.mod") || strings.Contains(content, "go build") || strings.Contains(content, "go run") {
+				return true
+			}
+			if strings.Contains(content, "python") || strings.Contains(content, "node") || strings.Contains(content, "package.json") {
+				return false
+			}
+		}
+	}
+
+	if svc.Command != "" {
+		cmd := strings.ToLower(svc.Command)
+		if strings.Contains(cmd, "go build") || strings.Contains(cmd, "go run") || strings.Contains(cmd, "go test") {
+			return true
+		}
+		if strings.Contains(cmd, "python") || strings.Contains(cmd, "manage.py") || strings.Contains(cmd, "npm") || strings.Contains(cmd, "node") {
+			return false
+		}
+	}
+
+	if svc.Image != "" {
+		img := strings.ToLower(svc.Image)
+		if strings.Contains(img, "golang") || strings.Contains(img, "go:") {
+			return true
+		}
+		if strings.Contains(img, "python") || strings.Contains(img, "node") || strings.Contains(img, "postgres") || strings.Contains(img, "redis") {
+			return false
+		}
+	}
+
+	name := strings.ToLower(svc.Name)
+	if (strings.Contains(name, "python") || strings.Contains(name, "django") || strings.Contains(name, "node") || strings.Contains(name, "npm") || strings.Contains(name, "js")) && !strings.Contains(name, "go") && !strings.Contains(name, "golang") {
+		return false
+	}
+	return strings.Contains(name, "go") || strings.Contains(name, "golang") || strings.Contains(name, "api") || strings.Contains(name, "server") || strings.Contains(name, "cli") || strings.Contains(name, "backend")
 }

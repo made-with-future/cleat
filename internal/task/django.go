@@ -2,8 +2,6 @@ package task
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/madewithfuture/cleat/internal/config"
 	"github.com/madewithfuture/cleat/internal/session"
@@ -390,8 +388,5 @@ func pythonCommand(p *config.PythonConfig) []string {
 }
 
 func findManagePy(dir string) string {
-	if _, err := os.Stat(filepath.Join(dir, "backend/manage.py")); err == nil {
-		return "backend/manage.py"
-	}
 	return "manage.py"
 }

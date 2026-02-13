@@ -354,8 +354,8 @@ services:
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	if len(cfg.Services) == 0 || len(cfg.Services[0].Modules) == 0 || cfg.Services[0].Modules[0].Python == nil || cfg.Services[0].Modules[0].Python.DjangoService != "backend" {
-		t.Errorf("Expected default DjangoService to be 'backend', got '%v'", cfg.Services[0].Modules[0].Python)
+	if len(cfg.Services) == 0 || len(cfg.Services[0].Modules) == 0 || cfg.Services[0].Modules[0].Python == nil || cfg.Services[0].Modules[0].Python.DjangoService != "default" {
+		t.Errorf("Expected default DjangoService to be 'default', got '%v'", cfg.Services[0].Modules[0].Python.DjangoService)
 	}
 }
 

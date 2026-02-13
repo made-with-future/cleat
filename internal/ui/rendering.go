@@ -489,6 +489,15 @@ func (m model) buildConfigLines() []string {
 		if svc.IsDocker() {
 			configLines = append(configLines, fmt.Sprintf("   docker: %v", svc.IsDocker()))
 		}
+		if svc.Dockerfile != "" {
+			configLines = append(configLines, fmt.Sprintf("   dockerfile: %s", svc.Dockerfile))
+		}
+		if svc.Image != "" {
+			configLines = append(configLines, fmt.Sprintf("   image: %s", svc.Image))
+		}
+		if svc.Command != "" {
+			configLines = append(configLines, fmt.Sprintf("   command: %s", svc.Command))
+		}
 		for j := range svc.Modules {
 			mod := &svc.Modules[j]
 			if mod.Python != nil && mod.Python.Django {

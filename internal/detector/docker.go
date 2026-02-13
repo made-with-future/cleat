@@ -3,6 +3,7 @@ package detector
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/madewithfuture/cleat/internal/config/schema"
 	"gopkg.in/yaml.v3"
@@ -30,7 +31,9 @@ func (d *DockerDetector) Detect(baseDir string, cfg *schema.Config) error {
 	}
 
 	type dcService struct {
-		Build interface{} `yaml:"build"`
+		Build   interface{} `yaml:"build"`
+		Image   string      `yaml:"image"`
+		Command interface{} `yaml:"command"`
 	}
 	var dc struct {
 		Services map[string]dcService `yaml:"services"`
@@ -41,6 +44,7 @@ func (d *DockerDetector) Detect(baseDir string, cfg *schema.Config) error {
 
 	for name, s := range dc.Services {
 		buildContext := ""
+		dockerfile := ""
 		if s.Build != nil {
 			if b, ok := s.Build.(string); ok {
 				buildContext = b
@@ -48,6 +52,24 @@ func (d *DockerDetector) Detect(baseDir string, cfg *schema.Config) error {
 				if context, ok := b["context"].(string); ok {
 					buildContext = context
 				}
+				if df, ok := b["dockerfile"].(string); ok {
+					dockerfile = df
+				}
+			}
+		}
+
+		command := ""
+		if s.Command != nil {
+			if c, ok := s.Command.(string); ok {
+				command = c
+			} else if c, ok := s.Command.([]interface{}); ok {
+				var parts []string
+				for _, p := range c {
+					if ps, ok := p.(string); ok {
+						parts = append(parts, ps)
+					}
+				}
+				command = strings.Join(parts, " ")
 			}
 		}
 
@@ -60,15 +82,27 @@ func (d *DockerDetector) Detect(baseDir string, cfg *schema.Config) error {
 				if cfg.Services[i].Dir == "" && buildContext != "" {
 					cfg.Services[i].Dir = buildContext
 				}
+				if cfg.Services[i].Dockerfile == "" && dockerfile != "" {
+					cfg.Services[i].Dockerfile = dockerfile
+				}
+				if cfg.Services[i].Image == "" && s.Image != "" {
+					cfg.Services[i].Image = s.Image
+				}
+				if cfg.Services[i].Command == "" && command != "" {
+					cfg.Services[i].Command = command
+				}
 				found = true
 				break
 			}
 		}
 		if !found {
 			cfg.Services = append(cfg.Services, schema.ServiceConfig{
-				Name:   name,
-				Docker: ptrBool(true),
-				Dir:    buildContext,
+				Name:       name,
+				Docker:     ptrBool(true),
+				Dir:        buildContext,
+				Dockerfile: dockerfile,
+				Image:      s.Image,
+				Command:    command,
 			})
 		}
 	}

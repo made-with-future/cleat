@@ -286,6 +286,7 @@ func TestPythonPackageManagerDetection(t *testing.T) {
 	tests := []struct {
 		name     string
 		files    []string
+		svcDir   string
 		expected string
 	}{
 		{
@@ -314,8 +315,15 @@ func TestPythonPackageManagerDetection(t *testing.T) {
 			expected: "uv",
 		},
 		{
-			name:     "detect requirements.txt in backend/",
-			files:    []string{"backend/manage.py", "backend/requirements.txt"},
+			name:     "detect requirements.txt in project root for nested service",
+			files:    []string{"requirements.txt", "services/api/manage.py"},
+			svcDir:   "services/api",
+			expected: "pip",
+		},
+		{
+			name:     "service root takes priority over project root",
+			files:    []string{"uv.lock", "services/api/manage.py", "services/api/requirements.txt"},
+			svcDir:   "services/api",
 			expected: "pip",
 		},
 	}
@@ -331,10 +339,15 @@ func TestPythonPackageManagerDetection(t *testing.T) {
 				os.WriteFile(path, []byte(""), 0644)
 			}
 
+			svcDir := tt.svcDir
+			if svcDir == "" {
+				svcDir = "."
+			}
+
 			d := &DjangoDetector{}
 			cfg := &schema.Config{
 				Services: []schema.ServiceConfig{
-					{Name: "backend", Dir: "."},
+					{Name: "backend", Dir: svcDir},
 				},
 			}
 			err := d.Detect(tmpDir, cfg)
@@ -354,5 +367,243 @@ func TestPythonPackageManagerDetection(t *testing.T) {
 				t.Errorf("expected package manager %q, got %q", tt.expected, pm)
 			}
 		})
+	}
+}
+
+func TestDualStackDetector(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-dual-stack-*")
+	defer os.RemoveAll(tmpDir)
+
+	// Create both Python and NPM markers
+	os.WriteFile(filepath.Join(tmpDir, "manage.py"), []byte(""), 0644)
+	packageJson := `{"scripts": {"build": "vite build"}}`
+	os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0644)
+
+	cfg := &schema.Config{
+		Services: []schema.ServiceConfig{
+			{Name: "foo", Dir: "."},
+		},
+	}
+
+	// Run both detectors
+	django := &DjangoDetector{}
+	if err := django.Detect(tmpDir, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	npm := &NpmDetector{}
+	if err := npm.Detect(tmpDir, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := cfg.Services[0]
+	hasPython := false
+	hasNpm := false
+
+	for _, mod := range svc.Modules {
+		if mod.Python != nil {
+			hasPython = true
+		}
+		if mod.Npm != nil {
+			hasNpm = true
+		}
+	}
+
+	if !hasPython {
+		t.Error("expected Python module to be detected")
+	}
+	if !hasNpm {
+		t.Error("expected NPM module to be detected")
+	}
+
+	if len(svc.Modules) != 2 {
+		t.Errorf("expected 2 modules, got %d", len(svc.Modules))
+	}
+}
+
+func TestDualStackDetector_NoServices(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-dual-stack-no-svc-*")
+	defer os.RemoveAll(tmpDir)
+
+	// Create both Python and NPM markers at root
+	os.WriteFile(filepath.Join(tmpDir, "manage.py"), []byte(""), 0644)
+	packageJson := `{"scripts": {"build": "vite build"}}`
+	os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0644)
+
+	cfg := &schema.Config{}
+
+	// Run all detectors via DetectAll
+	if err := DetectAll(tmpDir, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.Services) == 0 {
+		t.Fatal("expected at least one service to be created")
+	}
+
+	svc := cfg.Services[0]
+	hasPython := false
+	hasNpm := false
+
+	for _, mod := range svc.Modules {
+		if mod.Python != nil {
+			hasPython = true
+		}
+		if mod.Npm != nil {
+			hasNpm = true
+		}
+	}
+
+	if !hasPython {
+		t.Error("expected Python module to be detected")
+	}
+	if !hasNpm {
+		t.Error("expected NPM module to be detected")
+	}
+}
+
+func TestDetectionInDockerContext_AmbiguousNames(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "cleat-docker-ambiguous-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	os.Mkdir(filepath.Join(tmpDir, "app"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, "app", "manage.py"), []byte(""), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "app", "package.json"), []byte(`{"scripts":{"test":"echo"}}`), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "app", "Dockerfile.py"), []byte("FROM python:3.9\nCOPY requirements.txt .\nRUN pip install -r requirements.txt"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "app", "Dockerfile.js"), []byte("FROM node:16\nCOPY package.json .\nRUN npm install"), 0644)
+
+	dc := `
+version: '3'
+services:
+  s1:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.py
+  s2:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.js
+  s3:
+    build:
+      context: ./app
+    command: python manage.py runserver
+  s4:
+    build:
+      context: ./app
+    command: ["npm", "start"]
+`
+	os.WriteFile(filepath.Join(tmpDir, "docker-compose.yaml"), []byte(dc), 0644)
+
+	cfg := &schema.Config{}
+	err = DetectAll(tmpDir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.Services) != 4 {
+		t.Errorf("expected 4 services, got %d", len(cfg.Services))
+	}
+
+	for _, svc := range cfg.Services {
+		hasPython := false
+		hasNpm := false
+		for _, mod := range svc.Modules {
+			if mod.Python != nil {
+				hasPython = true
+			}
+			if mod.Npm != nil {
+				hasNpm = true
+			}
+		}
+
+		switch svc.Name {
+		case "s1", "s3":
+			if !hasPython {
+				t.Errorf("expected Python module for %s", svc.Name)
+			}
+			if hasNpm {
+				t.Errorf("did NOT expect NPM module for %s", svc.Name)
+			}
+		case "s2", "s4":
+			if !hasNpm {
+				t.Errorf("expected NPM module for %s", svc.Name)
+			}
+			if hasPython {
+				t.Errorf("did NOT expect Python module for %s", svc.Name)
+			}
+		}
+	}
+}
+
+func TestRootDetectionWithDockerServices(t *testing.T) {
+	// Root of the test project
+	baseDir := "../../testdata/fixtures/docker-compose-with-multiple-services-in-same-dir"
+
+	cfg := &schema.Config{}
+	err := DetectAll(baseDir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should have 2 services: 'backend' and 'backend-node' (from docker)
+	if len(cfg.Services) != 2 {
+		t.Errorf("expected 2 services, got %d: %+v", len(cfg.Services), cfg.Services)
+	}
+
+	foundBackend := false
+	foundBackendNode := false
+	for _, svc := range cfg.Services {
+		if svc.Name == "backend" {
+			foundBackend = true
+			if svc.Dir != "./backend" && svc.Dir != "backend" {
+				t.Errorf("expected backend service dir './backend' or 'backend', got %q", svc.Dir)
+			}
+			// Should have Python module but NOT NPM (due to Dockerfile hints)
+			hasPython := false
+			hasNpm := false
+			for _, mod := range svc.Modules {
+				if mod.Python != nil {
+					hasPython = true
+				}
+				if mod.Npm != nil {
+					hasNpm = true
+				}
+			}
+			if !hasPython {
+				t.Error("expected Python module on backend service")
+			}
+			if hasNpm {
+				t.Error("did NOT expect NPM module on backend service")
+			}
+		} else if svc.Name == "backend-node" {
+			foundBackendNode = true
+			// Should have NPM module but NOT Python
+			hasPython := false
+			hasNpm := false
+			for _, mod := range svc.Modules {
+				if mod.Python != nil {
+					hasPython = true
+				}
+				if mod.Npm != nil {
+					hasNpm = true
+				}
+			}
+			if !hasNpm {
+				t.Error("expected NPM module on backend-node service")
+			}
+			if hasPython {
+				t.Error("did NOT expect Python module on backend-node service")
+			}
+		}
+	}
+
+	if !foundBackend {
+		t.Error("service 'backend' not found")
+	}
+	if !foundBackendNode {
+		t.Error("service 'backend-node' not found")
 	}
 }

@@ -62,14 +62,14 @@ A module is a specific stack within a service (e.g., Python/Django or NPM/Fronte
 | Field | Type | Description | Default / Auto-detection |
 | :--- | :--- | :--- | :--- |
 | `django` | boolean | Whether this is a Django project. | `true` if `manage.py` is found. |
-| `django_service` | string | Docker Compose service name for Django tasks. | `backend` |
+| `django_service` | string | Docker Compose service name for Django tasks. | Service name |
 | `package_manager` | string | Python package manager (`uv`, `pip`, `poetry`). | `uv` |
 
 ##### NPM Configuration
 
 | Field | Type | Description | Default / Auto-detection |
 | :--- | :--- | :--- | :--- |
-| `service` | string | Docker Compose service name for NPM scripts. | `backend-node` (if docker enabled) |
+| `service` | string | Docker Compose service name for NPM scripts. | Service name |
 | `scripts` | list | List of NPM scripts to run during build. | Auto-detected from `package.json` if omitted. |
 
 ##### GCP Configuration

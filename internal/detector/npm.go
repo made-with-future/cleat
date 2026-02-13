@@ -13,6 +13,23 @@ import (
 type NpmDetector struct{}
 
 func (d *NpmDetector) Detect(baseDir string, cfg *schema.Config) error {
+	rootCovered := false
+	for _, svc := range cfg.Services {
+		if svc.Dir == "." || svc.Dir == "" {
+			rootCovered = true
+			break
+		}
+	}
+
+	if !rootCovered {
+		if _, err := os.Stat(filepath.Join(baseDir, "package.json")); err == nil {
+			cfg.Services = append(cfg.Services, schema.ServiceConfig{
+				Name: "default",
+				Dir:  ".",
+			})
+		}
+	}
+
 	servicesByDir := make(map[string][]*schema.ServiceConfig)
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]
@@ -29,6 +46,16 @@ func (d *NpmDetector) Detect(baseDir string, cfg *schema.Config) error {
 		hasPackageJson := false
 		if _, err := os.Stat(filepath.Join(searchDir, "package.json")); err == nil {
 			hasPackageJson = true
+		} else if searchDir == baseDir {
+			// If not found in root, check if any service matches a subdirectory containing package.json
+			for _, s := range svcs {
+				if (s.Dir == "." || s.Dir == "") && s.Name != "" {
+					if _, err := os.Stat(filepath.Join(baseDir, s.Name, "package.json")); err == nil {
+						hasPackageJson = true
+						break
+					}
+				}
+			}
 		}
 
 		if hasPackageJson {
@@ -46,7 +73,7 @@ func (d *NpmDetector) Detect(baseDir string, cfg *schema.Config) error {
 					continue
 				}
 
-				if matchesNpm(s.Name) {
+				if matchesNpm(s, searchDir) {
 					matches = append(matches, s)
 				} else {
 					others = append(others, s)
@@ -87,11 +114,7 @@ func (d *NpmDetector) Detect(baseDir string, cfg *schema.Config) error {
 				}
 
 				if mod.Npm.Service == "" {
-					if svc.Name == "default" || svc.Name == "" {
-						mod.Npm.Service = "backend-node"
-					} else {
-						mod.Npm.Service = svc.Name
-					}
+					mod.Npm.Service = svc.Name
 				}
 			}
 		}
@@ -123,7 +146,44 @@ func readNpmScripts(packageJsonPath string) ([]string, error) {
 	return scripts, nil
 }
 
-func matchesNpm(name string) bool {
-	name = strings.ToLower(name)
-	return strings.Contains(name, "npm") || strings.Contains(name, "node") || strings.Contains(name, "frontend") || strings.Contains(name, "ui") || strings.Contains(name, "vite") || strings.Contains(name, "assets")
+func matchesNpm(svc *schema.ServiceConfig, searchDir string) bool {
+	if svc.Dockerfile != "" {
+		dfPath := filepath.Join(searchDir, svc.Dockerfile)
+		if data, err := os.ReadFile(dfPath); err == nil {
+			content := strings.ToLower(string(data))
+			if strings.Contains(content, "node") || strings.Contains(content, "package.json") || strings.Contains(content, "npm") || strings.Contains(content, "yarn") || strings.Contains(content, "pnpm") || strings.Contains(content, "bun") {
+				return true
+			}
+			// If it mentions other stacks but not node, it's probably NOT node
+			if strings.Contains(content, "python") || strings.Contains(content, "manage.py") || strings.Contains(content, "go.mod") {
+				return false
+			}
+		}
+	}
+
+	if svc.Command != "" {
+		cmd := strings.ToLower(svc.Command)
+		if strings.Contains(cmd, "npm") || strings.Contains(cmd, "node") || strings.Contains(cmd, "yarn") || strings.Contains(cmd, "pnpm") || strings.Contains(cmd, "bun") {
+			return true
+		}
+		if strings.Contains(cmd, "python") || strings.Contains(cmd, "manage.py") || strings.Contains(cmd, "go build") || strings.Contains(cmd, "go run") {
+			return false
+		}
+	}
+
+	if svc.Image != "" {
+		img := strings.ToLower(svc.Image)
+		if strings.Contains(img, "node") {
+			return true
+		}
+		if strings.Contains(img, "python") || strings.Contains(img, "golang") || strings.Contains(img, "postgres") || strings.Contains(img, "redis") {
+			return false
+		}
+	}
+
+	name := strings.ToLower(svc.Name)
+	if (strings.Contains(name, "python") || strings.Contains(name, "django") || strings.Contains(name, "go") || strings.Contains(name, "golang")) && !strings.Contains(name, "node") && !strings.Contains(name, "npm") && !strings.Contains(name, "js") {
+		return false
+	}
+	return strings.Contains(name, "npm") || strings.Contains(name, "node") || strings.Contains(name, "frontend") || strings.Contains(name, "ui") || strings.Contains(name, "vite") || strings.Contains(name, "assets") || strings.Contains(name, "backend")
 }

@@ -14,17 +14,17 @@ const defaultConfigTemplate = `# Cleat configuration
 version: 1
 docker: true
 services:
-  - name: backend
+  - name: api
     dir: .
     modules:
       - python:
           django: true
-          django_service: backend
-  - name: frontend
-    dir: ./frontend
+          django_service: api
+  - name: web
+    dir: ./web
     modules:
       - npm:
-          service: backend-node
+          service: web
           scripts:
             - build
 `

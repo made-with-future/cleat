@@ -37,11 +37,14 @@ type ModuleConfig struct {
 }
 
 type ServiceConfig struct {
-	Name    string         `yaml:"name"`
-	Dir     string         `yaml:"dir"`
-	Docker  *bool          `yaml:"docker,omitempty"`
-	Modules []ModuleConfig `yaml:"modules"`
-	AppYaml string         `yaml:"app_yaml,omitempty"`
+	Name       string         `yaml:"name"`
+	Dir        string         `yaml:"dir"`
+	Docker     *bool          `yaml:"docker,omitempty"`
+	Dockerfile string         `yaml:"dockerfile,omitempty"`
+	Image      string         `yaml:"image,omitempty"`
+	Command    string         `yaml:"command,omitempty"`
+	Modules    []ModuleConfig `yaml:"modules"`
+	AppYaml    string         `yaml:"app_yaml,omitempty"`
 }
 
 func (s *ServiceConfig) IsDocker() bool {
