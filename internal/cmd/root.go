@@ -228,6 +228,15 @@ func mapSelectedToArgs(selected string) []string {
 		} else {
 			cmdArgs = strings.Fields(selected)
 		}
+	} else if strings.HasPrefix(selected, "ruby ") {
+		if colonIdx := strings.LastIndex(selected, ":"); colonIdx != -1 {
+			cmdPart := selected[:colonIdx]
+			svcName := selected[colonIdx+1:]
+			cmdArgs = strings.Fields(cmdPart)
+			cmdArgs = append(cmdArgs, svcName)
+		} else {
+			cmdArgs = strings.Fields(selected)
+		}
 	}
 	return cmdArgs
 }

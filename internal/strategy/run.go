@@ -32,6 +32,9 @@ func NewRunStrategy(cfg *config.Config) Strategy {
 				if mod.Python != nil && !cfg.Docker {
 					tasks = append(tasks, task.NewDjangoRunServer(svc))
 				}
+				if mod.Ruby != nil && mod.Ruby.Rails && !cfg.Docker {
+					tasks = append(tasks, task.NewRubyAction(svc, mod.Ruby, "server"))
+				}
 				if mod.Npm != nil && !cfg.Docker {
 					// We'll use NewNpmRun for start if it's standardized
 					for _, s := range mod.Npm.Scripts {

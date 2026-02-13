@@ -70,3 +70,49 @@ func TestNpmConfig_IsEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestGoConfig_IsEnabled(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := []struct {
+		name string
+		g    *GoConfig
+		want bool
+	}{
+		{"nil", nil, false},
+		{"nil Enabled", &GoConfig{Enabled: nil}, true},
+		{"true Enabled", &GoConfig{Enabled: &trueVal}, true},
+		{"false Enabled", &GoConfig{Enabled: &falseVal}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.g.IsEnabled(); got != tt.want {
+				t.Errorf("GoConfig.IsEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRubyConfig_IsEnabled(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := []struct {
+		name string
+		r    *RubyConfig
+		want bool
+	}{
+		{"nil", nil, false},
+		{"nil Enabled", &RubyConfig{Enabled: nil}, true},
+		{"true Enabled", &RubyConfig{Enabled: &trueVal}, true},
+		{"false Enabled", &RubyConfig{Enabled: &falseVal}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.r.IsEnabled(); got != tt.want {
+				t.Errorf("RubyConfig.IsEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

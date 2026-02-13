@@ -15,6 +15,7 @@ func DetectAll(baseDir string, cfg *schema.Config) error {
 		&EnvDetector{},
 		&DockerDetector{},
 		&DjangoDetector{},
+		&RubyDetector{},
 		&NpmDetector{},
 		&GoDetector{},
 		&GcpDetector{},

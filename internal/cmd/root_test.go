@@ -330,6 +330,8 @@ func TestMapSelectedToArgs(t *testing.T) {
 		{"gcp init", []string{"gcp", "init"}},
 		{"terraform plan", []string{"terraform", "plan"}},
 		{"terraform plan:prod", []string{"terraform", "plan", "prod"}},
+		{"ruby migrate", []string{"ruby", "migrate"}},
+		{"ruby console:svc", []string{"ruby", "console", "svc"}},
 		{"unknown", nil},
 	}
 

@@ -2,10 +2,10 @@
 
 This plan outlines the steps to add auto-detection and standardized command execution for Ruby and Ruby on Rails projects.
 
-## Phase 1: Configuration and Detection
+## Phase 1: Configuration and Detection [checkpoint: 0c47cd6]
 Update the configuration schema and implement auto-detection logic.
 
-- [ ] Task: Update Configuration Schema
+- [~] Task: Update Configuration Schema
     - [ ] Add `RubyConfig` to `internal/config/schema/schema.go`.
     - [ ] Add `Ruby` field to `ModuleConfig`.
     - [ ] **Tests**: Add unit tests in `internal/config/schema/schema_test.go` for serialization and `IsEnabled` check.
@@ -20,10 +20,10 @@ Update the configuration schema and implement auto-detection logic.
     - [ ] **Tests**: Add unit tests in `internal/detector/detector_test.go` covering all four scenarios and environment manager detection.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Configuration and Detection' (Protocol in workflow.md)
 
-## Phase 2: Core Task Implementation
+## Phase 2: Core Task Implementation [checkpoint: ad1abf2]
 Create the `RubyAction` and `RubyInstall` tasks.
 
-- [ ] Task: Implement `RubyAction` Task
+- [~] Task: Implement `RubyAction` Task
     - [ ] Create `internal/task/ruby.go`.
     - [ ] Implement logic for running `rails` and `bundle` commands.
     - [ ] Support Docker execution if a service is provided.
@@ -32,10 +32,10 @@ Create the `RubyAction` and `RubyInstall` tasks.
     - [ ] Add helper to detect `rbenv`, `rvm`, or `asdf` based on version files.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Task Implementation' (Protocol in workflow.md)
 
-## Phase 3: Strategy and Command Integration
+## Phase 3: Strategy and Command Integration [checkpoint: 3a3c595]
 Integrate Ruby tasks into the command dispatcher and standardized strategies.
 
-- [ ] Task: Implement `RubyProvider`
+- [~] Task: Implement `RubyProvider`
     - [ ] Create `internal/strategy/ruby.go`.
     - [ ] Map "ruby migrate", "ruby console", etc., to strategies.
     - [ ] **Tests**: Add unit tests in `internal/strategy/strategy_test.go` for the `RubyProvider`.
@@ -47,10 +47,10 @@ Integrate Ruby tasks into the command dispatcher and standardized strategies.
     - [ ] **Tests**: Add unit tests in `internal/cmd/ruby_test.go` for command-line argument parsing.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Strategy and Command Integration' (Protocol in workflow.md)
 
-## Phase 4: Final Validation and PR
+## Phase 4: Final Validation and PR [checkpoint: 81ca545]
 Final verification and cleanup.
 
-- [ ] Task: Run full integration tests
+- [~] Task: Run full integration tests
     - [ ] Ensure all four Ruby fixtures are correctly handled in `integration_test.go`.
 - [ ] Task: Finalization and Submission
     - [ ] Squash all track commits into a single clean commit.

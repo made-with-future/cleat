@@ -65,6 +65,17 @@ func NewBuildStrategy(cfg *config.Config) Strategy {
 				}
 			}
 		}
+
+		// Add Rails asset precompilation tasks
+		for i := range cfg.Services {
+			svc := &cfg.Services[i]
+			for j := range svc.Modules {
+				mod := &svc.Modules[j]
+				if mod.Ruby != nil && mod.Ruby.Rails {
+					tasks = append(tasks, task.NewRubyAction(svc, mod.Ruby, "assets:precompile"))
+				}
+			}
+		}
 	}
 
 	if !dockerAdded {

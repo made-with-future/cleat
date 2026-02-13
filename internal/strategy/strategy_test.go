@@ -470,6 +470,8 @@ func TestBuildStrategy(t *testing.T) {
 				Modules: []config.ModuleConfig{
 					{Python: &config.PythonConfig{Django: true}},
 					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
+					{Go: &config.GoConfig{Enabled: ptrBool(true)}},
+					{Ruby: &config.RubyConfig{Enabled: ptrBool(true), Rails: true}},
 				},
 			},
 		},
@@ -491,7 +493,7 @@ func TestBuildStrategy(t *testing.T) {
 		taskNames[task.Name()] = true
 	}
 
-	expectedTasks := []string{"docker:build", "npm:run:build", "django:collectstatic"}
+	expectedTasks := []string{"docker:build", "npm:run:build", "django:collectstatic", "go:build", "ruby:assets:precompile"}
 	for _, name := range expectedTasks {
 		if !taskNames[name] {
 			t.Errorf("expected build strategy to contain task %q", name)
@@ -500,7 +502,16 @@ func TestBuildStrategy(t *testing.T) {
 }
 
 func TestRunStrategy(t *testing.T) {
-	cfg := &config.Config{}
+	cfg := &config.Config{
+		Services: []config.ServiceConfig{
+			{
+				Name: "default",
+				Modules: []config.ModuleConfig{
+					{Ruby: &config.RubyConfig{Enabled: ptrBool(true), Rails: true}},
+				},
+			},
+		},
+	}
 	s := NewRunStrategy(cfg)
 
 	if s.Name() != "run" {
@@ -510,6 +521,17 @@ func TestRunStrategy(t *testing.T) {
 	tasks := s.Tasks()
 	if len(tasks) == 0 {
 		t.Error("expected run strategy to have tasks")
+	}
+
+	foundRailsServer := false
+	for _, t := range tasks {
+		if t.Name() == "ruby:server" {
+			foundRailsServer = true
+			break
+		}
+	}
+	if !foundRailsServer {
+		t.Error("expected run strategy to contain ruby:server task")
 	}
 }
 
@@ -543,6 +565,8 @@ func TestResolveCommandTasks(t *testing.T) {
 				Modules: []config.ModuleConfig{
 					{Python: &config.PythonConfig{Django: true, DjangoService: "backend"}},
 					{Npm: &config.NpmConfig{Scripts: []string{"build"}}},
+					{Go: &config.GoConfig{Enabled: ptrBool(true)}},
+					{Ruby: &config.RubyConfig{Rails: true, RailsService: "foo"}},
 				},
 			},
 			{
@@ -556,7 +580,7 @@ func TestResolveCommandTasks(t *testing.T) {
 		command string
 		want    []string
 	}{
-		{"build", []string{"docker:build", "npm:run:build", "django:collectstatic"}},
+		{"build", []string{"docker:build", "npm:run:build", "go:build", "django:collectstatic", "ruby:assets:precompile"}},
 		{"run", []string{"docker:up"}},
 		{"django runserver", []string{"django:runserver"}},
 		{"docker up", []string{"docker:up"}},
@@ -586,6 +610,9 @@ func TestResolveCommandTasks(t *testing.T) {
 		{"gcp app-engine promote:backend", []string{"gcp:activate", "gcp:app-engine-promote:backend"}},
 		{"gcp console", []string{"gcp:console"}},
 		{"workflow:test-workflow", []string{"docker:up", "django:migrate"}},
+		{"ruby migrate", []string{"ruby:migrate"}},
+		{"ruby install", []string{"ruby:install"}},
+		{"ruby console:default", []string{"ruby:console"}},
 	}
 
 	cfg.AppYaml = "app.yaml"

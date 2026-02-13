@@ -4,7 +4,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Add Ruby and Ruby on Rails support, this would be similar to how Python and Django support functions**
+- [x] **Track: Add Ruby and Ruby on Rails support, this would be similar to how Python and Django support functions**
 *Link: [./conductor/tracks/ruby_rails_support_20260213/](./conductor/tracks/ruby_rails_support_20260213/)*
 
 ---

@@ -107,6 +107,106 @@ func TestNpmDetector(t *testing.T) {
 	}
 }
 
+func TestGoDetector(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "cleat-go-detect-*")
+	defer os.RemoveAll(tmpDir)
+
+	os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module test"), 0644)
+
+	d := &GoDetector{}
+	cfg := &schema.Config{
+		Services: []schema.ServiceConfig{
+			{Name: "app", Dir: "."},
+		},
+	}
+	err := d.Detect(tmpDir, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundGo := false
+	for _, mod := range cfg.Services[0].Modules {
+		if mod.Go != nil {
+			foundGo = true
+			break
+		}
+	}
+	if !foundGo {
+		t.Error("expected Go module to be detected")
+	}
+}
+
+func TestRubyDetector(t *testing.T) {
+	tests := []struct {
+		name          string
+		fixtureDir    string
+		expectRuby    bool
+		expectRails   bool
+		expectSvcName string
+	}{
+		{
+			name:          "ruby-no-rails-docker",
+			fixtureDir:    "../../testdata/fixtures/ruby-no-rails-docker",
+			expectRuby:    true,
+			expectRails:   false,
+			expectSvcName: "backend",
+		},
+		{
+			name:          "rails-docker",
+			fixtureDir:    "../../testdata/fixtures/rails-docker",
+			expectRuby:    true,
+			expectRails:   true,
+			expectSvcName: "foo",
+		},
+		{
+			name:          "ruby-no-rails-local",
+			fixtureDir:    "../../testdata/fixtures/ruby-no-rails-local",
+			expectRuby:    true,
+			expectRails:   false,
+			expectSvcName: "default",
+		},
+		{
+			name:          "rails-local",
+			fixtureDir:    "../../testdata/fixtures/rails-local",
+			expectRuby:    true,
+			expectRails:   true,
+			expectSvcName: "default",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &schema.Config{}
+			err := DetectAll(tt.fixtureDir, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			foundSvc := false
+			for _, svc := range cfg.Services {
+				if svc.Name == tt.expectSvcName {
+					foundSvc = true
+					foundRuby := false
+					for _, mod := range svc.Modules {
+						if mod.Ruby != nil {
+							foundRuby = true
+							if mod.Ruby.Rails != tt.expectRails {
+								t.Errorf("expected Rails=%v, got %v", tt.expectRails, mod.Ruby.Rails)
+							}
+						}
+					}
+					if foundRuby != tt.expectRuby {
+						t.Errorf("expected Ruby=%v, got %v", tt.expectRuby, foundRuby)
+					}
+				}
+			}
+			if !foundSvc {
+				t.Errorf("expected service %q not found", tt.expectSvcName)
+			}
+		})
+	}
+}
+
 func TestNpmDetector_InvalidJson(t *testing.T) {
 	tmpDir, _ := os.MkdirTemp("", "cleat-npm-invalid-*")
 	defer os.RemoveAll(tmpDir)

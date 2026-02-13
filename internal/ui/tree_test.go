@@ -91,3 +91,40 @@ func TestBuildCommandTree_MultipleServices_NoFlattening(t *testing.T) {
 		t.Error("Should have 'other' service node when multiple services exist")
 	}
 }
+
+func TestBuildCommandTree_Ruby(t *testing.T) {
+	cfg := &config.Config{
+		Services: []config.ServiceConfig{
+			{
+				Name: "default",
+				Modules: []config.ModuleConfig{
+					{Ruby: &config.RubyConfig{Rails: true}},
+				},
+			},
+		},
+	}
+
+	tree := buildCommandTree(cfg, nil)
+
+	// Since it's the only service and named 'default', it should be flattened
+	foundRubyAtRoot := false
+	foundMigrate := false
+
+	for _, item := range tree {
+		if item.Label == "ruby" {
+			foundRubyAtRoot = true
+			for _, child := range item.Children {
+				if child.Label == "migrate" && child.Command == "ruby migrate:default" {
+					foundMigrate = true
+				}
+			}
+		}
+	}
+
+	if !foundRubyAtRoot {
+		t.Error("Should have 'ruby' node at root")
+	}
+	if !foundMigrate {
+		t.Error("Should have 'migrate' command in ruby node")
+	}
+}
