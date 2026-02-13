@@ -24,18 +24,14 @@ func TestReleaseWorkflowExists(t *testing.T) {
 		"runs-on: ubuntu-latest",
 		"Extract Version",
 		"GITHUB_REF_NAME",
-		"strategy:",
-		"matrix:",
-		"os: [linux, darwin]",
-		"arch: [amd64, arm64]",
-		"exclude:",
-		"go build",
-		"-o cleat",
-		"tar -czf",
-		"cleat_${VERSION}_${GOOS}_${GOARCH}.tar.gz",
-		"actions/upload-artifact",
+		"Build bootstrap Cleat",
+		"go build -o cleat-bootstrap ./cmd/cleat",
+		"Build all platforms via Cleat",
+		"./cleat-bootstrap workflow build-all",
+		"Upload Artifacts",
+		"release-artifacts",
 		"needs: build",
-		"actions/download-artifact",
+		"Download Artifacts",
 		"gh release create",
 		"gh release upload",
 	}
@@ -57,13 +53,13 @@ func TestInstallScriptExists(t *testing.T) {
 	scriptStr := string(content)
 
 	checks := []string{
-		"uname -s", // OS detection
-		"uname -m", // Arch detection
+		"uname -s",       // OS detection
+		"uname -m",       // Arch detection
 		"/usr/local/bin", // Darwin target
-		".local/bin", // Linux target
-		"curl", // Downloader
-		"tar -xzf", // Decompression
-		"cleat", // Binary name
+		".local/bin",     // Linux target
+		"curl",           // Downloader
+		"tar -xzf",       // Decompression
+		"cleat",          // Binary name
 	}
 
 	for _, check := range checks {

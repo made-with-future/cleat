@@ -374,8 +374,8 @@ func TestPassthroughStrategy_Execute(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(mock.commands) != 1 || mock.commands[0] != "echo" {
-		t.Errorf("expected 1 command 'echo', got %v", mock.commands)
+	if len(mock.commands) != 1 || mock.commands[0] != "sh" {
+		t.Errorf("expected 1 command 'sh', got %v", mock.commands)
 	}
 }
 

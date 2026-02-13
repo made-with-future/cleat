@@ -22,9 +22,9 @@ func (p *WorkflowProvider) GetStrategy(command string, sess *session.Session) St
 		return nil
 	}
 
-	wfName := strings.TrimPrefix(command, "workflow:")
+	wfKey := strings.TrimPrefix(command, "workflow:")
 	for _, wf := range sess.Config.Workflows {
-		if wf.Name == wfName {
+		if wf.ID == wfKey || wf.Name == wfKey {
 			return NewWorkflowStrategy(wf.Name, wf.Commands)
 		}
 	}
