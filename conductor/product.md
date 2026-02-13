@@ -1,6 +1,6 @@
 # Initial Concept
 
-A unified orchestration interface for divergent engineering stacks, providing a declarative CLI and TUI to standardize development and operational tasks.
+A unified orchestration interface for diverse engineering stacks, providing a declarative CLI and TUI to standardize development and operational tasks.
 
 # Product Definition: Cleat
 
