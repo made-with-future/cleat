@@ -2,30 +2,29 @@
 
 This plan outlines the steps to transition the project from GPLv3 to the MIT License.
 
-## Phase 1: Root License Update
+## Phase 1: Root License Update [checkpoint: 1c53948]
 Update the primary license file in the project root.
 
-- [ ] Task: Replace `LICENSE` file content
+- [x] Task: Replace `LICENSE` file content [970f5f4]
     - [ ] Remove existing GPLv3 text.
     - [ ] Add standard MIT License text with `Copyright (c) 2026 Josh Turmel`.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Root License Update' (Protocol in workflow.md)
 
-## Phase 2: Project Audit and Cleanup
+## Phase 2: Project Audit and Cleanup [checkpoint: 0198e44]
 Ensure no GPL references remain in the active codebase.
 
-- [ ] Task: Audit codebase for GPL references
+- [x] Task: Audit codebase for GPL references
     - [ ] Run a project-wide grep for "GPL", "GNU", and "General Public License".
     - [ ] Remove or update any lingering references.
-- [ ] Task: Verify functionality
+- [x] Task: Verify functionality
     - [ ] Run `go test ./...` to ensure the project still builds and tests pass.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Project Audit and Cleanup' (Protocol in workflow.md)
 
 ## Phase 3: Finalization and Submission
 Ensure quality standards are met and submit the changes.
 
-- [ ] Task: Verify code coverage
-    - [ ] Run `make coverage` (or equivalent) to ensure coverage meets project requirements (>70%).
-- [ ] Task: Prepare and push Pull Request
+- [x] Task: Verify code coverage (76.7%)
+- [~] Task: Prepare and push Pull Request
     - [ ] Squash all track commits into a single clean commit.
     - [ ] Push the feature branch to GitHub and create a PR.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Finalization and Submission' (Protocol in workflow.md)
