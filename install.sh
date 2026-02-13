@@ -43,7 +43,7 @@ fi
 echo "Version: $VERSION"
 
 ASSET_NAME="cleat_${VERSION}_${OS}_${ARCH}.tar.gz"
-DOWNLOAD_URL="https://github.com/madewithfuture/cleat/releases/download/${VERSION}/${ASSET_NAME}"
+DOWNLOAD_URL="https://github.com/made-with-future/cleat/releases/download/${VERSION}/${ASSET_NAME}"
 
 echo "Downloading $DOWNLOAD_URL..."
 curl -fsSL "$DOWNLOAD_URL" -o cleat.tar.gz
