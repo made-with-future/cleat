@@ -1,0 +1,4 @@
+Task: README Refactoring
+Summary: Repositioned the Installation and Basic Usage sections to follow Features. Simplified the configuration section and moved detailed reference to a separate page. Promoted key sections to top-level headers.
+Files: README.md
+Why: To create a more intuitive onboarding flow for new users.
