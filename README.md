@@ -102,7 +102,19 @@ Cleat automatically handles whether commands should run locally or within Docker
 
 ### Installation
 
-Cleat is distributed as a single binary. For now, please see [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to build it from source.
+To install the latest version of Cleat:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/madewithfuture/cleat/main/install.sh | sh
+```
+
+To install a specific version (e.g., v1.0.0):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/madewithfuture/cleat/main/install.sh | sh -s -- v1.0.0
+```
+
+For source builds, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Basic Usage
 

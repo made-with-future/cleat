@@ -22,5 +22,6 @@
 ## Infrastructure & Integrations (Targeted)
 - **Containerization:** Docker & Docker Compose.
 - **Cloud Platform:** Google Cloud Platform (GCP).
+- **CI/CD:** GitHub Actions (Automated Releases).
 - **IaC:** Terraform.
 - **Secrets:** 1Password CLI (`op`).
