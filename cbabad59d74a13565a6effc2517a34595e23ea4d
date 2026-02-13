@@ -1,0 +1,4 @@
+Task: Update .gitignore
+Summary: Added *.log to the .gitignore file to prevent technical log files from being tracked.
+Files: .gitignore
+Why: To maintain a clean repository and avoid committing local session or coverage logs.
