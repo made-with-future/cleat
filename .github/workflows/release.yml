@@ -32,7 +32,7 @@ jobs:
         run: ./cleat-bootstrap workflow build-all
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-artifacts
           path: "*.tar.gz"
