@@ -62,3 +62,13 @@ To build binaries for Linux and macOS (amd64 and arm64):
 ```bash
 cleat workflow build-all
 ```
+
+## Dependency Updates (Dependabot)
+
+Cleat uses GitHub Dependabot to automate dependency updates for Go modules and GitHub Actions.
+
+### Handling Dependabot PRs
+
+1. **Verify CI:** Wait for the CI pipeline to complete. If the automated tests fail, investigate the dependency's changelog for breaking changes.
+2. **Local Testing:** If the update is critical (e.g., a major Go version or a core library), it is recommended to checkout the Dependabot branch and run `cleat go test` locally.
+3. **Merging:** PRs can be merged once CI passes. Ensure that the dependency update doesn't introduce regressions in the TUI or command execution logic.
