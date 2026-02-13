@@ -1,0 +1,4 @@
+Task: Remove examples/ directory
+Summary: Deleted the entire examples/ directory and its contents.
+Files: examples/test-project/docker-compose.yaml, examples/test-project/manage.py
+Why: To clean up the repository and remove unnecessary boilerplate.
