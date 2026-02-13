@@ -41,3 +41,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - [x] **Track: Refactor the GetStrategyForCommand Function using a dispatcher pattern**
 *Link: [./conductor/tracks/refactor_strategy_dispatcher_20260205/](./conductor/tracks/refactor_strategy_dispatcher_20260205/)*
+
+---
+
+- [ ] **Track: Automated GitHub Releases and Installation Script**
+*Link: [./conductor/tracks/automated_releases_20260212/](./conductor/tracks/automated_releases_20260212/)*
