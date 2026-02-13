@@ -30,9 +30,9 @@ echo "Installing to $INSTALL_DIR..."
 
 VERSION=${1:-latest}
 if [ "$VERSION" = "latest" ]; then
-    LATEST_URL="https://api.github.com/repos/madewithfuture/cleat/releases/latest"
+    LATEST_URL="https://api.github.com/repos/made-with-future/cleat/releases/latest"
     # Simple grep to parse JSON for tag_name
-    TAG=$(curl -s $LATEST_URL | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    TAG=$(curl -s $LATEST_URL | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
     if [ -z "$TAG" ]; then
         echo "Could not find latest release tag."
         exit 1
