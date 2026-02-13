@@ -84,8 +84,8 @@ func TestReadmeInstallation(t *testing.T) {
 
 	checks := []string{
 		"## Installation",
-		"curl -fsSL https://raw.githubusercontent.com/madewithfuture/cleat/main/install.sh | sh",
-		"curl -fsSL https://raw.githubusercontent.com/madewithfuture/cleat/main/install.sh | sh -s -- v1.0.0",
+		"curl -fsSL https://raw.githubusercontent.com/made-with-future/cleat/main/install.sh | sh",
+		"curl -fsSL https://raw.githubusercontent.com/made-with-future/cleat/main/install.sh | sh -s -- v1.0.0",
 	}
 
 	for _, check := range checks {
