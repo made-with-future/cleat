@@ -22,11 +22,14 @@ This workflow governs the high-level execution of a "Track" (a feature, bug fix,
 
 2.  **Continuous Commits:**
     -   As individual tasks within the track are completed (following the "Task Workflow" below), commit changes directly to this feature branch.
-    -   Regularly push the feature branch to the remote repository to ensure backup and collaboration.
+    -   Do not push these individual commits to the remote repository, they only serve as "checkpoints" locally to step back through and verify as needed.
+    -   Manual verification at each task is not necessary, you should write sufficient automated tests and test cases, do not wait for the operator, continue
+        to proceed through the tasks without requiring manual intervention or assurances.
 
 3.  **Track Completion & Pull Request:**
     -   When all tasks in the track's `plan.md` are marked as complete (`[x]`):
     -   Ensure all tests pass and the project builds successfully.
+    -   Squash all commits back into a single commit.
     -   Push the final state of the feature branch to the remote.
     -   Create a Pull Request (PR) from `feature/<track-id>` to the main branch.
     -   The PR description should include a summary of the track's objectives and a link to the track's `spec.md` and `plan.md`.
