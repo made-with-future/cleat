@@ -9,5 +9,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Website improvements like padding on the main H1, fixing install link, etc**
+- [x] **Track: Website improvements like padding on the main H1, fixing install link, etc**
 *Link: [./conductor/tracks/website_ui_polish_20260213/](./conductor/tracks/website_ui_polish_20260213/)*

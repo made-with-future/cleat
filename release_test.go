@@ -44,7 +44,7 @@ func TestReleaseWorkflowExists(t *testing.T) {
 }
 
 func TestInstallScriptExists(t *testing.T) {
-	scriptPath := "install.sh"
+	scriptPath := "site/install.sh"
 	content, err := os.ReadFile(scriptPath)
 	if err != nil {
 		t.Fatalf("Install script not found at %s: %v", scriptPath, err)
@@ -80,8 +80,8 @@ func TestReadmeInstallation(t *testing.T) {
 
 	checks := []string{
 		"## Installation",
-		"curl -fsSL https://raw.githubusercontent.com/made-with-future/cleat/main/install.sh | sh",
-		"curl -fsSL https://raw.githubusercontent.com/made-with-future/cleat/main/install.sh | sh -s -- v1.0.0",
+		"curl -fsSL https://made-with-future.github.io/cleat/install.sh | sh",
+		"curl -fsSL https://made-with-future.github.io/cleat/install.sh | sh -s -- v1.0.0",
 	}
 
 	for _, check := range checks {
