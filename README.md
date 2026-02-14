@@ -49,7 +49,7 @@ Cleat automatically identifies your project's stack—Docker, Go, Django, NPM, T
 
 ## Quick Start
 
-1. **Install:** `curl -fsSL https://cleat.sh | sh`
+1. **Install:** `curl -fsSL https://made-with-future.github.io/cleat/install.sh | sh`
 2. **Launch:** Run `cleat` in any project root.
 3. **Automate:** Explore auto-detected tasks or define a `cleat.yaml`.
 
@@ -60,13 +60,13 @@ Cleat automatically identifies your project's stack—Docker, Go, Django, NPM, T
 To install the latest version of Cleat:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/made-with-future/cleat/main/install.sh | sh
+curl -fsSL https://made-with-future.github.io/cleat/install.sh | sh
 ```
 
 To install a specific version (e.g., v1.0.0):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/made-with-future/cleat/main/install.sh | sh -s -- v1.0.0
+curl -fsSL https://made-with-future.github.io/cleat/install.sh | sh -s -- v1.0.0
 ```
 
 For source builds, please see [CONTRIBUTING.md](CONTRIBUTING.md).
